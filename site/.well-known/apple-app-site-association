@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["CB4AAVWWUD.com.teamclubhq.app"],
+        "components": [
+          { "/": "/join/*", "comment": "Team invite links open the app" },
+          { "/": "/auth/*", "comment": "Email confirmation and password reset" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["CB4AAVWWUD.com.teamclubhq.app"]
+  }
+}

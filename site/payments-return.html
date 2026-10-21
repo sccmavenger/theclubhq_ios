@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClubHQ payments</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/assets/icon-32.png">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <!-- Stripe returns here after Checkout (?status=success|cancelled) and Connect onboarding (?refresh=1 or no params). -->
+  <main class="wrap">
+    <section class="hero">
+      <img class="icon" src="/assets/icon-1024.png" alt="ClubHQ app icon" style="width:84px;height:84px;border-radius:20px">
+      <h1 id="title">All set</h1>
+      <p class="lead" id="message">You can return to ClubHQ now.</p>
+      <div class="btns"><a class="btn" href="clubhq://payments">Back to ClubHQ</a></div>
+    </section>
+  </main>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const t = document.getElementById("title"), m = document.getElementById("message");
+    if (q.get("status") === "success") { t.textContent = "Payment received — thank you!"; m.textContent = "Your team has been notified. A receipt is on its way to your email."; }
+    else if (q.get("status") === "cancelled") { t.textContent = "Payment cancelled"; m.textContent = "Nothing was charged. You can pay any time from the app."; }
+    else if (q.get("refresh") === "1") { t.textContent = "Let's finish setup"; m.textContent = "Your setup link expired. Return to ClubHQ and tap Continue Setup."; }
+    else { t.textContent = "Payments setup saved"; m.textContent = "Return to ClubHQ to see your payout status."; }
+  </script>
+</body>
+</html>

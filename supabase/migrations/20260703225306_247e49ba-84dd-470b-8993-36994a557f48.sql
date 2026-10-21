@@ -1,0 +1,1 @@
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS default_min_players_game int NOT NULL DEFAULT 8, ADD COLUMN IF NOT EXISTS default_min_players_practice int NOT NULL DEFAULT 6; ALTER TABLE public.events ADD COLUMN IF NOT EXISTS min_players int;

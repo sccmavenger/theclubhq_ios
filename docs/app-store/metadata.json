@@ -1,0 +1,174 @@
+{
+  "_comment": "Single source of truth for the App Store listing of 'ClubHQ Team' (Apple ID 6822555956, bundle com.teamclubhq.app). Character limits are enforced by docs/app-store/check.py. Pushed to App Store Connect by API once a key is available (docs/APP_STORE.md).",
+  "app_information": {
+    "name": "ClubHQ Team",
+    "subtitle": "Team schedule, RSVPs & chat",
+    "primary_category": "SPORTS",
+    "secondary_category": "PRODUCTIVITY",
+    "content_rights": "Does not contain, show, or access third-party content",
+    "privacy_policy_url": "https://teamclubhq.com/privacy",
+    "privacy_choices_url": "https://teamclubhq.com/privacy"
+  },
+  "version_1_0": {
+    "promotional_text": "The ad-free team app parents don't hate. Schedules, RSVPs, team chat, and dues for every kid and every team — all in one place. Free for families.",
+    "description": "ClubHQ Team keeps youth sports teams organized — without ads, ever.\n\nCoaches set up a team in minutes and share one team code. Parents join, add their kids, and instantly see every practice and game. Players 13 and up can get their own login from a parent or coach.\n\nONE APP FOR THE WHOLE FAMILY\n• Every kid, every team, one schedule\n• RSVP for each child with one tap\n• Locations with directions, arrival notes, and jersey reminders\n• See what's coming up this week at a glance\n\nBUILT FOR COACHES\n• Create practices, games, and weekly repeating events\n• See who's going, who's out, and who hasn't answered\n• Take attendance and record final scores\n• Post announcements everyone actually sees\n• Invite families with a single team code — no roster typing\n\nTEAM CHAT THAT'S SAFE FOR KIDS\n• Team-wide chat for coaches, parents, and players\n• Parents-only and staff-only threads for logistics\n• Players can't receive private messages from adults — every conversation with a player is visible to the team\n• Mute any conversation\n• Report or block anyone, and coaches can remove messages\n\nTEAM DUES WITHOUT THE CHASING\n• Coaches request season dues, tournament fees, or uniform costs\n• Track who's paid, record cash or Venmo payments, and waive fees\n\nPRIVACY FIRST\n• No ads and no third-party trackers\n• Children under 13 don't have accounts — parents manage their profiles\n• Delete your account any time from the app\n\nEverything is free for coaches, parents, and players.\n\nTerms of Use: https://teamclubhq.com/terms\nPrivacy Policy: https://teamclubhq.com/privacy\nQuestions? info@teamclubhq.com",
+    "keywords": "sports,coach,parent,rsvp,schedule,roster,youth,soccer,basketball,baseball,league,club,dues,chat",
+    "support_url": "https://teamclubhq.com/support",
+    "marketing_url": "https://teamclubhq.com",
+    "copyright": "2026 Danny Guillory",
+    "release": "Manually release this version"
+  },
+  "pricing_and_availability": {
+    "price": "Free (USD 0.00)",
+    "availability": "United States only at launch (Stripe US accounts, US-focused COPPA design). Add Canada/UK later.",
+    "pre_order": false,
+    "make_available_on_mac_apple_silicon": false,
+    "make_available_on_vision_pro": false
+  },
+  "age_rating_answers": {
+    "_note": "Answers to App Store Connect's age rating questionnaire. Expected result: 13+ (user-generated content + messaging).",
+    "violence_cartoon_or_fantasy": "None",
+    "violence_realistic": "None",
+    "violence_prolonged_graphic_sadistic": "None",
+    "profanity_or_crude_humor": "None",
+    "mature_or_suggestive_themes": "None",
+    "horror_fear_themes": "None",
+    "sexual_content_or_nudity": "None",
+    "graphic_sexual_content_and_nudity": "None",
+    "alcohol_tobacco_drug_use_or_references": "None",
+    "medical_treatment_information": "None",
+    "simulated_gambling": "None",
+    "contests": "None",
+    "gambling_real_money": "No",
+    "loot_boxes": "No",
+    "unrestricted_web_access": "No",
+    "user_generated_content": "Yes",
+    "messaging_and_chat": "Yes",
+    "advertising": "No",
+    "parental_controls": "No",
+    "age_assurance": "No",
+    "health_or_wellness_topics": "No",
+    "made_for_kids": "No"
+  },
+  "app_privacy": {
+    "_note": "Matches ClubHQ/PrivacyInfo.xcprivacy and site/privacy.html. No tracking. All data linked to the user, used for App Functionality only.",
+    "data_collected": [
+      {
+        "category": "Contact Info",
+        "type": "Name",
+        "linked": true,
+        "tracking": false,
+        "purposes": [
+          "App Functionality"
+        ]
+      },
+      {
+        "category": "Contact Info",
+        "type": "Email Address",
+        "linked": true,
+        "tracking": false,
+        "purposes": [
+          "App Functionality"
+        ]
+      },
+      {
+        "category": "Contact Info",
+        "type": "Phone Number",
+        "linked": true,
+        "tracking": false,
+        "purposes": [
+          "App Functionality"
+        ]
+      },
+      {
+        "category": "User Content",
+        "type": "Other User Content",
+        "linked": true,
+        "tracking": false,
+        "purposes": [
+          "App Functionality"
+        ]
+      },
+      {
+        "category": "Identifiers",
+        "type": "User ID",
+        "linked": true,
+        "tracking": false,
+        "purposes": [
+          "App Functionality"
+        ]
+      },
+      {
+        "category": "Purchases",
+        "type": "Purchase History",
+        "linked": true,
+        "tracking": false,
+        "purposes": [
+          "App Functionality"
+        ]
+      }
+    ]
+  },
+  "app_review_information": {
+    "sign_in_required": true,
+    "demo_user": "coach@teamclubhq.com",
+    "demo_password": "ClubHQ-Coach-2026!",
+    "contact_first_name": "Danny",
+    "contact_last_name": "Guillory",
+    "contact_phone": "+1 337 303 6453",
+    "contact_email": "info@teamclubhq.com",
+    "notes": "ClubHQ Team is a youth sports team app for coaches, parents, and players.\n\nDEMO ACCOUNT: sign in with the credentials above (head coach of 'ClubHQ Test Team', which has a practice, roster, and team chat). Additional test logins on the same team: parent pat.parent.e2e@teamclubhq.com / ParentTest-2026! and player (age 14) riley.player.e2e@teamclubhq.com / PlayerTest-2026!.\n\nNEW ACCOUNTS verify email with a 6-digit code sent from info@teamclubhq.com. Sign-up includes a neutral birth-year age screen; people under 13 cannot create accounts (parents manage children's profiles, per COPPA).\n\nCHILD SAFETY & MODERATION: players (13+) can only post in team-wide chat visible to coaches and parents; adults cannot message players privately. Teams are invite-only. Long-press any message to Report it (emails info@teamclubhq.com with the message details; we respond within 24 hours) or Block its author (hides their messages). Coaches can delete any message.\n\nPAYMENTS: this version has no in-app payments and no In-App Purchases. Dues are tracking only: coaches create payment requests and mark cash or Venmo payments as paid.\n\nACCOUNT DELETION: More tab → Delete Account.\n\nThere is also a demo mode on the sign-in screen (\"Just looking?\" → Coach, Parent, or Player) that requires no account.",
+    "attachment": "none"
+  },
+  "testflight": {
+    "beta_app_description": "ClubHQ Team is an ad-free team app for youth sports. Coaches create a team and share a team code; parents join with the code and add their kids; players 13+ get their own login from a parent or coach. Please try: create an account (you'll get a 6-digit email code), then create a team or join one with a code from your coach, RSVP to an event, and send a team chat message. Tell us anything confusing or broken!",
+    "feedback_email": "info@teamclubhq.com",
+    "marketing_url": "https://teamclubhq.com",
+    "privacy_policy_url": "https://teamclubhq.com/privacy",
+    "what_to_test": "First beta! Please test: (1) creating an account and entering the emailed code, (2) coaches: create a team, add a practice, share the team code, (3) parents: join with a team code and add your child, (4) RSVP and team chat. Payments and Coach Pro purchases are not enabled yet.",
+    "groups": [
+      {
+        "name": "ClubHQ Core",
+        "type": "internal",
+        "auto_distribute": true
+      },
+      {
+        "name": "Beta Families",
+        "type": "external",
+        "public_link": true,
+        "public_link_limit": 200
+      }
+    ]
+  },
+  "in_app_purchases": {
+    "subscription_group": {
+      "reference_name": "Coach Pro",
+      "display_name": "Coach Pro"
+    },
+    "subscriptions": [
+      {
+        "product_id": "com.teamclubhq.pro.monthly",
+        "reference_name": "Coach Pro Monthly",
+        "display_name": "Coach Pro Monthly",
+        "description": "Up to 3 teams, reports & export",
+        "duration": "1 Month",
+        "price_usd": "9.99",
+        "intro_offer": "Free trial, 2 weeks, new subscribers",
+        "family_sharable": false,
+        "level": 1
+      },
+      {
+        "product_id": "com.teamclubhq.pro.yearly",
+        "reference_name": "Coach Pro Yearly",
+        "display_name": "Coach Pro Yearly",
+        "description": "Coach Pro billed yearly, save 42%",
+        "duration": "1 Year",
+        "price_usd": "69.99",
+        "intro_offer": "Free trial, 2 weeks, new subscribers",
+        "family_sharable": false,
+        "level": 1
+      }
+    ],
+    "review_note": "Unlocks coach features only (multiple teams, reports, export, reminders, team colors). Everything parents and players use is free. Sign in as coach@teamclubhq.com, More → Upgrade to Coach Pro."
+  }
+}

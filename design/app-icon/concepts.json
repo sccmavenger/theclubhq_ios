@@ -1,0 +1,47 @@
+[
+  {
+    "id": "A-home-court",
+    "name": "Home Court",
+    "pitch": "Your team's home base: a house with a center-court circle.",
+    "bg": [
+      "#3B7BFF",
+      "#1838C9"
+    ]
+  },
+  {
+    "id": "B-rally-bubble",
+    "name": "Rally Bubble",
+    "pitch": "Team chat meets game ball: a message bubble drawn as a ball.",
+    "bg": [
+      "#FF9F2E",
+      "#F2511B"
+    ]
+  },
+  {
+    "id": "C-game-day",
+    "name": "Game Day",
+    "pitch": "Schedule + RSVP in one glance: a calendar with a big check.",
+    "bg": [
+      "#13235E",
+      "#2A47A8"
+    ]
+  },
+  {
+    "id": "D-club-crest",
+    "name": "Club Crest",
+    "pitch": "A varsity-style shield: feels official, scales up to clubs and leagues.",
+    "bg": [
+      "#0E1A44",
+      "#1F3C94"
+    ]
+  },
+  {
+    "id": "E-huddle",
+    "name": "Huddle",
+    "pitch": "Coach, parent, and player together: the three people ClubHQ serves.",
+    "bg": [
+      "#1BC59C",
+      "#0A7A8C"
+    ]
+  }
+]

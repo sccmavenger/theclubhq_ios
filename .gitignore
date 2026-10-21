@@ -1,0 +1,18 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.p8
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+build/
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# macOS
+.DS_Store

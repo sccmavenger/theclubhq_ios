@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>You're invited to a team on ClubHQ</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/assets/icon-32.png">
+  <link rel="apple-touch-icon" href="/assets/icon-180.png">
+  <meta property="og:title" content="You're invited to a team on ClubHQ">
+  <meta property="og:description" content="Tap to join — schedules, RSVPs, and team chat in one ad-free app.">
+  <meta property="og:image" content="https://teamclubhq.com/assets/icon-1024.png">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <!--
+    Served for /join/<token> (see _redirects). With the app installed and Universal Links
+    configured (.well-known/apple-app-site-association), iOS opens the app directly and this
+    page is never shown. Otherwise it offers to open the app or install it.
+  -->
+  <main class="wrap">
+    <section class="hero">
+      <img class="icon" src="/assets/icon-1024.png" alt="ClubHQ app icon">
+      <h1>You're invited to join a team</h1>
+      <p class="lead">Your coach uses ClubHQ for the schedule, RSVPs, and team chat. Open the invite in the app to add your child.</p>
+      <div class="btns">
+        <a class="btn" id="open" href="clubhq://join">Open in ClubHQ</a>
+        <a class="btn secondary" href="/download">Get the app</a>
+      </div>
+      <div class="card">
+        <p class="muted" style="margin:0 0 8px">Already have the app? Choose <b>I'm a parent or guardian</b> and paste this invite code:</p>
+        <code class="token" id="token">—</code>
+      </div>
+    </section>
+    <footer class="site">
+      <a href="/">ClubHQ</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/support">Support</a>
+    </footer>
+  </main>
+  <script>
+    // The token is the last path segment: /join/<token>. Tokens are URL-safe base64.
+    const token = (location.pathname.split("/").filter(Boolean)[1] || "").replace(/[^A-Za-z0-9_-]/g, "");
+    if (token) {
+      document.getElementById("token").textContent = token;
+      document.getElementById("open").href = "clubhq://join/" + token;
+    }
+  </script>
+</body>
+</html>

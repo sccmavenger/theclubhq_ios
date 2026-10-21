@@ -1,0 +1,39 @@
+import SwiftUI
+
+@main struct MyApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var model = AppModel()
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environment(model)
+                .task {
+                    await model.start()
+                    #if DEBUG
+                    // App Store screenshots: launch with `-ScreenshotPersona coach|parent|player`.
+                    if let raw = UserDefaults.standard.string(forKey: "ScreenshotPersona"),
+                       let persona = Persona(rawValue: raw) {
+                        await model.startDemo(as: persona)
+                        // `-ScreenshotOpen chat|event` opens a detail screen on top.
+                        try? await Task.sleep(for: .seconds(1))  // let the tabs appear first
+                        if let teamID = model.selectedTeam?.id {
+                            switch UserDefaults.standard.string(forKey: "ScreenshotOpen") {
+                            case "chat":
+                                if let id = try? await model.backend.teamChatThreadID(teamID: teamID) {
+                                    model.pendingDeepLink = .thread(id)
+                                }
+                            case "event":
+                                if let event = try? await model.backend.events(teamIDs: [teamID], from: .now, to: nil).first {
+                                    model.pendingDeepLink = .event(event.id)
+                                }
+                            default: break
+                            }
+                        }
+                    }
+                    #endif
+                }
+                .onOpenURL { model.handle(url: $0) }
+        }
+    }
+}

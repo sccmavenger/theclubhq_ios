@@ -1,0 +1,96 @@
+# ClubHQ — Backend Deployment Runbook
+
+Everything the iOS app needs on top of the existing Supabase project that already powers
+the web app (`athlete-align-suite`). All changes are additive (DECISIONS D-003). The web
+app keeps working before, during, and after.
+
+Steps marked 🤖 can be done through the Supabase MCP. Steps marked 👤 need the owner
+(secrets, Apple/Stripe consoles).
+
+## 0. Preflight 🤖
+1. Confirm the target project is the one the web app uses (same accounts — the web app's "same accounts" choice).
+2. List tables and confirm they match `athlete-align-suite/src/integrations/supabase/types.ts`
+   (27 tables, including `teams`, `players`, `events`, `rsvps`, `message_threads`, `notification_sends`, `user_roles`).
+3. Confirm the helpers exist: `private.can_access_team`, `private.parent_can_read_team`,
+   `private.has_team_role`, `private.has_org_role`, `private.has_role`, `private.can_read_thread`.
+4. Take a backup / note the latest migration version.
+
+> **Lovable Cloud note:** If the project is managed by Lovable Cloud, also copy the two migration files into the web repo's `supabase/migrations/`, so Lovable's history doesn't drift from the live database (OQ-02).
+
+## 1. Migrations 🤖 (apply in order — two transactions on purpose)
+| File | What it does |
+|---|---|
+| `supabase/migrations/20261013120000_player_role_enum.sql` | Adds the `player` value to `app_role` |
+| `supabase/migrations/20261013120100_mobile_foundation.sql` | Adds `teams.sport`/`brand_color`, `players.user_id`, `player_invites`, player RSVP policies, player-aware `can_read_thread`, `device_tokens`, `notification_sends.apns_sent_at`, `app_store_subscriptions` + `user_has_coach_pro`/`team_is_pro`, Stripe dues tables, `team_sponsors` |
+
+Post-checks (SQL):
+```sql
+select enum_range(null::app_role);                       -- includes 'player'
+select count(*) from public.device_tokens;               -- 0, no error
+select public.team_is_pro('00000000-0000-0000-0000-000000000000');  -- false
+```
+
+## 2. Edge Functions 🤖
+Deploy from `supabase/functions/` (shared code is in `_shared/`):
+
+| Function | JWT verification | Purpose |
+|---|---|---|
+| `mobile-api` | **on** | Every privileged iOS action (DECISIONS D-005) |
+| `apns-dispatch` | off (own secret) | Pushes `notification_sends` to iPhones (D-021) |
+| `stripe-webhook` | off (Stripe signature) | Marks dues paid; Connect account status |
+| `appstore-notifications` | off (re-verifies with Apple) | Coach Pro renewals, expirations, refunds |
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
+
+Smoke test (signed-in user JWT):
+```bash
+curl -X POST "$SUPABASE_URL/functions/v1/mobile-api" \
+  -H "Authorization: Bearer $USER_JWT" -H "apikey: $ANON" \
+  -H "Content-Type: application/json" -d '{"action":"context"}'
+```
+
+## 3. Function secrets 👤
+Each feature degrades gracefully until its secrets are set. For example, push is skipped and the in-app inbox still works.
+
+| Secret | Needed for | Where it comes from |
+|---|---|---|
+| `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (.p8 contents), `APNS_BUNDLE_ID` | Push | Apple Developer → Keys |
+| `APNS_DISPATCH_SECRET` | Cron → `apns-dispatch` | Any long random string |
+| `APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`, `APPSTORE_PRIVATE_KEY`, `APPSTORE_BUNDLE_ID` | Coach Pro verification | App Store Connect → Users and Access → Integrations → In-App Purchase key |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Dues | Stripe Dashboard (Connect enabled) |
+| `PAYMENTS_RETURN_URL` | After Stripe onboarding/checkout | A page on the web app, e.g. `https://<domain>/payments/return` |
+
+## 4. Schedules 🤖 (after `APNS_DISPATCH_SECRET` is stored in Vault)
+```sql
+select vault.create_secret('<APNS_DISPATCH_SECRET>', 'apns_dispatch_secret');
+select cron.schedule('clubhq-apns-dispatch', '* * * * *', $$
+  select net.http_post(
+    url := '<SUPABASE_URL>/functions/v1/apns-dispatch',
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'apns_dispatch_secret'),
+      'Content-Type', 'application/json'),
+    body := '{}'::jsonb);
+$$);
+```
+
+## 5. Auth configuration 👤/🤖
+- **Sign in with Apple:** Authentication → Providers → Apple. Add the app's bundle ID as an authorized client ID.
+- **Redirect URLs:** add `clubhq://` (deep links) and the web domain.
+- **Email confirmation:** either setting works. The app handles both "signed in" and "check your email".
+
+## 6. Webhooks 👤
+- **Stripe:** endpoint `<SUPABASE_URL>/functions/v1/stripe-webhook`. Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `checkout.session.async_payment_failed`, `account.updated`, `charge.refunded`. Enable "Listen to events on Connected accounts" for `account.updated`.
+- **App Store Server Notifications v2:** production and sandbox URLs both set to `<SUPABASE_URL>/functions/v1/appstore-notifications`.
+
+## 7. Point the app at the project 🤖
+In `ClubHQ/Core/AppConfig.swift` set `supabaseURL` and `supabasePublishableKey` (the publishable/anon key, which is safe in clients; RLS protects data). Demo Mode remains available from the sign-in screen.
+
+## 8. Acceptance checklist
+- [ ] Sign up on iOS → create team → invite link → second account joins as parent with a child.
+- [ ] Coach creates an event; the parent sees it and RSVPs; the coach sees the count.
+- [ ] Team chat message from web shows on iOS and vice versa.
+- [ ] Push arrives on a real iPhone for a web-posted announcement (needs APNs secrets + cron).
+- [ ] Parent generates a player code for a 13+ child; the child's account joins; the child sees team chat but not "parents" threads.
+- [ ] Coach connects Stripe; the parent pays → item shows Paid (webhook).
+- [ ] Sandbox Coach Pro purchase → `app_store_subscriptions` row → second team creation allowed.
+- [ ] Delete account removes roles/links and signs out.

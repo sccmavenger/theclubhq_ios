@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClubHQ</title>
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <link rel="icon" href="/assets/icon-32.png">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <!--
+    Supabase Auth redirects email-confirmation and password-reset links here:
+      https://teamclubhq.com/auth/callback#access_token=...&refresh_token=...&type=signup|recovery
+    The session lives in the URL *fragment*, which browsers never send to any server.
+    We hand it straight to the app via its URL scheme. With Universal Links configured,
+    iOS opens the app directly and this page doesn't run at all.
+  -->
+  <main class="wrap">
+    <section class="hero">
+      <img class="icon" src="/assets/icon-1024.png" alt="ClubHQ app icon" style="width:84px;height:84px;border-radius:20px">
+      <h1 id="title">Opening ClubHQ…</h1>
+      <p class="lead" id="message">If the app doesn't open automatically, tap the button below.</p>
+      <div class="btns"><a class="btn" id="open" href="clubhq://auth-callback">Open ClubHQ</a></div>
+      <p class="note">Open this link on the iPhone where ClubHQ is installed.</p>
+    </section>
+  </main>
+  <script>
+    const fragment = location.hash.slice(1);
+    const params = new URLSearchParams(fragment || location.search.slice(1));
+    const target = "clubhq://auth-callback" + (fragment ? "#" + fragment : location.search);
+    document.getElementById("open").href = target;
+    if (params.get("error_description")) {
+      document.getElementById("title").textContent = "This link has expired";
+      document.getElementById("message").textContent = params.get("error_description") + " Request a new one from the app.";
+    } else {
+      if (params.get("type") === "recovery") document.getElementById("title").textContent = "Reset your password in ClubHQ";
+      if (params.get("type") === "signup") document.getElementById("title").textContent = "Email confirmed — opening ClubHQ…";
+      // Clear the tokens from the address bar/history before leaving the page.
+      history.replaceState(null, "", location.pathname);
+      location.href = target;
+    }
+  </script>
+</body>
+</html>

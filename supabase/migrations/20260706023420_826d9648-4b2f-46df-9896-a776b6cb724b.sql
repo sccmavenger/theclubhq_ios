@@ -1,0 +1,1 @@
+ALTER TABLE public.player_emergency_contacts ADD COLUMN IF NOT EXISTS email text;

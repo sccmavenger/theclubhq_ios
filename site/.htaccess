@@ -1,0 +1,43 @@
+# Apache (GoDaddy cPanel hosting) equivalent of _redirects and _headers, which only
+# Cloudflare Pages and Netlify understand. Keep the three files in sync.
+
+Options -MultiViews
+RewriteEngine On
+
+# Always use https.
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Routes (serve the page without changing the URL).
+RewriteRule ^join/.+$          join.html             [L]
+RewriteRule ^auth/callback/?$  auth-callback.html    [L]
+RewriteRule ^payments/return/?$ payments-return.html [L]
+RewriteRule ^privacy/?$        privacy.html          [L]
+RewriteRule ^terms/?$          terms.html            [L]
+RewriteRule ^support/?$        support.html          [L]
+RewriteRule ^download/?$       download.html         [L]
+
+<IfModule mod_headers.c>
+    # Security headers for every page.
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    # Pages that briefly carry auth tokens or invite codes: never cache, never send a referrer.
+    <If "%{REQUEST_URI} =~ m#^/auth/#">
+        Header always set Cache-Control "no-store"
+        Header always set Referrer-Policy "no-referrer"
+    </If>
+    <If "%{REQUEST_URI} =~ m#^/join/#">
+        Header always set Cache-Control "no-store"
+    </If>
+</IfModule>
+
+# Universal Links: Apple fetches this file and requires the JSON content type.
+<Files "apple-app-site-association">
+    ForceType application/json
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=3600"
+    </IfModule>
+</Files>

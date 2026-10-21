@@ -1,0 +1,18 @@
+# Universal Links: Apple fetches this file and requires the JSON content type.
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+  Cache-Control: public, max-age=3600
+
+# Security headers for every page.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# Pages that briefly carry auth tokens or invite codes: never cache, never send a referrer.
+/auth/*
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+/join/*
+  Cache-Control: no-store

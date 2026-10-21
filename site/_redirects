@@ -1,0 +1,7 @@
+# Cloudflare Pages routing (also understood by Netlify).
+# Pages already serves /privacy from privacy.html, so only the paths that carry extra segments
+# need a rewrite. Targets are extensionless: pointing at *.html makes Pages answer with a
+# redirect to the extensionless URL, which drops the invite token.
+/join/*            /join             200
+/auth/callback     /auth-callback    200
+/payments/return   /payments-return  200

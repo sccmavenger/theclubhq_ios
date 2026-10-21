@@ -1,0 +1,99 @@
+{
+  "identifier" : "6B2E5E1A-2C9B-4E6F-9C1D-0C5B1A7E9F01",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_compatibilityTimeRate" : {
+      "3" : 6
+    },
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "CLUBHQPRO",
+      "localizations" : [
+
+      ],
+      "name" : "Coach Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "C1A0B0D0-0000-4000-8000-000000000001",
+          "introductoryOffer" : {
+            "internalID" : "C1A0B0D0-0000-4000-8000-000000000011",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W"
+          },
+          "localizations" : [
+            {
+              "description" : "Up to 3 teams, season reports, export, and payment reminders.",
+              "displayName" : "Coach Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.teamclubhq.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Coach Pro Monthly",
+          "subscriptionGroupID" : "CLUBHQPRO",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "69.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "C1A0B0D0-0000-4000-8000-000000000002",
+          "introductoryOffer" : {
+            "internalID" : "C1A0B0D0-0000-4000-8000-000000000012",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W"
+          },
+          "localizations" : [
+            {
+              "description" : "Everything in Coach Pro, billed yearly — save 42%.",
+              "displayName" : "Coach Pro Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.teamclubhq.pro.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Coach Pro Yearly",
+          "subscriptionGroupID" : "CLUBHQPRO",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
