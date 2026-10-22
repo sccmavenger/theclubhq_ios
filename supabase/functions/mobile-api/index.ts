@@ -53,6 +53,21 @@ function str(p: Params, key: string, opts: { min?: number; max?: number; optiona
   if (opts.max !== undefined && t.length > opts.max) throw new ApiError("invalid_input", `${key} is too long`);
   return t;
 }
+/// Accepts "@name", "$name", or a pasted venmo.com / cash.app link and returns the bare handle
+/// (or null to clear). Venmo usernames: 5-30 letters, digits, - or _; $Cashtags: 1-20 letters/digits.
+function paymentHandle(p: Params, key: "venmo_username" | "cashapp_cashtag"): string | null {
+  let v = str(p, key, { max: 200, optional: true });
+  if (!v) return null;
+  v = v.replace(/^https?:\/\//i, "").replace(/^(www\.)?(venmo\.com\/(u\/)?|cash\.app\/)/i, "");
+  v = v.split(/[/?#]/)[0].replace(/^[@$]/, "");
+  const ok = key === "venmo_username" ? /^[A-Za-z0-9_-]{5,30}$/.test(v) : /^(?=.*[A-Za-z])[A-Za-z0-9]{1,20}$/.test(v);
+  if (!ok) {
+    throw new ApiError("invalid_input", key === "venmo_username"
+      ? "That doesn't look like a Venmo username (5–30 letters, numbers, - or _)."
+      : "That doesn't look like a $Cashtag (up to 20 letters and numbers).");
+  }
+  return v;
+}
 function uuid(p: Params, key: string): string {
   const v = str(p, key);
   if (!/^[0-9a-f-]{36}$/i.test(v)) throw new ApiError("invalid_input", `${key} is not a valid id`);
@@ -201,7 +216,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
 
     let teamQuery = ctx.admin
       .from("teams")
-      .select("id, name, age_group, season, sport, brand_color, org_id, logo_url")
+      .select("id, name, age_group, season, sport, brand_color, org_id, logo_url, venmo_username, cashapp_cashtag")
       .is("archived_at", null);
     if (orgIds.length > 0) {
       teamQuery = teamQuery.or(`id.in.(${[...teamIds].join(",") || "00000000-0000-0000-0000-000000000000"}),org_id.in.(${orgIds.join(",")})`);
@@ -305,6 +320,9 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       if (color && !(await teamIsPro(ctx, teamId))) throw new ApiError("upgrade_required", "Team colors are a Coach Pro feature.", 402);
       patch.brand_color = color || null;
     }
+    // Venmo / Cash App handles for paying dues outside the app (D-033). Free on every plan.
+    if (p.venmo_username !== undefined) patch.venmo_username = paymentHandle(p, "venmo_username");
+    if (p.cashapp_cashtag !== undefined) patch.cashapp_cashtag = paymentHandle(p, "cashapp_cashtag");
     const { error } = await ctx.db.from("teams").update(patch).eq("id", teamId);
     if (error) throw new ApiError("internal", error.message, 500);
     return { ok: true };

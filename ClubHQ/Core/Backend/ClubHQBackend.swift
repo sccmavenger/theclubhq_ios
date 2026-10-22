@@ -34,6 +34,8 @@ protocol ClubHQBackend: AnyObject {
     func updateProfile(fullName: String) async throws
     func createTeam(_ request: NewTeamRequest) async throws -> UUID
     func updateTeamColor(teamID: UUID, hex: String?) async throws
+    /// Saves the team's Venmo username / $Cashtag (nil clears). Returns the normalized values.
+    func updatePaymentHandles(teamID: UUID, venmoUsername: String?, cashappCashtag: String?) async throws
     func createInvite(teamID: UUID) async throws -> InviteLink
     func lookupInvite(token: String) async throws -> InvitePreview
     func claimInvite(token: String, child: NewChildRequest) async throws -> UUID

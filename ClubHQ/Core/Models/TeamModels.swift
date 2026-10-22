@@ -99,6 +99,9 @@ struct TeamMembership: Codable, Identifiable, Hashable, Sendable {
     var season: String?
     var sport: Sport?
     var brandColor: String?
+    /// Where families can pay the coach directly (bare handles, no @ or $). DECISIONS D-033.
+    var venmoUsername: String?
+    var cashappCashtag: String?
     var orgId: UUID?
     var roles: [TeamRole]
     var linkedPlayers: [PlayerSummary]

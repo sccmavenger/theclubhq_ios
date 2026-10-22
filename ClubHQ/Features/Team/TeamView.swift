@@ -385,6 +385,22 @@ struct TeamSettingsView: View {
             } header: {
                 Text("Team color")
             }
+            Section {
+                NavigationLink {
+                    PaymentMethodsView(team: team)
+                } label: {
+                    LabeledContent {
+                        Text(team.hasPaymentHandles ? [team.venmoUsername.map { "@\($0)" }, team.cashappCashtag.map { "$\($0)" }]
+                            .compactMap { $0 }.joined(separator: " · ") : "Not set")
+                    } label: {
+                        Label("Venmo & Cash App", systemImage: "dollarsign.circle")
+                    }
+                }
+            } header: {
+                Text("Payments")
+            } footer: {
+                Text("Families see Pay with Venmo and Pay with Cash App buttons on their dues.")
+            }
             if let errorText { Text(errorText).foregroundStyle(.red) }
         }
         .navigationTitle("Team Settings")

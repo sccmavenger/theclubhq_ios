@@ -31,6 +31,13 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 - **Verified against production:** 21 checks passing, covering all three role registrations, wrong-account and single-use code protections, and the RLS boundaries for players.
 - **Blocker for real users:** Supabase must send through Resend (custom SMTP, sender `info@teamclubhq.com`). The built-in mailer only delivers to project team members, at 2 emails per hour.
 
+## D-033 — Venmo & Cash App buttons for dues (owner-selected 2026-10-22) — Accepted
+- **Context:** Card payments through Stripe Connect (D-010) aren't on yet, and many teams already collect by Venmo or Cash App. The owner chose "Option C": coaches add their handles and families get one-tap pay buttons.
+- **Decision:** Two nullable columns on `teams`: `venmo_username` and `cashapp_cashtag`. They're stored bare (no @ or $) and set by the head coach through `update-team` (Team Settings → Payments, or Dues & Payments → How families pay you). Free on every plan. Pasted links are normalized on the device and the server (`PaymentHandles` / `paymentHandle()`); the rules are Venmo 5–30 `[A-Za-z0-9_-]` and Cash App 1–20 letters/digits with at least one letter.
+- Families see "Pay $X with Venmo" (`https://venmo.com/<user>?txn=pay&amount=&note=`, amount + note "<team>: <request> – <player>") and "Pay $X with Cash App" (`https://cash.app/$<tag>/<amount>`, amount only; the Cash App link has no note parameter). Both are universal links: they open the app if installed, the website otherwise.
+- **Limits:** Neither service has an API that confirms receipt, so the coach still taps **Mark Paid**. ClubHQ earns nothing on these payments, and the money goes to the coach's personal account. App Store: paying for real-world services outside IAP is allowed (3.1.3(e)).
+- **Later:** a parent "I sent it" button that flags the item for the coach to confirm.
+
 ## D-032 — Version 1.0 ships iPhone-only; App Store Connect filled via API — Accepted (2026-10-14)
 - **Device family:** the project is `TARGETED_DEVICE_FAMILY = 1` (iPhone), matching uploaded builds 1–2. This supersedes D-022's iPhone + iPad. The iPad layout was never designed or tested; iPad users can still run the iPhone app. Apple then requires only iPhone screenshots.
 - **App Store Connect** (app 6822555956), written by API with the team key (`the-hub-ios/.secrets`, Key ID QG9CVK8A7R):

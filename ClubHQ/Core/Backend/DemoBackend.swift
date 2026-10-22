@@ -112,6 +112,12 @@ final class DemoBackend: ClubHQBackend {
         world.teams[index].brandColor = hex
     }
 
+    func updatePaymentHandles(teamID: UUID, venmoUsername: String?, cashappCashtag: String?) async throws {
+        guard let index = world.teams.firstIndex(where: { $0.id == teamID }) else { throw notFound("Team") }
+        world.teams[index].venmoUsername = venmoUsername
+        world.teams[index].cashappCashtag = cashappCashtag
+    }
+
     func createInvite(teamID: UUID) async throws -> InviteLink {
         await pause()
         let token = world.inviteTokens.first { $0.value == teamID }?.key ?? "demo\(Int.random(in: 100_000...999_999))"

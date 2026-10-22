@@ -18,6 +18,8 @@ struct DuesView: View {
     @State private var awaitingReturn = false
 
     private var isCoach: Bool { team.canManageDues }
+    /// Freshest copy of the team (handles change while this screen is open).
+    private var liveTeam: TeamMembership { model.teams.first { $0.id == team.id } ?? team }
 
     var body: some View {
         List {
@@ -29,6 +31,7 @@ struct DuesView: View {
                     if AppConfig.cardPaymentsEnabled {
                         paymentsSetupSection(overview)
                     }
+                    paymentHandlesSection
                     coachRequests(overview)
                 } else {
                     familyItems(overview)
@@ -91,6 +94,35 @@ struct DuesView: View {
             }
         } footer: {
             Text("Families pay \(DuesFee.disclosure) on top of the amount due; your team receives the full amount. You can also mark cash or Venmo payments as paid.")
+        }
+    }
+
+    /// Where families send Venmo / Cash App payments (DECISIONS D-033).
+    private var paymentHandlesSection: some View {
+        Section {
+            NavigationLink {
+                PaymentMethodsView(team: liveTeam)
+            } label: {
+                if liveTeam.hasPaymentHandles {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let venmo = liveTeam.venmoUsername { LabeledContent("Venmo", value: "@\(venmo)") }
+                        if let cashtag = liveTeam.cashappCashtag { LabeledContent("Cash App", value: "$\(cashtag)") }
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("Add Venmo or Cash App", systemImage: "plus.circle.fill").font(.headline)
+                        Text("Families get a one-tap button to pay you, with the amount filled in.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        } header: {
+            Text("How families pay you")
+        } footer: {
+            if liveTeam.hasPaymentHandles {
+                Text("When a payment arrives, open the request and mark that player paid.")
+            }
         }
     }
 
@@ -168,11 +200,14 @@ struct DuesView: View {
             } header: {
                 Text("Due")
             } footer: {
-                if !overview.paymentsEnabled {
-                    Text("Card payments aren't set up for this team yet — pay your coach directly for now.")
+                if !overview.paymentsEnabled && !liveTeam.hasPaymentHandles {
+                    Text("Pay your coach directly (cash, Venmo, etc.) — they'll mark it paid here.")
                 }
             }
-            if overview.paymentsEnabled {
+            if liveTeam.hasPaymentHandles {
+                payCoachSection(unpaid: unpaid)
+            }
+            if AppConfig.cardPaymentsEnabled && overview.paymentsEnabled {
                 Section {
                     Button {
                         showPayConfirm = true
@@ -200,6 +235,45 @@ struct DuesView: View {
                 }
             }
         }
+    }
+
+    /// Venmo / Cash App buttons for the selected items; the coach confirms receipt (D-033).
+    @ViewBuilder
+    private func payCoachSection(unpaid: [(DuesRequest, DuesItem)]) -> some View {
+        let selected = unpaid.filter { selectedItems.contains($0.1.id) }
+        let cents = selected.reduce(0) { $0 + $1.1.amountCents }
+        let note = "\(team.name): \(unique(selected.map(\.0.title)).joined(separator: ", ")) – \(unique(selected.map(\.1.playerName)).joined(separator: ", "))"
+        Section {
+            if let venmo = liveTeam.venmoUsername, let url = PaymentHandles.venmoURL(username: venmo, cents: cents, note: note) {
+                Button { openURL(url) } label: {
+                    Text("Pay \(Money.format(cents: cents)) with Venmo").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(hex: "#008CFF") ?? .blue)
+                .accessibilityHint("Opens Venmo to pay @\(venmo)")
+            }
+            if let cashtag = liveTeam.cashappCashtag, let url = PaymentHandles.cashAppURL(cashtag: cashtag, cents: cents) {
+                Button { openURL(url) } label: {
+                    Text("Pay \(Money.format(cents: cents)) with Cash App").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(hex: "#00A63E") ?? .green)
+                .accessibilityHint("Opens Cash App to pay $\(cashtag)")
+            }
+        } header: {
+            Text("Pay your coach")
+        } footer: {
+            Text(liveTeam.cashappCashtag == nil
+                 ? "Venmo opens with the amount and a note filled in. Your coach marks it paid once it arrives."
+                 : "Add your player's name in the Cash App note. Your coach marks it paid once it arrives.")
+        }
+        .disabled(selected.isEmpty)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private func unique(_ values: [String]) -> [String] {
+        values.reduce(into: []) { result, value in if !result.contains(value) { result.append(value) } }
     }
 
     // MARK: Actions
@@ -340,7 +414,7 @@ struct DuesRequestDetailView: View {
                         Text(item.playerName)
                         Spacer()
                         Menu {
-                            Button("Mark Paid (cash/Venmo)", systemImage: "checkmark.circle") { Task { await set(item, .paid) } }
+                            Button("Mark Paid (cash, Venmo, Cash App)", systemImage: "checkmark.circle") { Task { await set(item, .paid) } }
                             Button("Waive", systemImage: "hand.raised") { Task { await set(item, .waived) } }
                             Button("Mark Unpaid", systemImage: "arrow.uturn.backward") { Task { await set(item, .unpaid) } }
                         } label: {
@@ -404,7 +478,7 @@ struct NewDuesRequestView: View {
                         DatePicker("Due", selection: $dueDate, in: Date.now..., displayedComponents: .date)
                     }
                 }
-                if let cents = amountCents, cents > 0 {
+                if AppConfig.cardPaymentsEnabled, let cents = amountCents, cents > 0 {
                     Section {
                         LabeledContent("Family pays", value: Money.format(cents: cents + DuesFee.fee(forSubtotal: cents)))
                         LabeledContent("Your team receives", value: Money.format(cents: cents))
@@ -435,5 +509,19 @@ struct NewDuesRequestView: View {
                 }
             }
         }
+    }
+}
+
+#Preview("Family") { DuesPreview(model: .preview(.parent)) }
+#Preview("Coach") { DuesPreview(model: .preview(.coach)) }
+
+/// Waits for the demo context to load, then shows the first team's dues.
+private struct DuesPreview: View {
+    let model: AppModel
+    var body: some View {
+        NavigationStack {
+            if let team = model.teams.first { DuesView(team: team) } else { ProgressView() }
+        }
+        .environment(model)
     }
 }

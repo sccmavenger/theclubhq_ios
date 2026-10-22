@@ -85,3 +85,55 @@ enum Money {
         return NSDecimalNumber(decimal: rounded).intValue
     }
 }
+
+/// Venmo / Cash App links for paying the coach directly (DECISIONS D-033).
+///
+/// Neither app offers an official payments API, so these are the public link formats:
+/// `venmo.com/<username>?txn=pay&amount=&note=` and `cash.app/$<cashtag>/<amount>`. They open
+/// the app when installed and the website otherwise. Venmo pre-fills amount and note; Cash App
+/// only the amount. Rules must match `paymentHandle()` in `supabase/functions/mobile-api`.
+nonisolated enum PaymentHandles {
+    /// Bare Venmo username from "@name", "name", or a pasted venmo.com link; nil if invalid.
+    static func venmoUsername(from raw: String) -> String? {
+        let handle = bareHandle(raw)
+        return handle.wholeMatch(of: /[A-Za-z0-9_-]{5,30}/) != nil ? handle : nil
+    }
+
+    /// Bare $Cashtag from "$name", "name", or a pasted cash.app link; nil if invalid.
+    static func cashtag(from raw: String) -> String? {
+        let handle = bareHandle(raw)
+        let valid = handle.wholeMatch(of: /[A-Za-z0-9]{1,20}/) != nil && handle.contains(where: \.isLetter)
+        return valid ? handle : nil
+    }
+
+    static func venmoURL(username: String, cents: Int, note: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "venmo.com"
+        components.path = "/\(username)"
+        components.queryItems = [
+            URLQueryItem(name: "txn", value: "pay"),
+            URLQueryItem(name: "amount", value: amountString(cents)),
+            URLQueryItem(name: "note", value: note),
+        ]
+        return components.url
+    }
+
+    static func cashAppURL(cashtag: String, cents: Int) -> URL? {
+        URL(string: "https://cash.app/$\(cashtag)/\(amountString(cents))")
+    }
+
+    /// "1000" for whole dollars, otherwise "1000.50".
+    static func amountString(_ cents: Int) -> String {
+        cents % 100 == 0 ? "\(cents / 100)" : String(format: "%d.%02d", cents / 100, cents % 100)
+    }
+
+    private static func bareHandle(_ raw: String) -> String {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        text = text.replacing(/^https?:\/\//.ignoresCase(), with: "")
+        text = text.replacing(/^(www\.)?(venmo\.com\/(u\/)?|cash\.app\/)/.ignoresCase(), with: "")
+        text = String(text.prefix { !"/?#".contains($0) })
+        if text.first == "@" || text.first == "$" { text.removeFirst() }
+        return text
+    }
+}

@@ -3,7 +3,8 @@ import Foundation
 /// Seed data and relationship rules for `DemoBackend`. Times are relative to `now` so
 /// the demo always shows an upcoming practice, a game this weekend, and a recent result.
 struct DemoWorld {
-    struct Team { let id: UUID; var name: String; var ageGroup: String?; var season: String?; var sport: Sport; var brandColor: String? }
+    struct Team { let id: UUID; var name: String; var ageGroup: String?; var season: String?; var sport: Sport; var brandColor: String?
+        var venmoUsername: String? = nil; var cashappCashtag: String? = nil }
     struct Role { let userID: UUID; let teamID: UUID; let role: TeamRole }
     struct Link { let parentID: UUID; let playerID: UUID }
     struct StoredMessage { let threadID: UUID; var message: ChatMessage }
@@ -59,7 +60,8 @@ struct DemoWorld {
         ]
 
         teams = [
-            Team(id: mayhemID, name: "Mayhem Elite 14U", ageGroup: "14U", season: "Fall 2026", sport: .basketball, brandColor: nil),
+            Team(id: mayhemID, name: "Mayhem Elite 14U", ageGroup: "14U", season: "Fall 2026", sport: .basketball, brandColor: nil,
+                 venmoUsername: "Coach-Demo", cashappCashtag: "CoachDemo"),
             Team(id: fcID, name: "O'Fallon FC U10", ageGroup: "U10", season: "Fall 2026", sport: .soccer, brandColor: nil),
         ]
         roles = [
@@ -244,7 +246,8 @@ struct DemoWorld {
                 .map(summary)
             let me = players.first { $0.teamId == team.id && $0.userId == uid }.map(summary)
             return TeamMembership(id: team.id, name: team.name, ageGroup: team.ageGroup, season: team.season, sport: team.sport,
-                                  brandColor: team.brandColor, orgId: nil, roles: teamRoles, linkedPlayers: linked, playerSelf: me,
+                                  brandColor: team.brandColor, venmoUsername: team.venmoUsername,
+                                  cashappCashtag: team.cashappCashtag, orgId: nil, roles: teamRoles, linkedPlayers: linked, playerSelf: me,
                                   isPro: isPro(team: team.id))
         }
         return UserContext(userId: uid, email: "\(name(of: uid).lowercased().replacingOccurrences(of: " ", with: "."))@example.com",

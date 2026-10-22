@@ -107,6 +107,15 @@ final class SupabaseBackend: ClubHQBackend {
         let _: OK = try await client.invoke("update-team", ["team_id": .uuid(teamID), "brand_color": .optional(hex)])
     }
 
+    func updatePaymentHandles(teamID: UUID, venmoUsername: String?, cashappCashtag: String?) async throws {
+        // Empty string clears the handle on the server.
+        let _: OK = try await client.invoke("update-team", [
+            "team_id": .uuid(teamID),
+            "venmo_username": .string(venmoUsername ?? ""),
+            "cashapp_cashtag": .string(cashappCashtag ?? ""),
+        ])
+    }
+
     func createInvite(teamID: UUID) async throws -> InviteLink {
         try await client.invoke("create-invite", ["team_id": .uuid(teamID)])
     }
