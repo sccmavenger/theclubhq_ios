@@ -16,7 +16,7 @@
     "support_url": "https://teamclubhq.com/support",
     "marketing_url": "https://teamclubhq.com",
     "copyright": "2026 Danny Guillory",
-    "release": "Manually release this version"
+    "release": "Automatically release this version after App Review approval"
   },
   "pricing_and_availability": {
     "price": "Free (USD 0.00)",
@@ -117,7 +117,7 @@
     "contact_last_name": "Guillory",
     "contact_phone": "+1 337 303 6453",
     "contact_email": "info@teamclubhq.com",
-    "notes": "ClubHQ Team is a youth sports team app for coaches, parents, and players.\n\nDEMO ACCOUNT: sign in with the credentials above (head coach of 'ClubHQ Test Team', which has a practice, roster, and team chat). Additional test logins on the same team: parent pat.parent.e2e@teamclubhq.com / ParentTest-2026! and player (age 14) riley.player.e2e@teamclubhq.com / PlayerTest-2026!.\n\nNEW ACCOUNTS verify email with a 6-digit code sent from info@teamclubhq.com. Sign-up includes a neutral birth-year age screen; people under 13 cannot create accounts (parents manage children's profiles, per COPPA).\n\nCHILD SAFETY & MODERATION: players (13+) can only post in team-wide chat visible to coaches and parents; adults cannot message players privately. Teams are invite-only. Long-press any message to Report it (emails info@teamclubhq.com with the message details; we respond within 24 hours) or Block its author (hides their messages). Coaches can delete any message.\n\nPAYMENTS: this version has no in-app payments and no In-App Purchases. Dues are tracking only: coaches create payment requests and mark cash or Venmo payments as paid.\n\nACCOUNT DELETION: More tab → Delete Account.\n\nThere is also a demo mode on the sign-in screen (\"Just looking?\" → Coach, Parent, or Player) that requires no account.",
+    "notes": "ClubHQ Team is a youth sports team app for coaches, parents, and players.\n\nDEMO ACCOUNT: sign in with the credentials above (head coach of 'ClubHQ Test Team', which has a practice, roster, and team chat). Additional test logins on the same team: parent pat.parent.e2e@teamclubhq.com / ParentTest-2026! and player (age 14) riley.player.e2e@teamclubhq.com / PlayerTest-2026!.\n\nNEW ACCOUNTS verify email with a 6-digit code sent from info@teamclubhq.com. Sign-up includes a neutral birth-year age screen; people under 13 cannot create accounts (parents manage children's profiles, per COPPA).\n\nCHILD SAFETY & MODERATION: players (13+) can only post in team-wide chat visible to coaches and parents; adults cannot message players privately. Teams are invite-only. Long-press any message to Report it (emails info@teamclubhq.com with the message details; we respond within 24 hours) or Block its author (hides their messages). Coaches can delete any message.\n\nPAYMENTS: this version has no in-app payments and no In-App Purchases. Dues are tracking only: coaches create payment requests and mark cash, Venmo, or Cash App payments as paid. A head coach can add the team's Venmo username / $Cashtag (Team → Team Settings → Payments); parents then see 'Pay with Venmo' / 'Pay with Cash App' buttons that open those apps with the amount filled in. These pay the coach directly for real-world team costs (guideline 3.1.3(e)); ClubHQ takes no fee.\n\nACCOUNT DELETION: More tab → Delete Account.\n\nThere is also a demo mode on the sign-in screen (\"Just looking?\" → Coach, Parent, or Player) that requires no account.",
     "attachment": "none"
   },
   "testflight": {

@@ -61,6 +61,11 @@ Turn them on in a later version once the Paid Apps Agreement is signed, the subs
 manual release). Done through the App Store Connect API using the key in `~/GitHub/the-hub-ios/.secrets/`
 and `~/GitHub/the-hub-ios/scripts/asc.py` (version 1.0 id `0588d610-4e32-4a8a-b5fe-431122f3c402`).
 
+**2026-10-22: resubmitted with build 8** (adds Venmo & Cash App pay buttons, D-033). The owner asked
+to ship build 8 instead, so the build 7 submission was canceled and a new one was submitted. Release is
+now **automatic after approval** (`releaseType = AFTER_APPROVAL`). The review notes' PAYMENTS paragraph
+explains the external Venmo/Cash App links (3.1.3(e)). Scripts: `scripts/asc/`.
+
 Build **7** adds Report/Block in chat (guideline 1.2). The description and review notes in
 `docs/app-store/metadata.json` no longer mention Stripe card payments or Coach Pro, since both are off in 1.0
 (guideline 2.3.1). Paste both into App Store Connect. The 6 screenshots in `design/app-store-screenshots/`
