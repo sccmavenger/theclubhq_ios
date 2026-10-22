@@ -198,7 +198,7 @@ struct DemoWorld {
         ]
         paymentsEnabled = [mayhemID]
         sponsors = [TeamSponsor(id: UUID(), teamId: mayhemID, name: "Mid-Rivers Pizza Co.", tagline: "Proud sponsor of Mayhem Elite — 10% off team nights",
-                                logoUrl: nil, linkUrl: URL(string: "https://example.com"))]
+                                logoUrl: nil, linkUrl: nil)]
 
         // Inbox
         func item(_ kind: NotificationKind, _ subject: String, _ body: String, team: UUID, ref: UUID?, path: String?, hoursAgo: Double, read: Bool = false) -> InboxItem {

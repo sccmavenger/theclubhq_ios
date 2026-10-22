@@ -16,6 +16,7 @@ struct DuesView: View {
     @State private var selectedItems: Set<UUID> = []
     @State private var showPayConfirm = false
     @State private var awaitingReturn = false
+    @State private var demoPayApp: String?
 
     private var isCoach: Bool { team.canManageDues }
     /// Freshest copy of the team (handles change while this screen is open).
@@ -58,6 +59,11 @@ struct DuesView: View {
                     await load()
                 }
             }
+        }
+        .alert("Demo mode", isPresented: Binding(get: { demoPayApp != nil }, set: { if !$0 { demoPayApp = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("On a real team, this opens \(demoPayApp ?? "the app") to pay your coach with the amount filled in.")
         }
         .sheet(isPresented: $showNewRequest, onDismiss: { Task { await load() } }) {
             NewDuesRequestView(team: team)
@@ -169,6 +175,8 @@ struct DuesView: View {
     private func familyItems(_ overview: DuesOverview) -> some View {
         let unpaid = overview.requests.flatMap { request in request.items.filter { $0.status == .unpaid }.map { (request, $0) } }
         let settled = overview.requests.flatMap { request in request.items.filter { $0.status != .unpaid }.map { (request, $0) } }
+        // Checkboxes only matter when there's an in-app way to pay.
+        let canPay = (AppConfig.cardPaymentsEnabled && overview.paymentsEnabled) || liveTeam.hasPaymentHandles
 
         if unpaid.isEmpty {
             ContentUnavailableView("Nothing due", systemImage: "checkmark.circle", description: Text("You're all paid up for \(team.name)."))
@@ -180,9 +188,11 @@ struct DuesView: View {
                         if selectedItems.contains(item.id) { selectedItems.remove(item.id) } else { selectedItems.insert(item.id) }
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: selectedItems.contains(item.id) ? "checkmark.circle.fill" : "circle")
-                                .font(.title3)
-                                .foregroundStyle(selectedItems.contains(item.id) ? Color.accentColor : .secondary)
+                            if canPay {
+                                Image(systemName: selectedItems.contains(item.id) ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(selectedItems.contains(item.id) ? Color.accentColor : .secondary)
+                            }
                             VStack(alignment: .leading) {
                                 Text(request.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                                 Text(item.playerName).font(.caption).foregroundStyle(.secondary)
@@ -196,6 +206,7 @@ struct DuesView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .allowsHitTesting(canPay)
                 }
             } header: {
                 Text("Due")
@@ -245,7 +256,7 @@ struct DuesView: View {
         let note = "\(team.name): \(unique(selected.map(\.0.title)).joined(separator: ", ")) – \(unique(selected.map(\.1.playerName)).joined(separator: ", "))"
         Section {
             if let venmo = liveTeam.venmoUsername, let url = PaymentHandles.venmoURL(username: venmo, cents: cents, note: note) {
-                Button { openURL(url) } label: {
+                Button { model.isDemo ? (demoPayApp = "Venmo") : openURL(url) } label: {
                     Text("Pay \(Money.format(cents: cents)) with Venmo").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -253,7 +264,7 @@ struct DuesView: View {
                 .accessibilityHint("Opens Venmo to pay @\(venmo)")
             }
             if let cashtag = liveTeam.cashappCashtag, let url = PaymentHandles.cashAppURL(cashtag: cashtag, cents: cents) {
-                Button { openURL(url) } label: {
+                Button { model.isDemo ? (demoPayApp = "Cash App") : openURL(url) } label: {
                     Text("Pay \(Money.format(cents: cents)) with Cash App").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

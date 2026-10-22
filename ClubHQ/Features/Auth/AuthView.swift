@@ -131,7 +131,7 @@ struct AuthView: View {
                 Button("Forgot password?") { showForgotPassword = true }
                     .font(.footnote)
             } else {
-                Text("Coaches, parents, and players (13+) all start here. You'll pick your role next.")
+                Text("Coaches, parents, and players all start here. You'll pick your role next.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

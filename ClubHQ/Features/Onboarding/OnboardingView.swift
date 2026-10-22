@@ -102,12 +102,16 @@ struct CreateTeamView: View {
                     TextField("Club name", text: $request.clubName)
                 }
             } footer: {
-                Text("Club tools (multi-team admin, registration) are coming soon. Your team works the same either way.")
+                Text("Optional — helps families recognize your club. Your team works the same either way.")
             }
-            if !model.canCreateAnotherTeam, AppConfig.coachProPurchasesEnabled {
+            if !model.canCreateAnotherTeam {
                 Section {
-                    ProUpsellRow(title: "Run up to 3 teams with Coach Pro",
-                                 message: "The free plan includes one team as head coach. Everything parents use stays free.")
+                    if AppConfig.coachProPurchasesEnabled {
+                        ProUpsellRow(title: "Run up to 3 teams with Coach Pro",
+                                     message: "The free plan includes one team as head coach. Everything parents use stays free.")
+                    } else {
+                        Text(Self.oneTeamMessage).foregroundStyle(.secondary)
+                    }
                 }
             }
             if let errorText {
@@ -118,7 +122,8 @@ struct CreateTeamView: View {
                     Text("Create Team").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(request.teamName.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(request.teamName.trimmingCharacters(in: .whitespaces).isEmpty
+                          || (!model.canCreateAnotherTeam && !AppConfig.coachProPurchasesEnabled))
                 .listRowBackground(Color.clear)
             }
         }
@@ -126,6 +131,8 @@ struct CreateTeamView: View {
         .keyboardDoneButton()
         .sheet(isPresented: $showPaywall) { PaywallView() }
     }
+
+    private static let oneTeamMessage = "Each account can be head coach of one team. To help run another team, ask its head coach to invite you as an assistant."
 
     private func create() async {
         errorText = nil
@@ -136,6 +143,9 @@ struct CreateTeamView: View {
             dismiss()
         } catch let error as BackendError where error.isUpgradeRequired && AppConfig.coachProPurchasesEnabled {
             showPaywall = true
+        } catch let error as BackendError where error.isUpgradeRequired {
+            // Coach Pro isn't for sale yet, so don't mention it (App Review 2.3.1).
+            errorText = Self.oneTeamMessage
         } catch {
             errorText = error.localizedDescription
         }

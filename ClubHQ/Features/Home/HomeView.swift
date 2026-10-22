@@ -148,7 +148,7 @@ struct HomeView: View {
         if amountDueCents > 0 {
             Section {
                 Button { sheet = .dues } label: {
-                    AttentionRow(symbol: "creditcard.fill", tint: .orange,
+                    AttentionRow(symbol: "dollarsign.circle.fill", tint: .orange,
                                  title: "\(Money.format(cents: amountDueCents)) due",
                                  detail: AppConfig.cardPaymentsEnabled ? "Pay securely in ClubHQ — fees shown before you pay" : "See what's due and who it's for")
                 }

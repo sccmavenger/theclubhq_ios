@@ -91,7 +91,8 @@ struct TeamView: View {
                         Label(team.canManageDues ? "Dues & Payments" : "Payments", systemImage: "dollarsign.circle.fill")
                     }
                 }
-                if team.isStaff {
+                // Season Report is a Coach Pro feature; hidden while Pro isn't for sale.
+                if team.isStaff && (team.isPro || AppConfig.coachProPurchasesEnabled) {
                     NavigationLink {
                         AttendanceReportView(team: team)
                     } label: {
@@ -267,6 +268,8 @@ struct AnnouncementsView: View {
     @State private var announcements: [Announcement] = []
     @State private var showComposer = false
     @State private var isLoading = true
+    @State private var reportFallbackShown = false
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         List {
@@ -282,9 +285,17 @@ struct AnnouncementsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 4)
+                .contextMenu {
+                    Button("Report", systemImage: "exclamationmark.bubble") { report(announcement) }
+                }
             }
         }
         .navigationTitle("Announcements")
+        .alert("Report Copied", isPresented: $reportFallbackShown) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("No mail app is set up. The report has been copied. Paste it into an email to \(AppConfig.supportEmail) and we'll review it within 24 hours.")
+        }
         .toolbar {
             if team.canPostAnnouncements {
                 ToolbarItem(placement: .primaryAction) {
@@ -303,6 +314,28 @@ struct AnnouncementsView: View {
         isLoading = true
         announcements = (try? await model.backend.announcements(teamID: team.id)) ?? []
         isLoading = false
+    }
+
+    /// Prefilled report email identifying the announcement (App Review 1.2).
+    private func report(_ announcement: Announcement) {
+        let body = """
+        I'd like to report this announcement as objectionable.
+
+        Team: \(team.name)
+        Title: \(announcement.title)
+        Message: \(announcement.body)
+        Posted: \(announcement.createdAt.formatted(date: .abbreviated, time: .shortened))
+
+        Announcement ID: \(announcement.id.uuidString)
+        Author ID: \(announcement.createdBy.uuidString)
+        """
+        guard let url = ReportMail.url(subject: "Report announcement in ClubHQ", body: body) else { return }
+        openURL(url) { accepted in
+            if !accepted {
+                UIPasteboard.general.string = "To: \(AppConfig.supportEmail)\n\n\(body)"
+                reportFallbackShown = true
+            }
+        }
     }
 }
 
@@ -359,6 +392,7 @@ struct TeamSettingsView: View {
 
     var body: some View {
         Form {
+            if team.isPro || AppConfig.coachProPurchasesEnabled {
             Section {
                 if team.isPro {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 12) {
@@ -384,6 +418,7 @@ struct TeamSettingsView: View {
                 }
             } header: {
                 Text("Team color")
+            }
             }
             Section {
                 NavigationLink {

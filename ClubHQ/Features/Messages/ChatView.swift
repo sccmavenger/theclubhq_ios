@@ -71,6 +71,9 @@ struct ChatView: View {
                     Label(isMuted ? "Unmute" : "Mute", systemImage: isMuted ? "bell.slash.fill" : "bell")
                 }
             }
+            ToolbarItem(placement: .secondaryAction) {
+                Button("Report a Concern", systemImage: "exclamationmark.bubble") { reportConversation() }
+            }
             if !blockedAuthorIDs.isEmpty {
                 ToolbarItem(placement: .secondaryAction) {
                     Button("Unblock All Members", systemImage: "person.crop.circle.badge.checkmark") {
@@ -205,6 +208,27 @@ struct ChatView: View {
         guard let url = components.url else { return }
         openURL(url) { accepted in
             // No mail app configured: show the address and copy the report so it isn't lost.
+            if !accepted {
+                UIPasteboard.general.string = "To: \(AppConfig.supportEmail)\n\n\(body)"
+                reportFallbackShown = true
+            }
+        }
+    }
+
+    /// General report about this conversation, reachable from the toolbar (long-press reports one message).
+    private func reportConversation() {
+        let body = """
+        I'd like to report a concern in this conversation.
+
+        What happened:
+
+
+        Conversation: \(detail?.thread.title ?? "")
+        Thread ID: \(threadID.uuidString)
+        (Tip: long-press a specific message to report or block its author.)
+        """
+        guard let url = ReportMail.url(subject: "Report a concern in ClubHQ", body: body) else { return }
+        openURL(url) { accepted in
             if !accepted {
                 UIPasteboard.general.string = "To: \(AppConfig.supportEmail)\n\n\(body)"
                 reportFallbackShown = true

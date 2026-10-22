@@ -186,6 +186,17 @@ extension DuesStatus {
 }
 
 /// Banner shown on Pro-gated features (never on anything a parent needs).
+/// Prefilled email to ClubHQ support for reporting objectionable content (App Review 1.2).
+enum ReportMail {
+    static func url(subject: String, body: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = AppConfig.supportEmail
+        components.queryItems = [URLQueryItem(name: "subject", value: subject), URLQueryItem(name: "body", value: body)]
+        return components.url
+    }
+}
+
 struct ProUpsellRow: View {
     let title: String
     let message: String

@@ -101,7 +101,7 @@ struct AccountView: View {
             .confirmationDialog("Delete your account?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete Account", role: .destructive) { Task { await deleteAccount() } }
             } message: {
-                Text("This removes your login, your team memberships, and your links to players. Teams where you're the only head coach are archived. This can't be undone. Active App Store subscriptions must be cancelled in Settings.")
+                Text("This removes your login, your team memberships, and your links to players. Teams where you're the only head coach are archived. This can't be undone.\(model.store.hasActiveSubscription ? " Active App Store subscriptions must be cancelled in Settings." : "")")
             }
             .onChange(of: model.teams.count) { old, new in
                 if new > old { showAddTeam = false }
@@ -127,7 +127,8 @@ struct AccountView: View {
 
     @ViewBuilder private var planSection: some View {
         let coachesATeam = model.teams.contains(where: \.isHeadCoach)
-        if coachesATeam || model.isCoachPro {
+        // While Coach Pro isn't for sale, free coaches see no plan section at all (App Review 2.3.1).
+        if model.isCoachPro || (coachesATeam && AppConfig.coachProPurchasesEnabled) {
             Section {
                 if model.isCoachPro {
                     Label("Coach Pro is active", systemImage: "sparkles").foregroundStyle(.purple)
