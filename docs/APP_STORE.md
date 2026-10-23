@@ -71,8 +71,7 @@ leftovers hidden while purchases are off (plan section, empty Team color section
 link, second-team error text); visible "Report a Concern" in chat and Report on announcements
 (1.2); "coming soon" and a placeholder demo link removed; the reviewer team ("ClubHQ Test Team")
 seeded with upcoming events, a 10-player roster, chat, announcements, and dues; Terms, Privacy,
-and Support pages updated to match 1.0 (owner uploads `build/site-deploy.zip` to Cloudflare
-Pages). Release stays automatic after approval. Swap a build into review with
+and Support pages updated to match 1.0 and deployed to Cloudflare Pages (`scripts/deploy-site.sh`). Release stays automatic after approval. Swap a build into review with
 `node scripts/asc/swap-review-build.mjs <build>`. If xcodebuild export fails with "Failed to
 Use Accounts", pass `-authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID`
 with the ASC key.

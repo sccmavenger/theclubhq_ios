@@ -12,6 +12,10 @@ A static site with no build step, deployed to **Cloudflare Pages**. Routes are i
 | `/download` | `download.html` | "Coming soon" until the App Store listing exists |
 | `/.well-known/apple-app-site-association` | Universal Links | Replace `TEAMID` with your Apple Developer Team ID |
 
+## Deploy
+Cloudflare Pages project **`teamclubhq`** (production branch `main`; custom domains `teamclubhq.com`, `www.teamclubhq.com`).
+From the repo root: `scripts/deploy-site.sh` (uses `npx wrangler`; sign in once with `npx wrangler login`).
+
 ## One-time setup (GoDaddy domain → Cloudflare)
 The domain stays registered at GoDaddy. Only DNS moves to Cloudflare.
 
