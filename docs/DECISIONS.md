@@ -37,6 +37,7 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 - **Why not match by name:** the team code is shared in group texts, so linking to an existing child by name would let any family on the team attach themselves to someone else's minor. The link only comes from someone already trusted with that child.
 - **Safety net:** `claim-invite` on the team code returns `possible_duplicate` (409) when an active player with the same first and last name exists. The app explains co-parent invites and offers "Add as a Different Child", which re-sends with `allow_duplicate`.
 - **Coach notification:** each claim fans out a `family_joined` notification (inbox + push) to staff, linking to the Team tab.
+- **Deployed 2026-10-23:** both migrations (recorded in `supabase_migrations.schema_migrations`) and `mobile-api` v7. Verified live with throwaway QA accounts and team (21/21 checks: duplicate warning, co-parent create/reuse/claim, permissions, team code never returns a co-parent invite, coach-only `family_joined` notices), then deleted.
 - **Compatibility:** additive migrations only (D-003). Old app builds ignore `player` in `lookup-invite`, and NotificationKind already decodes unknown kinds. The web app's invite list will also show co-parent invites; the web repo should filter `player_id IS NULL` where it reuses an invite.
 
 ## D-034 — Making Coach Pro purchasable (2026-10-22) — Accepted
