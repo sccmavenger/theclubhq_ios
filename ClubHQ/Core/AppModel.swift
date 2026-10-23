@@ -20,8 +20,11 @@ final class AppModel {
     }
     /// A deep link waiting for the main UI to consume (push tap, inbox row, URL).
     var pendingDeepLink: DeepLink?
-    /// An invite token captured before sign-in, consumed by onboarding.
-    var pendingInviteToken: String?
+    /// An invite token captured before sign-in, consumed by onboarding. Saved on the device so it
+    /// survives the app being closed while a new parent confirms their email.
+    var pendingInviteToken: String? {
+        didSet { UserDefaults.standard.set(pendingInviteToken, forKey: Self.pendingInviteKey) }
+    }
     /// One-shot global error banner.
     var errorMessage: String?
     /// The first-run welcome tour to present over the main tabs, if any.
@@ -32,12 +35,14 @@ final class AppModel {
     let store = SubscriptionStore()
     let hasLiveBackend: Bool
     private static let selectedTeamKey = "selectedTeamID"
+    private static let pendingInviteKey = "pendingInviteToken"
 
     init(backend: (any ClubHQBackend)? = nil) {
         let live = SupabaseBackend.fromAppConfig()
         hasLiveBackend = live != nil
         self.backend = backend ?? live ?? DemoBackend()
         selectedTeamID = UserDefaults.standard.string(forKey: Self.selectedTeamKey).flatMap(UUID.init(uuidString:))
+        pendingInviteToken = UserDefaults.standard.string(forKey: Self.pendingInviteKey)
         store.onVerifiedTransaction = { [weak self] jws in await self?.syncSubscription(jws: jws) }
         PushManager.shared.onToken = { [weak self] token in self?.registerDevice(token: token) }
         PushManager.shared.onOpen = { [weak self] link in self?.pendingDeepLink = link }
@@ -90,6 +95,11 @@ final class AppModel {
             }
             phase = context.teams.isEmpty ? .onboarding : .ready
             refreshToken += 1
+            // Someone already on a team who opened an invite before signing in: open it now.
+            if phase == .ready, !backend.isDemo, let token = pendingInviteToken {
+                pendingInviteToken = nil
+                pendingDeepLink = .invite(token: token)
+            }
             // The permission prompt itself comes from the welcome tour, with its reason on screen;
             // here we only re-register a device that's already allowed. Never in a demo walkthrough.
             if phase == .ready && !backend.isDemo { await PushManager.shared.registerIfAuthorized() }

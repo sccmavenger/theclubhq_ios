@@ -25,7 +25,7 @@
       <p class="lead">Your coach uses ClubHQ for the schedule, RSVPs, and team chat. Open the invite in the app to add your child.</p>
       <div class="btns">
         <a class="btn" id="open" href="clubhq://join">Open in ClubHQ</a>
-        <a class="btn secondary" href="/download">Get the app</a>
+        <a class="btn secondary" id="get" href="/download">Get the app</a>
       </div>
       <div class="card">
         <p class="muted" style="margin:0 0 8px">Already have the app? Choose <b>I'm a parent or guardian</b> and paste this invite code:</p>
@@ -42,6 +42,14 @@
     if (token) {
       document.getElementById("token").textContent = token;
       document.getElementById("open").href = "clubhq://join/" + token;
+      // Copy the invite before the App Store detour, so after installing, ClubHQ can offer
+      // "Paste" on its first screen instead of the parent hunting for the text again.
+      document.getElementById("get").addEventListener("click", function (e) {
+        if (!navigator.clipboard) return;
+        e.preventDefault();
+        const go = function () { location.href = "/download"; };
+        navigator.clipboard.writeText(location.origin + "/join/" + token).then(go, go);
+      });
     }
   </script>
 </body>

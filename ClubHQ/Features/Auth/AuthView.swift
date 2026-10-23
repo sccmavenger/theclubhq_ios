@@ -41,6 +41,7 @@ struct AuthView: View {
             ScrollView {
                 VStack(spacing: 28) {
                     header
+                    if model.hasLiveBackend && model.pendingInviteToken != nil { inviteBanner }
                     if model.hasLiveBackend { credentialsCard }
                     demoCard
                     legal
@@ -54,6 +55,10 @@ struct AuthView: View {
             .keyboardDoneButton()
             .navigationDestination(item: $codeStep) { step in
                 EmailCodeView(step: step)
+            }
+            // Most invited parents are new here, so start them on Create Account.
+            .onChange(of: model.pendingInviteToken, initial: true) { _, token in
+                if token != nil { mode = .signUp }
             }
             .sheet(isPresented: $showForgotPassword) {
                 ForgotPasswordView(initialEmail: email) { resetEmail in
@@ -75,6 +80,27 @@ struct AuthView: View {
                 .multilineTextAlignment(.center)
         }
         .padding(.top, 24)
+    }
+
+    /// Shown when the app was opened from a team invite link: the code is saved, so after
+    /// signing up the parent lands straight on the join form.
+    private var inviteBanner: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "envelope.open.fill")
+                .font(.title2)
+                .foregroundStyle(Color.accentColor)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("You're invited to join a team").font(.headline)
+                Text("Create an account or sign in, and we'll take you right to it.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .background(Color.accentColor.opacity(0.12), in: .rect(cornerRadius: 16))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("You're invited to join a team. Create an account or sign in, and we'll take you right to it.")
     }
 
     private var credentialsCard: some View {

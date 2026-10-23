@@ -193,9 +193,8 @@ struct InviteFamiliesView: View {
         guard let invite else { return "" }
         return """
         Join \(team.name) on ClubHQ — schedules, RSVPs, and team chat in one ad-free app.
-        1. Download ClubHQ and create an account.
-        2. Choose "I'm a parent or guardian" and enter team code: \(invite.token)
-        Or tap: \(invite.url.absoluteString)
+        Tap to join: \(invite.url.absoluteString)
+        Or download ClubHQ, choose "I'm a parent or guardian", and enter team code: \(invite.token)
         """
     }
 

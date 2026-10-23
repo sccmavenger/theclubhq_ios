@@ -21,6 +21,11 @@ struct OnboardingView: View {
 /// The three ways into a team.
 struct JoinOrCreateList: View {
     @Environment(AppModel.self) private var model
+    /// Opens the join form directly when the parent arrived from an invite link.
+    @State private var showJoin = false
+    /// A code pasted on this screen; used for this one trip to the join form, never saved.
+    @State private var pastedToken: String?
+    @State private var clipboardMayHaveInvite = false
 
     var body: some View {
         List {
@@ -29,6 +34,23 @@ struct JoinOrCreateList: View {
                     .font(.title3.weight(.semibold))
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 0, trailing: 4))
+            }
+            if clipboardMayHaveInvite && model.pendingInviteToken == nil {
+                Section {
+                    // PasteButton reads the clipboard without iOS's "Allow Paste" prompt.
+                    PasteButton(payloadType: String.self) { strings in
+                        guard let token = strings.lazy.compactMap(InviteCode.token(in:)).first else { return }
+                        pastedToken = token
+                        showJoin = true
+                    }
+                    .labelStyle(.titleAndIcon)
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+                } footer: {
+                    Text("Copied an invite link from your coach? Paste it to join their team.")
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                }
             }
             Section {
                 NavigationLink {
@@ -51,6 +73,43 @@ struct JoinOrCreateList: View {
                 }
             }
         }
+        .navigationDestination(isPresented: $showJoin) {
+            JoinTeamView(initialToken: pastedToken ?? model.pendingInviteToken ?? "")
+                .onDisappear {
+                    // Backing out means the link has done its job; don't reopen it every time.
+                    pastedToken = nil
+                    model.pendingInviteToken = nil
+                }
+        }
+        .task {
+            if model.pendingInviteToken != nil {
+                showJoin = true
+            } else {
+                // Pattern detection doesn't read the contents, so it never triggers a paste prompt.
+                let patterns = try? await UIPasteboard.general.detectedPatterns(for: [\.probableWebURL])
+                clipboardMayHaveInvite = patterns?.contains(\.probableWebURL) ?? false
+            }
+        }
+    }
+}
+
+/// Pulls a team invite token out of whatever a parent pastes: a bare code ("ABCDE FGHJK"),
+/// an invite link, or the coach's whole shared message.
+enum InviteCode {
+    static func token(in text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let match = trimmed.firstMatch(of: /teamclubhq\.com\/join\/([A-Za-z0-9_-]+)/) { return String(match.1) }
+        if let url = URL(string: trimmed), case .invite(let token)? = DeepLink(url: url) { return token }
+        if let match = trimmed.firstMatch(of: /code:?\s*([A-Za-z0-9]{5}\s?[A-Za-z0-9]{5})/) {
+            return String(match.1).replacingOccurrences(of: " ", with: "").uppercased()
+        }
+        let compact = trimmed.replacingOccurrences(of: " ", with: "")
+        // Short codes are typed in any case, sometimes with a dash ("ABCDE-FGHJK"); older long
+        // tokens are URL-safe base64, where "-" is part of the token, so they're kept as-is.
+        guard compact.wholeMatch(of: /[A-Za-z0-9_-]+/) != nil else { return nil }
+        let code = compact.replacingOccurrences(of: "-", with: "")
+        if (8...12).contains(code.count) { return code.uppercased() }
+        return compact.count > 12 ? compact : nil
     }
 }
 
@@ -170,18 +229,7 @@ struct JoinTeamView: View {
     }
 
     /// Accepts a bare code ("ABCDE FGHJK"), an invite link, or the whole shared invite message.
-    private var token: String {
-        let trimmed = linkText.trimmingCharacters(in: .whitespacesAndNewlines)
-        // A pasted message: find the invite link inside it.
-        if let match = trimmed.firstMatch(of: /teamclubhq\.com\/join\/([A-Za-z0-9_-]+)/) { return String(match.1) }
-        if let url = URL(string: trimmed), case .invite(let token)? = DeepLink(url: url) { return token }
-        // "team code: ABCDE FGHJK" → the code itself.
-        if let match = trimmed.firstMatch(of: /code:?\s*([A-Za-z0-9]{5}\s?[A-Za-z0-9]{5})/) {
-            return String(match.1).replacingOccurrences(of: " ", with: "").uppercased()
-        }
-        let compact = trimmed.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: "")
-        return compact.count <= 12 ? compact.uppercased() : compact
-    }
+    private var token: String { InviteCode.token(in: linkText) ?? "" }
 
     private var sport: Sport { preview?.team?.sport ?? .basketball }
 
@@ -193,8 +241,19 @@ struct JoinTeamView: View {
                     .autocorrectionDisabled()
                     .font(.title3.monospaced())
                     .onSubmit { Task { await lookUp() } }
-                AsyncButton("Find Team", action: lookUp)
-                    .disabled(token.filter { !$0.isWhitespace }.count < 8)
+                HStack {
+                    AsyncButton("Find Team", action: lookUp)
+                        .buttonStyle(.borderless)
+                        .disabled(token.isEmpty)
+                    Spacer()
+                    PasteButton(payloadType: String.self) { strings in
+                        guard let pasted = strings.lazy.compactMap(InviteCode.token(in:)).first else { return }
+                        linkText = pasted
+                        Task { await lookUp() }
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonBorderShape(.capsule)
+                }
             } header: {
                 Text("Team code")
             } footer: {
@@ -240,7 +299,7 @@ struct JoinTeamView: View {
         .navigationTitle("Join a Team")
         .keyboardDoneButton()
         .task {
-            if token.count >= 8, preview == nil { await lookUp() }
+            if !token.isEmpty, preview == nil { await lookUp() }
         }
     }
 
