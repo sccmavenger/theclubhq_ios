@@ -31,6 +31,32 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 - **Verified against production:** 21 checks passing, covering all three role registrations, wrong-account and single-use code protections, and the RLS boundaries for players.
 - **Blocker for real users:** Supabase must send through Resend (custom SMTP, sender `info@teamclubhq.com`). The built-in mailer only delivers to project team members, at 2 emails per hour.
 
+## D-034 — Making Coach Pro purchasable (2026-10-22) — Accepted
+**Owner's goal:** a coach can subscribe to Coach Pro. The owner delegated the "how."
+
+**What was wrong (diagnosed 2026-10-22):**
+1. **Apple won't sell the products yet.** Both subscriptions are `MISSING_METADATA` in App Store Connect, yet every product-level field is complete. Verified via API: en-US localization, the group localization ("Coach Pro"), US price ($9.99 / $69.99), US availability, a 2-week free-trial intro offer, and App Review screenshots that finished processing. Apple's forums and setup guides name two causes for this state: a missing group localization (not the case here) and the account-level **Paid Apps Agreement, banking, and tax**. Only the Account Holder can complete those in App Store Connect → Business; the API can't. StoreKit returns no products, even in TestFlight sandbox, until they're active.
+2. **The server couldn't verify any purchase.** `sync-subscription` called the App Store Server API with `APPSTORE_*` secrets that were never set (Supabase secrets list has none). That API needs an *In-App Purchase* key, which is a separate, web-only key type.
+3. **Apple had nowhere to send renewals and refunds.** The App Store Server Notifications URL was unset.
+4. **The app hard-disabled every upgrade path** (`coachProPurchasesEnabled = false`). The paywall also hard-coded "$9.99/month or $69.99/year · 14-day free trial" and listed "Priority support", which we don't offer.
+
+**Decisions:**
+- **Verify Apple's signatures ourselves (no In-App Purchase key needed).** `_shared/appstore.ts` verifies every signed transaction, renewal record, and notification the way Apple's App Store Server Library `SignedDataVerifier` does:
+  - The x5c chain must end in the **pinned Apple Root CA – G3**. It was downloaded from apple.com, and its SHA-256 `63:34:3A:BF:…:3E:91:79` matches Apple's published root list.
+  - The intermediate must carry OID `1.2.840.113635.100.6.2.1` and the leaf `1.2.840.113635.100.6.11.1`.
+  - Each certificate must be valid at the payload's `signedDate`, and the ES256 signature must verify with the leaf key.
+  - The payload must name bundle `com.teamclubhq.app`, and in Production, App Apple ID 6822555956.
+
+  Status comes from the verified fields: revoked → active → grace period → billing retry → expired. Older out-of-order updates can't overwrite a newer renewal. If an In-App Purchase key is ever added (`APPSTORE_KEY_ID` / `APPSTORE_ISSUER_ID` / `APPSTORE_PRIVATE_KEY`), the server also re-fetches the latest status from Apple. Tests: `supabase/tests/appstore_verify_test.ts` (8 passing) uses a locally generated chain shaped like Apple's, and covers a tampered payload, a look-alike root, a missing OID, an expired leaf, and garbage input (400). The live endpoints reject a non-Apple chain with 403 "Not signed by Apple."
+- **App Store Server Notifications V2** are set for Production and Sandbox to `…/functions/v1/appstore-notifications`, configured via API and read back. This covers renewals, expirations, billing problems, and refunds.
+- **Pro appears only when Apple actually sells it.** `coachProPurchasesEnabled` is now a kill switch (on). Upgrade prompts require `SubscriptionStore.productsAvailable` (StoreKit returned the products, rechecked whenever the app comes to the foreground), and they never appear in demo mode, which has no account to attach a subscription to. So the same build is safe today (no prompts, identical to 1.0 behavior; verified in the simulator) and lights up automatically once Apple starts selling. The app also re-sends its current entitlement to the server after sign-in and on launch.
+- **Paywall copy:** removed the hard-coded price/trial line (StoreKit shows localized prices and shows the trial only to eligible people; guideline 3.1.2) and "Priority support" (not a real benefit).
+- **Terms and Support** (teamclubhq.com) describe Coach Pro: optional, sold through Apple, price, auto-renewal, how to cancel, refunds through Apple. The paywall links Terms of Use and Privacy and shows Restore Purchases.
+- **Release plan:** leave 1.0 (build 9, no purchases) in review so its queue position isn't lost again. Subscriptions must be submitted together with an app version the first time, so Coach Pro ships as **1.0.1**: once the agreement is active and the subscriptions read `READY_TO_SUBMIT`, run `node scripts/asc/swap-review-build.mjs <build> --with-coach-pro`. It submits both subscriptions and adds the staged Coach Pro paragraph and review notes (`metadata.json`). The listing must not mention Pro before then (2.3.1).
+- **Local testing:** `StoreKit/ClubHQ.storekit` plus the shared scheme give Xcode runs a local store with the same products. In this session Xcode didn't pick up the newly added scheme setting, so the purchase sheet wasn't exercised locally. The end-to-end check is a TestFlight sandbox purchase (free) after the agreement is active.
+
+**Owner action required:** App Store Connect → **Business** → accept the **Paid Apps Agreement** and complete **banking** and **tax** (plus any updated Program License Agreement shown there).
+
 ## D-033 — Venmo & Cash App buttons for dues (owner-selected 2026-10-22) — Accepted
 - **Context:** Card payments through Stripe Connect (D-010) aren't on yet, and many teams already collect by Venmo or Cash App. The owner chose "Option C": coaches add their handles and families get one-tap pay buttons.
 - **Decision:** Two nullable columns on `teams`: `venmo_username` and `cashapp_cashtag`. They're stored bare (no @ or $) and set by the head coach through `update-team` (Team Settings → Payments, or Dues & Payments → How families pay you). Free on every plan. Pasted links are normalized on the device and the server (`PaymentHandles` / `paymentHandle()`); the rules are Venmo 5–30 `[A-Za-z0-9_-]` and Cash App 1–20 letters/digits with at least one letter.

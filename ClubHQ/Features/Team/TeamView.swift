@@ -92,7 +92,7 @@ struct TeamView: View {
                     }
                 }
                 // Season Report is a Coach Pro feature; hidden while Pro isn't for sale.
-                if team.isStaff && (team.isPro || AppConfig.coachProPurchasesEnabled) {
+                if team.isStaff && (team.isPro || model.canSellPro) {
                     NavigationLink {
                         AttendanceReportView(team: team)
                     } label: {
@@ -392,7 +392,7 @@ struct TeamSettingsView: View {
 
     var body: some View {
         Form {
-            if team.isPro || AppConfig.coachProPurchasesEnabled {
+            if team.isPro || model.canSellPro {
             Section {
                 if team.isPro {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 12) {

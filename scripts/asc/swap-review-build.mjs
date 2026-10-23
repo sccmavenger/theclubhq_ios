@@ -1,4 +1,4 @@
-// Usage: node scripts/asc/swap-review-build.mjs <build-number>
+// Usage: node scripts/asc/swap-review-build.mjs <build-number> [--with-coach-pro]
 // Replaces the build on the in-review App Store version: cancels the active review submission,
 // attaches the new build, syncs description + review notes from docs/app-store/metadata.json,
 // keeps release = automatic after approval, and resubmits.
@@ -6,6 +6,11 @@ import fs from "fs";
 import { asc, errs } from "./asc.mjs";
 const APP = "6822555956", VERSION = "0588d610-4e32-4a8a-b5fe-431122f3c402";
 const BUILD = process.argv[2];
+// --with-coach-pro: also submit the Coach Pro subscriptions (first-time subscriptions must go
+// with an app version) and add the Coach Pro sections to the listing and review notes (D-034).
+// Requires the Paid Apps Agreement; untested until then.
+const WITH_PRO = process.argv.includes("--with-coach-pro");
+const SUB_GROUP = "22474078";
 const meta = JSON.parse(fs.readFileSync(new URL("../../docs/app-store/metadata.json", import.meta.url), "utf8"));
 const report = (l, r) => { console.log(`${r.status < 300 ? "OK  " : "FAIL"} ${l} (${r.status}) ${r.status < 300 ? "" : errs(r)}`); if (r.status >= 300) process.exit(1); return r; };
 const sleep = ms => new Promise(s => setTimeout(s, ms));
@@ -30,9 +35,21 @@ for (let i = 0; i < 30; i++) {
 report(`attach build ${BUILD}`, await asc("PATCH", `/v1/appStoreVersions/${VERSION}/relationships/build`, { data: { type: "builds", id: build.id } }));
 report("release after approval", await asc("PATCH", `/v1/appStoreVersions/${VERSION}`, { data: { type: "appStoreVersions", id: VERSION, attributes: { releaseType: "AFTER_APPROVAL" } } }));
 const loc = (await asc("GET", `/v1/appStoreVersions/${VERSION}/appStoreVersionLocalizations`)).json.data.find(l => l.attributes.locale === "en-US");
-report("description", await asc("PATCH", `/v1/appStoreVersionLocalizations/${loc.id}`, { data: { type: "appStoreVersionLocalizations", id: loc.id, attributes: { description: meta.version_1_0.description } } }));
+let description = meta.version_1_0.description;
+let notes = meta.app_review_information.notes;
+if (WITH_PRO) {
+  description = description.replace("PRIVACY FIRST", meta.version_1_0.coach_pro_description_section + "PRIVACY FIRST");
+  notes += meta.app_review_information.coach_pro_review_notes;
+  const subs = (await asc("GET", `/v1/subscriptionGroups/${SUB_GROUP}/subscriptions`)).json.data;
+  const notReady = subs.filter((x) => x.attributes.state !== "READY_TO_SUBMIT" && x.attributes.state !== "WAITING_FOR_REVIEW");
+  if (notReady.length) { console.log("subscriptions not ready:", notReady.map((x) => `${x.attributes.productId}=${x.attributes.state}`).join(", ")); process.exit(1); }
+  for (const sub of subs.filter((x) => x.attributes.state === "READY_TO_SUBMIT")) {
+    report(`submit ${sub.attributes.productId}`, await asc("POST", "/v1/subscriptionSubmissions", { data: { type: "subscriptionSubmissions", relationships: { subscription: { data: { type: "subscriptions", id: sub.id } } } } }));
+  }
+}
+report("description", await asc("PATCH", `/v1/appStoreVersionLocalizations/${loc.id}`, { data: { type: "appStoreVersionLocalizations", id: loc.id, attributes: { description } } }));
 const det = (await asc("GET", `/v1/appStoreVersions/${VERSION}/appStoreReviewDetail`)).json.data;
-report("review notes", await asc("PATCH", `/v1/appStoreReviewDetails/${det.id}`, { data: { type: "appStoreReviewDetails", id: det.id, attributes: { notes: meta.app_review_information.notes } } }));
+report("review notes", await asc("PATCH", `/v1/appStoreReviewDetails/${det.id}`, { data: { type: "appStoreReviewDetails", id: det.id, attributes: { notes } } }));
 const sub = report("create submission", await asc("POST", "/v1/reviewSubmissions", { data: { type: "reviewSubmissions", attributes: { platform: "IOS" }, relationships: { app: { data: { type: "apps", id: APP } } } } })).json.data;
 report("add version", await asc("POST", "/v1/reviewSubmissionItems", { data: { type: "reviewSubmissionItems", relationships: { reviewSubmission: { data: { type: "reviewSubmissions", id: sub.id } }, appStoreVersion: { data: { type: "appStoreVersions", id: VERSION } } } } }));
 report("submit", await asc("PATCH", `/v1/reviewSubmissions/${sub.id}`, { data: { type: "reviewSubmissions", id: sub.id, attributes: { submitted: true } } }));

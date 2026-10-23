@@ -117,12 +117,10 @@ private struct PaywallMarketing: View {
                 benefit("square.and.arrow.up", "Roster & attendance export")
                 benefit("bell.badge.fill", "One-tap reminders for unpaid dues")
                 benefit("paintpalette.fill", "Custom team colors")
-                benefit("lifepreserver.fill", "Priority support")
             }
             .padding(.top, 4)
-            Text("$9.99/month or $69.99/year · 14-day free trial")
-                .font(.subheadline.weight(.semibold))
-                .padding(.top, 6)
+            // Prices and trial eligibility come from the App Store controls below (localized,
+            // and only shown to people who actually qualify for the free trial).
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 16)

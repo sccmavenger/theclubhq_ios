@@ -3,6 +3,7 @@ import SwiftUI
 @main struct MyApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -34,6 +35,10 @@ import SwiftUI
                     #endif
                 }
                 .onOpenURL { model.handle(url: $0) }
+                // Coach Pro appears as soon as the App Store starts selling it (D-034).
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { Task { await model.store.loadProducts() } }
+                }
         }
     }
 }

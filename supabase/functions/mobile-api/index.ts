@@ -19,7 +19,7 @@ import {
 } from "../_shared/http.ts";
 import { enqueueTeamNotification } from "../_shared/notify.ts";
 import { dispatchPendingPushes } from "../_shared/dispatch.ts";
-import { originalTransactionIdFromJws, refreshSubscription } from "../_shared/appstore.ts";
+import { syncFromDevice } from "../_shared/appstore.ts";
 import { checkoutFeeCents, stripe } from "../_shared/stripe.ts";
 
 type Params = Record<string, unknown>;
@@ -906,7 +906,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
   // ----- Coach Pro (D-010) ----------------------------------------------------------
   async "sync-subscription"(ctx, p) {
     const jws = str(p, "signed_transaction", { min: 20, max: 20000 });
-    const result = await refreshSubscription(ctx.admin, originalTransactionIdFromJws(jws), ctx.uid);
+    const result = await syncFromDevice(ctx.admin, jws, ctx.uid);
     return { ...result, is_coach_pro: await isCoachPro(ctx) };
   },
 

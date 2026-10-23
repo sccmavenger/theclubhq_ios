@@ -57,6 +57,10 @@ final class AppModel {
     /// Device entitlement OR server entitlement (either is enough to *show* Pro).
     var isCoachPro: Bool { (context?.isCoachPro ?? false) || store.hasActiveSubscription }
 
+    /// Upgrade prompts and the paywall show only when Coach Pro can actually be bought, and never
+    /// in demo mode (a demo has no account to attach a real subscription to). DECISIONS D-034.
+    var canSellPro: Bool { store.canPurchase && !isDemo }
+
     /// Free plan: 1 team as head coach; Pro: 3 (DECISIONS D-011).
     var canCreateAnotherTeam: Bool {
         let owned = context?.headCoachTeamCount ?? 0
@@ -69,6 +73,7 @@ final class AppModel {
         store.start()
         if backend.hasSession {
             await reloadContext()
+            await store.syncCurrentEntitlements()
         } else {
             phase = .signedOut
         }
@@ -96,6 +101,7 @@ final class AppModel {
     /// Call after any sign-in path succeeds.
     func didAuthenticate() async {
         await reloadContext()
+        await store.syncCurrentEntitlements()
         if let token = PushManager.shared.latestToken { registerDevice(token: token) }
     }
 

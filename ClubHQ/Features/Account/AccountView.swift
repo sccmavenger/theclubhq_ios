@@ -128,7 +128,7 @@ struct AccountView: View {
     @ViewBuilder private var planSection: some View {
         let coachesATeam = model.teams.contains(where: \.isHeadCoach)
         // While Coach Pro isn't for sale, free coaches see no plan section at all (App Review 2.3.1).
-        if model.isCoachPro || (coachesATeam && AppConfig.coachProPurchasesEnabled) {
+        if model.isCoachPro || (coachesATeam && model.canSellPro) {
             Section {
                 if model.isCoachPro {
                     Label("Coach Pro is active", systemImage: "sparkles").foregroundStyle(.purple)
@@ -136,7 +136,7 @@ struct AccountView: View {
                     if !model.isDemo && model.store.hasActiveSubscription {
                         Button("Manage Subscription") { showManageSubscription = true }
                     }
-                } else if AppConfig.coachProPurchasesEnabled {
+                } else if model.canSellPro {
                     Button { showPaywall = true } label: {
                         HStack {
                             Label("Upgrade to Coach Pro", systemImage: "sparkles")

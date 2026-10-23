@@ -31,9 +31,11 @@ nonisolated enum AppConfig {
     static let coachProProductIDs = ["com.teamclubhq.pro.monthly", "com.teamclubhq.pro.yearly"]
     /// App Store Connect subscription group "Coach Pro" (created 2026-10-13).
     static let coachProGroupID = "22474078"
-    /// Off until the Paid Apps Agreement is signed and the subscriptions are approved.
-    /// While off, every upgrade prompt and the paywall are hidden.
-    static let coachProPurchasesEnabled = false
+    /// Kill switch for selling Coach Pro. Even when on, upgrade prompts only appear once the
+    /// App Store actually returns the products (`SubscriptionStore.productsAvailable`), which
+    /// happens after the Paid Apps Agreement is active and the subscriptions are approved
+    /// (DECISIONS D-034).
+    static let coachProPurchasesEnabled = true
     /// Off until the Stripe Connect account and keys are live (OQ-08). While off, coaches can
     /// still request dues and mark cash/Venmo payments as paid; the Stripe setup button is hidden.
     static let cardPaymentsEnabled = false

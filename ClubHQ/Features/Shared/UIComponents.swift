@@ -200,10 +200,11 @@ enum ReportMail {
 struct ProUpsellRow: View {
     let title: String
     let message: String
+    @Environment(AppModel.self) private var model
     @State private var showPaywall = false
 
     var body: some View {
-        if AppConfig.coachProPurchasesEnabled {
+        if model.canSellPro {
             upsellButton
         }
     }

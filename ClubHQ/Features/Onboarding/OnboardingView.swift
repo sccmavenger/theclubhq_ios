@@ -106,7 +106,7 @@ struct CreateTeamView: View {
             }
             if !model.canCreateAnotherTeam {
                 Section {
-                    if AppConfig.coachProPurchasesEnabled {
+                    if model.canSellPro {
                         ProUpsellRow(title: "Run up to 3 teams with Coach Pro",
                                      message: "The free plan includes one team as head coach. Everything parents use stays free.")
                     } else {
@@ -123,7 +123,7 @@ struct CreateTeamView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(request.teamName.trimmingCharacters(in: .whitespaces).isEmpty
-                          || (!model.canCreateAnotherTeam && !AppConfig.coachProPurchasesEnabled))
+                          || (!model.canCreateAnotherTeam && !model.canSellPro))
                 .listRowBackground(Color.clear)
             }
         }
@@ -141,7 +141,7 @@ struct CreateTeamView: View {
             model.selectedTeamID = teamID
             await model.reloadContext()
             dismiss()
-        } catch let error as BackendError where error.isUpgradeRequired && AppConfig.coachProPurchasesEnabled {
+        } catch let error as BackendError where error.isUpgradeRequired && model.canSellPro {
             showPaywall = true
         } catch let error as BackendError where error.isUpgradeRequired {
             // Coach Pro isn't for sale yet, so don't mention it (App Review 2.3.1).
