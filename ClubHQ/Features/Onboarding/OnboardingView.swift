@@ -103,7 +103,8 @@ struct JoinOrCreateList: View {
 /// Pulls a team invite token out of whatever a parent pastes: a bare code ("ABCDE FGHJK"),
 /// an invite link, or the coach's whole shared message.
 enum InviteCode {
-    static func token(in text: String) -> String? {
+    /// Pure string parsing, so it's callable from PasteButton's nonisolated closure.
+    nonisolated static func token(in text: String) -> String? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if let match = trimmed.firstMatch(of: /teamclubhq\.com\/join\/([A-Za-z0-9_-]+)/) { return String(match.1) }
         if let url = URL(string: trimmed), case .invite(let token)? = DeepLink(url: url) { return token }
