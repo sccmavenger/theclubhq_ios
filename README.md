@@ -25,8 +25,10 @@ data is never sold.
 - See who's coming (Going / Maybe / Out / No reply) and take attendance.
 - Post announcements, run team chat, and message families.
 - Collect dues: families get one-tap Venmo or Cash App buttons, and coaches mark payments paid.
-- Invite families with one code or link. Parents add their own kids, so there's no roster typing.
+- Invite families with one code or link that lasts the season (Reset Code if it leaks). Parents add their own kids, so there's no roster typing.
 - A "Get your team ready" checklist walks new coaches through setup, and coaches get a notification each time a family joins.
+- **Move from GroupMe:** a four-step guide with ready-to-paste messages (invite link, team code and switch date filled in) to move a team off GroupMe.
+- Weekly repeating events keep their local time across Daylight Saving.
 
 **Parents**
 - One home screen for every child on every team, with one-tap RSVP.
@@ -37,7 +39,16 @@ data is never sold.
 **Players (13+)**
 - Their own login for the schedule, self-RSVP, and team chat. Players can't start private conversations.
 
-**Everyone** gets a short role-specific welcome tour on first launch (replay it from More → Show App Tour). Invite links on teamclubhq.com open the app directly.
+**Everyone**
+- **Photos in team chat.** They're resized on the phone, and location and other metadata are removed before upload.
+- **Calendar sync:** one private feed covering every team you're on, for Apple Calendar or Google Calendar (Schedule → Calendar sync).
+- An **"Open Event"** action in the Shortcuts app.
+- A short role-specific welcome tour on first launch (replay it from More → Show App Tour). Invite links on teamclubhq.com open the app directly.
+
+## Status (2026-10-23)
+- **App Store:** version 1.0 (build 17) is waiting for App Review, and it releases automatically once approved. Card payments and Coach Pro are off in 1.0. Coach Pro ships in 1.0.1 once the Paid Apps Agreement is active.
+- **TestFlight:** build 17 is live for the external group.
+- **Next:** see [`docs/ROADMAP.md`](docs/ROADMAP.md), which includes an Apple Intelligence track. Phase 0 groundwork is done; on-device schedule import from screenshots, PDFs or text comes next.
 
 ## Run it
 1. Open `ClubHQ.xcodeproj` in Xcode 27 and pick an iPhone simulator (iOS 27).
@@ -47,11 +58,13 @@ Debug builds accept launch arguments for screenshots:
 `-ScreenshotPersona coach|parent|player -ScreenshotTab home|schedule|team|messages -ScreenshotOpen chat|event|tour`
 (see [`docs/APP_STORE.md`](docs/APP_STORE.md)).
 
+Unit tests (Swift Testing) live in `ClubHQTests`: Product → Test, or ⌘U.
+
 To test Coach Pro purchases locally: Edit Scheme → Run → Options → StoreKit Configuration → `StoreKit/ClubHQ.storekit`.
 
 ## How it's built
 - **SwiftUI**, iOS 27, no third-party dependencies. `AppModel` holds the session and teams; views talk to the `ClubHQBackend` protocol, which has a live `SupabaseBackend` and an in-memory `DemoBackend` used for Demo Mode, previews, and tests.
-- **Supabase** backend (`supabase/`): Postgres with row-level security, plus Edge Functions. `mobile-api` handles privileged actions (teams, invites, dues, notifications), `apns-dispatch` sends push notifications, and webhooks handle Stripe and the App Store.
+- **Supabase** backend (`supabase/`): Postgres with row-level security, plus Edge Functions. `mobile-api` handles privileged actions (teams, invites, dues, chat photos, notifications), `calendar-feed` serves each user's calendar subscription, `apns-dispatch` sends push notifications, and webhooks handle Stripe and the App Store.
 - **teamclubhq.com** (`site/`) on Cloudflare Pages serves the privacy, terms, and support pages and the invite landing page, and enables universal links.
 - The iPhone app is the only client; an earlier web prototype is retired.
 
@@ -67,6 +80,7 @@ More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 |---|---|
 | [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md) | Positioning vs TeamSnap, personas, revenue model, roadmap |
 | [`docs/research/COMPETITIVE_ANALYSIS.md`](docs/research/COMPETITIVE_ANALYSIS.md) | Competitor, pricing, App Store, and COPPA research |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | What's next, including the Apple Intelligence track and its status |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Every "how" decision and why |
 | [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md) | Open questions for the owner |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit |
