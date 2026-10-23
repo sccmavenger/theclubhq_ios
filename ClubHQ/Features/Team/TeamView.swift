@@ -213,11 +213,6 @@ struct InviteFamiliesView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-            .confirmationDialog("Reset the team code?", isPresented: $confirmReset, titleVisibility: .visible) {
-                Button("Reset Code", role: .destructive) { Task { await reset() } }
-            } message: {
-                Text("The current link and code stop working right away. Families who already joined aren't affected. Share the new invite with anyone still joining.")
-            }
             .task {
                 do {
                     invite = try await model.backend.createInvite(teamID: team.id)
@@ -279,6 +274,12 @@ struct InviteFamiliesView: View {
                     .font(.footnote)
                     .disabled(isResetting)
                     .padding(.top, 8)
+                    // Attached to the button so the dialog points at it, not the top of the sheet.
+                    .confirmationDialog("Reset the team code?", isPresented: $confirmReset, titleVisibility: .visible) {
+                        Button("Reset Code", role: .destructive) { Task { await reset() } }
+                    } message: {
+                        Text("The current link and code stop working right away. Families who already joined aren't affected. Share the new invite with anyone still joining.")
+                    }
             }
         }
         .padding(.horizontal, 24)

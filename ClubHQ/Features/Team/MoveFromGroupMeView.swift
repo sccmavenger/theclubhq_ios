@@ -193,8 +193,14 @@ struct MoveFromGroupMeView: View {
                         withAnimation { if copiedStep == step.id { copiedStep = nil } }
                     }
                 } label: {
-                    Label(copiedStep == step.id ? "Copied" : "Copy", systemImage: copiedStep == step.id ? "checkmark" : "doc.on.doc")
-                        .frame(maxWidth: .infinity)
+                    // Explicit icon + text (TestFlight feedback, build 13): the animated Label swap
+                    // left an empty icon slot, so "Copy" sat right of center.
+                    HStack(spacing: 6) {
+                        Image(systemName: copiedStep == step.id ? "checkmark" : "doc.on.doc")
+                            .contentTransition(.symbolEffect(.replace))
+                        Text(copiedStep == step.id ? "Copied" : "Copy")
+                    }
+                    .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 ShareLink(item: step.message) {

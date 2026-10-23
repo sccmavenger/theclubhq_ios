@@ -77,9 +77,21 @@ struct AccountView: View {
                     Section { Text(errorText).foregroundStyle(.red) }
                 }
 
+                // Dialogs attach to their buttons: on iOS 26+ a confirmation dialog points at the
+                // view it's attached to, so attaching it to the List put it at the top (TestFlight feedback).
                 Section {
                     Button("Sign Out", role: .destructive) { confirmSignOut = true }
+                        .confirmationDialog("Sign out of ClubHQ?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+                            Button("Sign Out", role: .destructive) {
+                                Task { model.isDemo ? await model.exitDemo() : await model.signOut() }
+                            }
+                        }
                     Button("Delete Account", role: .destructive) { confirmDelete = true }
+                        .confirmationDialog("Delete your account?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                            Button("Delete Account", role: .destructive) { Task { await deleteAccount() } }
+                        } message: {
+                            Text("This removes your login, your team memberships, and your links to players. Teams where you're the only head coach are archived. This can't be undone.\(model.store.hasActiveSubscription ? " Active App Store subscriptions must be cancelled in Settings." : "")")
+                        }
                 }
             }
             .navigationTitle("More")
@@ -95,16 +107,6 @@ struct AccountView: View {
                 }
             }
             .manageSubscriptionsSheet(isPresented: $showManageSubscription, subscriptionGroupID: AppConfig.coachProGroupID)
-            .confirmationDialog("Sign out of ClubHQ?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-                Button("Sign Out", role: .destructive) {
-                    Task { model.isDemo ? await model.exitDemo() : await model.signOut() }
-                }
-            }
-            .confirmationDialog("Delete your account?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button("Delete Account", role: .destructive) { Task { await deleteAccount() } }
-            } message: {
-                Text("This removes your login, your team memberships, and your links to players. Teams where you're the only head coach are archived. This can't be undone.\(model.store.hasActiveSubscription ? " Active App Store subscriptions must be cancelled in Settings." : "")")
-            }
             // Close after any successful join: a new team, or another child (or co-parent link)
             // on a team the user is already on, which leaves the team count unchanged.
             .onChange(of: model.teams.count + model.teams.reduce(0) { $0 + $1.linkedPlayers.count }) { old, new in

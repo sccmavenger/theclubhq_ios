@@ -135,6 +135,18 @@ struct PlayerDetailView: View {
                     } label: {
                         Label("Manage", systemImage: "ellipsis.circle")
                     }
+                    // Anchored to the menu so the dialog points at the button that opened it.
+                    .confirmationDialog("Remove \(player.firstName) from the roster?", isPresented: $confirmArchive, titleVisibility: .visible) {
+                        Button("Remove", role: .destructive) {
+                            Task {
+                                try? await model.backend.archivePlayer(id: player.id)
+                                model.noteDataChanged()
+                                dismiss()
+                            }
+                        }
+                    } message: {
+                        Text("Their history (attendance, payments) is kept.")
+                    }
                 }
             }
         }
@@ -150,17 +162,6 @@ struct PlayerDetailView: View {
                 player.birthdate = updated.birthdate.map(JSONCoding.formatDateOnly)
                 player.notes = updated.notes.nilIfEmpty
             }
-        }
-        .confirmationDialog("Remove \(player.firstName) from the roster?", isPresented: $confirmArchive, titleVisibility: .visible) {
-            Button("Remove", role: .destructive) {
-                Task {
-                    try? await model.backend.archivePlayer(id: player.id)
-                    model.noteDataChanged()
-                    dismiss()
-                }
-            }
-        } message: {
-            Text("Their history (attendance, payments) is kept.")
         }
         .task {
             contacts = (try? await model.backend.emergencyContacts(playerID: player.id)) ?? []

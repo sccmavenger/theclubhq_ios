@@ -120,6 +120,13 @@ struct EventDetailView: View {
                     } label: {
                         Label("Manage", systemImage: "ellipsis.circle")
                     }
+                    // Anchored to the menu so the dialog points at the button that opened it,
+                    // not the middle of the list (TestFlight feedback).
+                    .confirmationDialog("Cancel this event?", isPresented: $confirmCancel, titleVisibility: .visible) {
+                        Button("Cancel Event", role: .destructive) { Task { await cancel() } }
+                    } message: {
+                        Text("Everyone on the team will be notified.")
+                    }
                 }
             }
         }
@@ -131,11 +138,6 @@ struct EventDetailView: View {
                 try await model.backend.setScore(eventID: event.id, homeScore: home, awayScore: away)
                 await load()
             }
-        }
-        .confirmationDialog("Cancel this event?", isPresented: $confirmCancel, titleVisibility: .visible) {
-            Button("Cancel Event", role: .destructive) { Task { await cancel() } }
-        } message: {
-            Text("Everyone on the team will be notified.")
         }
     }
 

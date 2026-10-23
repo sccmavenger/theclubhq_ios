@@ -67,6 +67,12 @@ struct CalendarSyncView: View {
                     Section {
                         Button("Reset Link", role: .destructive) { confirmReset = true }
                             .disabled(isWorking)
+                            // Attached to the button so the dialog points at it, not the top of the list.
+                            .confirmationDialog("Reset your calendar link?", isPresented: $confirmReset, titleVisibility: .visible) {
+                                Button("Reset Link", role: .destructive) { Task { await load(reset: true) } }
+                            } message: {
+                                Text("The old link stops working, so calendars using it stop updating. Delete the old subscription from your calendar, then subscribe again.")
+                            }
                     } footer: {
                         Text("Your calendar app decides how often to check for changes, so a last-minute change can take a while to show up there. ClubHQ notifications arrive right away. Keep this link private: anyone who has it can see your teams' schedules.")
                     }
@@ -76,11 +82,6 @@ struct CalendarSyncView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-            }
-            .confirmationDialog("Reset your calendar link?", isPresented: $confirmReset, titleVisibility: .visible) {
-                Button("Reset Link", role: .destructive) { Task { await load(reset: true) } }
-            } message: {
-                Text("The old link stops working, so calendars using it stop updating. Delete the old subscription from your calendar, then subscribe again.")
             }
             .task { await load(reset: false) }
         }
