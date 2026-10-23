@@ -66,6 +66,17 @@ to ship build 8 instead, so the build 7 submission was canceled and a new one wa
 now **automatic after approval** (`releaseType = AFTER_APPROVAL`). The review notes' PAYMENTS paragraph
 explains the external Venmo/Cash App links (3.1.3(e)). Scripts: `scripts/asc/`.
 
+**2026-10-22 (evening): resubmitted with build 9** after a pre-review audit. Changes: Coach Pro
+leftovers hidden while purchases are off (plan section, empty Team color section, Season Report
+link, second-team error text); visible "Report a Concern" in chat and Report on announcements
+(1.2); "coming soon" and a placeholder demo link removed; the reviewer team ("ClubHQ Test Team")
+seeded with upcoming events, a 10-player roster, chat, announcements, and dues; Terms, Privacy,
+and Support pages updated to match 1.0 (owner uploads `build/site-deploy.zip` to Cloudflare
+Pages). Release stays automatic after approval. Swap a build into review with
+`node scripts/asc/swap-review-build.mjs <build>`. If xcodebuild export fails with "Failed to
+Use Accounts", pass `-authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID`
+with the ASC key.
+
 Build **7** adds Report/Block in chat (guideline 1.2). The description and review notes in
 `docs/app-store/metadata.json` no longer mention Stripe card payments or Coach Pro, since both are off in 1.0
 (guideline 2.3.1). Paste both into App Store Connect. The 6 screenshots in `design/app-store-screenshots/`
