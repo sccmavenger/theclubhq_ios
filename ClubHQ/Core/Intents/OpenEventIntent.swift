@@ -12,8 +12,11 @@ struct OpenEventIntent: OpenIntent {
     @Dependency private var model: AppModel
 
     func perform() async throws -> some IntentResult {
+        // perform() isn't main-actor isolated, so hop before touching AppModel.
         // MainTabView consumes the link as soon as the tabs are on screen.
-        model.pendingDeepLink = .event(target.id)
+        let eventID = target.id
+        let model = model
+        await MainActor.run { model.pendingDeepLink = .event(eventID) }
         return .result()
     }
 }
