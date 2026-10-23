@@ -3,7 +3,9 @@ import Foundation
 /// Errors surfaced to the UI. `code` values mirror `mobile-api`'s stable error codes.
 enum BackendError: LocalizedError, Equatable {
     case unauthorized
-    case network(String)
+    /// The request never got a response. `code` is the `URLError` code, shown so a report
+    /// like "Error -1005" says exactly what failed.
+    case network(code: Int)
     case decoding(String)
     case upgradeRequired(String)
     case notConfigured(String)
@@ -31,7 +33,11 @@ enum BackendError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .unauthorized: "Your session ended. Please sign in again."
-        case .network: "You appear to be offline. Check your connection and try again."
+        case .network(let code):
+            // Only say "offline" when iOS says so; anything else gets the code for support.
+            [URLError.notConnectedToInternet.rawValue, URLError.dataNotAllowed.rawValue].contains(code)
+                ? "You appear to be offline. Check your connection and try again."
+                : "Couldn't reach ClubHQ. Check your connection and try again. (Error \(code))"
         case .decoding: "Something unexpected came back from the server. Please update the app or try again."
         case .upgradeRequired(let message): message
         case .notConfigured: "This feature isn't set up on the server yet."

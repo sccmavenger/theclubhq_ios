@@ -559,8 +559,18 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
         .is("archived_at", null)
         .ilike("first_name", likeExact(firstName))
         .ilike("last_name", likeExact(lastName))
-        .limit(1);
+        .limit(20); // all of them: another family may have a child with the same name
       if (sameName && sameName.length > 0) {
+        // The caller's own child (a retried or double-tapped Join): succeed with that child
+        // rather than warning about a duplicate, so retries are safe.
+        const { data: mine } = await ctx.admin
+          .from("parent_player_links")
+          .select("player_id")
+          .eq("parent_user_id", ctx.uid)
+          .in("player_id", sameName.map((s) => s.id))
+          .limit(1)
+          .maybeSingle();
+        if (mine) return { team_id: teamId, player_id: mine.player_id };
         throw new ApiError("possible_duplicate", `${firstName.trim()} ${lastName.trim()} is already on this team.`, 409);
       }
     }

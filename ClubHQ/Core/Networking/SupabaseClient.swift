@@ -327,13 +327,22 @@ final class SupabaseClient {
         let code: LooseString?
     }
 
+    /// Connection failures where the request most likely never reached the server: a reused
+    /// connection that had already been dropped, or a brief Wi-Fi/cellular handoff. iOS retries
+    /// these itself only for GETs, so POSTs (like joining a team) failed on the first try.
+    private static let retryableErrors: Set<URLError.Code> = [
+        .networkConnectionLost, .notConnectedToInternet, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed,
+    ]
+
     private func send<T: Decodable>(_ request: URLRequest) async throws -> T {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await urlSession.data(for: request)
+            (data, response) = try await dataRetryingOnce(for: request)
+        } catch let error as URLError {
+            throw BackendError.network(code: error.code.rawValue)
         } catch {
-            throw BackendError.network(error.localizedDescription)
+            throw BackendError.network(code: URLError.Code.unknown.rawValue)
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
@@ -349,6 +358,17 @@ final class SupabaseClient {
             return try JSONCoding.decoder.decode(T.self, from: data)
         } catch {
             throw BackendError.decoding("\(T.self): \(error)")
+        }
+    }
+
+    /// One retry, a moment later, for the connection failures above. Server actions that
+    /// create things are safe to repeat (claim-invite recognizes the caller's own child).
+    private func dataRetryingOnce(for request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await urlSession.data(for: request)
+        } catch let error as URLError where Self.retryableErrors.contains(error.code) {
+            try await Task.sleep(for: .milliseconds(800))
+            return try await urlSession.data(for: request)
         }
     }
 }

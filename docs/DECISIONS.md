@@ -31,6 +31,24 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 - **Verified against production:** 21 checks passing, covering all three role registrations, wrong-account and single-use code protections, and the RLS boundaries for players.
 - **Blocker for real users:** Supabase must send through Resend (custom SMTP, sender `info@teamclubhq.com`). The built-in mailer only delivers to project team members, at 2 emails per hour.
 
+## D-038 — Connection hiccups: one safe retry, honest error text (2026-10-23) — Accepted
+- **Report:** the owner tested the GroupMe → ClubHQ family flow on TestFlight 13 (head coach joining his own team as a parent). Tapping **Join** showed "You appear to be offline."
+- **What the logs show:**
+  - The invite lookup succeeded at 16:28:18 UTC, and every `mobile-api` call from the phone returned 200.
+  - The `claim-invite` request never reached Supabase: nothing in the gateway or function logs, no token refresh, no new player.
+  - So the failure was on the phone's connection, and the app's own code did not cancel the request.
+  - A simulator test (POSTs after 20, 65 and 125 s idle) did not reproduce a stale-connection failure, so the exact cause on the phone is unconfirmed.
+- **Problems found in the app:**
+  - Any transport error was shown as "offline", hiding which error it was.
+  - iOS re-sends only idempotent requests (GETs) after a dropped connection, so a POST like Join failed on the first hiccup.
+- **Decision:**
+  - **One retry:** `SupabaseClient` retries once, 0.8 s later, for errors where the request most likely never arrived: connection lost, not connected, cannot connect, cannot find host, DNS failure. Timeouts are not retried, because the server may have acted.
+  - **Error text:** "offline" only when iOS reports no internet; otherwise "Couldn't reach ClubHQ… (Error <URLError code>)", so the next report says exactly what failed.
+  - **Join is safe to repeat:** `claim-invite` treats a same-named child the caller already guards as the same join and returns it, instead of a duplicate warning or a second child. Another family's same-named child still gets the warning.
+- **Verified:**
+  - **Live check:** `supabase/tests/d038_live_check.mjs` 7/7 (the owner's head-coach-as-parent case, a repeated Join, no duplicate child, other families still warned).
+  - **Simulated failures:** a stubbed URLProtocol showed one dropped connection recovering, a second failure reporting -1005, offline text only for real offline, and no retry on timeout.
+
 ## D-037 — Weekly repeats keep their local time across Daylight Saving (2026-10-23) — Accepted
 - **Problem (found while testing D-036):** `save-event` made weekly repeats by adding exactly 7×24 hours in UTC. A 6:00 PM Central practice became 5:00 PM after Daylight Saving ended (Nov 1, 2026), and in spring it would become 7:00 PM. Notifications also printed times in UTC ("Sun, 25 Oct 2026 23:00 UTC").
 - **Decision:**
