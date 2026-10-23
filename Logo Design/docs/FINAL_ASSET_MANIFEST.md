@@ -1,0 +1,3 @@
+# ClubHQ approved artwork — source assets
+
+Approved by owner October 23, 2026: HQ Motion / Refined Balance (#3). SVG assets in `vector/final/` are flat-color reconstructed vector artwork from approved raster reference. The white corner-mask artifacts in the prior trace have been removed. Navy #0B2544, orange #FF741C, white #FFFFFF. Wordmark uses live DejaVu Sans text (font dependency; outline before release). PNG export package remains available separately and is not yet uploaded to this repository. Icon Composer `.icon` not generated. Claude must use supplied artwork, not redesign; verify iOS variants and build before release.
