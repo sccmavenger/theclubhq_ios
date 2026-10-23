@@ -145,7 +145,7 @@ struct EventDraft: Equatable, Sendable {
     var isHome = true
     var repeatWeeks = 0
 
-    init(teamId: UUID, start: Date = EventDraft.nextHour()) {
+    init(teamId: UUID, start: Date = EventDraft.defaultStart()) {
         self.teamId = teamId
         startsAt = start
         endsAt = start.addingTimeInterval(90 * 60)
@@ -174,9 +174,13 @@ struct EventDraft: Equatable, Sendable {
 
     var isValid: Bool { endsAt > startsAt }
 
-    static func nextHour(from date: Date = .now) -> Date {
-        let calendar = Calendar.current
-        let hour = calendar.dateInterval(of: .hour, for: date)?.start ?? date
-        return hour.addingTimeInterval(3600)
+    /// The top of the next hour when that's a plausible practice time (8 AM – 8 PM);
+    /// otherwise the next 6 PM, so a late-night "Add Event" doesn't default to midnight.
+    static func defaultStart(from date: Date = .now, calendar: Calendar = .current) -> Date {
+        let hourStart = calendar.dateInterval(of: .hour, for: date)?.start ?? date
+        let next = hourStart.addingTimeInterval(3600)
+        if (8...20).contains(calendar.component(.hour, from: next)) { return next }
+        let sixToday = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: date) ?? next
+        return sixToday > date ? sixToday : calendar.date(byAdding: .day, value: 1, to: sixToday) ?? next
     }
 }

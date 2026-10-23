@@ -127,7 +127,8 @@ struct HomeView: View {
         }
 
         Section("Needs attention") {
-            if let next = events.first(where: { $0.teamId == team?.id && !$0.isCancelled }) {
+            // With no players yet there's nobody to respond; the invite row below covers that case.
+            if !roster.isEmpty, let next = events.first(where: { $0.teamId == team?.id && !$0.isCancelled }) {
                 let missing = counts(for: next).noResponse
                 AttentionRow(symbol: "hand.raised.fill", tint: missing > 0 ? .orange : .green,
                              title: missing > 0 ? "\(missing) haven't RSVP'd" : "Everyone has responded",
