@@ -54,6 +54,18 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
   - **Calendar feed:** works with no auth headers and is `text/calendar`; cancelled events, escaping, CRLF and 75-octet folding are correct; no child names; an outsider's feed is empty; a reset URL returns 404.
   - **Photos:** signed upload works; a photo can't be posted before upload, and the bucket refuses non-JPEGs; outsiders are refused, and so is someone else's path; a forged PostgREST insert is blocked by the trigger; delete removes the file.
   - **On device:** a RunCodeSnippet run confirmed `ChatPhoto.make` strips GPS, TIFF and EXIF details and applies orientation (3000×2000 rotated → 1067×1600).
+- **Hands-on testing round (2026-10-23):** `supabase/tests/qa_fixture.mjs` builds a throwaway production team ("QA Mavericks 6th": coach, parent, child, events, one cancelled) and tears it down again.
+  - **Swift client vs production (RunCodeSnippet):** invites, reset, calendar feed and rotation, a 12 MP HEIC encoded to 1600×1200 in 0.28 s, photo post with and without caption, the coach downloading the photo, incremental polls, and coach moderation delete.
+  - **Simulator, signed in to production as parent, then coach:** sign-in; picker → attach → caption → send (optimistic bubble, then the server copy); full-screen viewer, Share → Save Image (iOS showed our usage string, no crash); long-press delete (file removed from storage). Calendar Sync → Subscribe opened Apple Calendar's subscribe screen with our feed, and it listed the events with local times and locations. Then the GroupMe guide (Copy → clipboard and checkmark, both persisting across relaunch; Share sheet), Reset Code (old code revoked in the database), and the guide link from the invite sheet. The file uploaded from the simulator photo library had no GPS, camera model, or date in its metadata.
+  - **Bugs found and fixed:**
+    1. **No photo appeared in the real app.** `JSONCoding` uses `convertFromSnakeCase`, so `image_url` maps to `imageUrl`; the property was `imageURL`, so it silently decoded as nil. Renamed to `imageUrl` to match `logoUrl`/`linkUrl`.
+    2. **Feed caching kept a reset link alive.** The feed's `Cache-Control: max-age=300` let URLSession (and potentially calendar apps) keep serving a reset link for 5 minutes; it's now `private, no-cache`.
+    3. **Cancelled events were labeled twice.** Apple Calendar labels `STATUS:CANCELLED` events "CANCELED:" itself, so our "Cancelled:" prefix doubled it; the prefix is dropped.
+    4. **Guide step text was cut off.** Step 4 was truncated in the List; fixed with `fixedSize(horizontal: false, vertical: true)`.
+    5. **Guide boxes vanished in dark mode.** The message box was invisible in dark mode; it now uses `tertiarySystemGroupedBackground`.
+    6. **Photo viewer controls were hard to read.** Its title and controls rendered light-on-black; the viewer now forces dark mode.
+  - **Live check:** now 49/49, adding a 13+ player login, player photo posts, and parents-only/staff-only thread restrictions.
+- **Found, not fixed (pre-existing):** `save-event` repeats weekly events in fixed 7×24-hour UTC steps, so a 6:00 PM practice becomes 5:00 PM after Daylight Saving ends (seen on Nov 1, 2026 in both the app and Apple Calendar). The fix needs the coach's time zone. Tracked as a follow-up.
 - **Old app builds:** they keep working. They ignore the new message fields, and text posting is unchanged. A photo-only message shows in old builds as an empty bubble until they update.
 
 ## D-035 — Co-parents share one child; coaches hear when families join (2026-10-23) — Accepted

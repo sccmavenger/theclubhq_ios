@@ -48,7 +48,7 @@ async function api(role, action, params = {}) {
 
 let teamId, orgId;
 try {
-  await Promise.all(["coach", "parent", "outsider"].map(makeUser));
+  await Promise.all(["coach", "parent", "outsider", "player"].map(makeUser));
   await api("coach", "update-profile", { full_name: "QA Coach" });
 
   const team = await api("coach", "create-team", { team_name: `QA D036 ${stamp}`, sport: "basketball" });
@@ -73,9 +73,14 @@ try {
 
   const claim = await api("parent", "claim-invite", {
     token: reset.body.token,
-    child: { first_name: "Quinn", last_name: "Testkid", parent_relationship: "mother", contacts: [{ relationship: "mother", phone: "5555550100" }] },
+    child: { first_name: "Quinn", last_name: "Testkid", birthdate: "2012-03-04", parent_relationship: "mother", contacts: [{ relationship: "mother", phone: "5555550100" }] },
   });
   check("parent joins with the new code", claim.status === 200, JSON.stringify(claim.body));
+
+  // A 13+ player login for the child (D-008), used by the player checks below.
+  const playerCode = await api("parent", "create-player-invite", { player_id: claim.body.player_id });
+  const playerClaim = await api("player", "claim-player-invite", { code: playerCode.body.code });
+  check("13+ player gets their own login", playerClaim.status === 200, JSON.stringify(playerClaim.body));
 
   // ---- Calendar feed ------------------------------------------------------------------
   const start = new Date(Date.now() + 3 * 86_400_000);
@@ -98,10 +103,11 @@ try {
   check("feed URL is stable", feedAgain.body.url === feed.body.url);
   const res = await fetch(feed.body.url); // no headers at all, like a calendar app
   const ics = await res.text();
+  const unfolded = ics.replace(/\r\n /g, ""); // RFC 5545 §3.1 unfolding, as calendar apps read it
   check("feed serves without auth headers", res.status === 200, `${res.status} ${ics.slice(0, 120)}`);
   check("feed is text/calendar", (res.headers.get("content-type") ?? "").startsWith("text/calendar"), res.headers.get("content-type"));
   check("feed has 3 events", (ics.match(/BEGIN:VEVENT/g) ?? []).length === 3);
-  check("cancelled event is marked", ics.includes("STATUS:CANCELLED") && ics.includes("SUMMARY:Cancelled: Practice"));
+  check("cancelled event is marked by status, not a title prefix", ics.includes("STATUS:CANCELLED") && !unfolded.includes("SUMMARY:Cancelled") && unfolded.includes("This event was cancelled."));
   check("away game title", ics.includes("SUMMARY:@ Rockets"));
   check("text is escaped", ics.includes("LOCATION:Lincoln Gym\\, Court 2") && ics.includes("Bring both jerseys\\; water\\, too."));
   check("lines use CRLF", ics.includes("\r\n") && !ics.replace(/\r\n/g, "").includes("\n"));
@@ -161,6 +167,27 @@ try {
 
   const textOnly = await api("parent", "post-message", { thread_id: threadId, body: "" });
   check("empty text without a photo is still rejected", textOnly.status === 400, `${textOnly.status}`);
+
+  // ---- Player role and restricted threads -----------------------------------------------
+  const playerUpload = await api("player", "create-photo-upload", { thread_id: threadId });
+  const playerPut = await fetch(playerUpload.body.upload_url, { method: "PUT", headers: { "Content-Type": "image/jpeg" }, body: jpeg });
+  const playerPost = await api("player", "post-message", { thread_id: threadId, body: "Great game!", image_path: playerUpload.body.path, image_width: 400, image_height: 400 });
+  check("13+ player can post a photo in team chat", playerUpload.status === 200 && playerPut.ok && playerPost.status === 200, `${playerUpload.status} ${playerPut.status} ${playerPost.status}`);
+  const playerThreads = await api("player", "list-threads", { team_id: teamId });
+  check("player's thread preview shows the caption with 📷", playerThreads.body.threads?.find((t) => t.id === threadId)?.last_message === "📷 Great game!", JSON.stringify(playerThreads.body.threads?.map((t) => t.last_message)));
+
+  const parentsOnly = await api("coach", "create-thread", { team_id: teamId, title: "Parents: carpool", audience: "parents", body: "Who can drive Saturday?" });
+  const playerParents = await api("player", "create-photo-upload", { thread_id: parentsOnly.body.thread_id });
+  check("player can't upload to a parents-only thread", playerParents.status === 404, `${playerParents.status}`);
+  const parentParents = await api("parent", "create-photo-upload", { thread_id: parentsOnly.body.thread_id });
+  check("parent can upload to a parents-only thread", parentParents.status === 200, `${parentParents.status}`);
+  const staffOnly = await api("coach", "create-thread", { team_id: teamId, title: "Coaches", audience: "staff", body: "Lineup ideas" });
+  const parentStaff = await api("parent", "create-photo-upload", { thread_id: staffOnly.body.thread_id });
+  check("parent can't upload to a staff-only thread", parentStaff.status === 404, `${parentStaff.status}`);
+  const playerList = await api("player", "list-messages", { thread_id: threadId });
+  check("player sees team-chat photos", playerList.body.messages?.some((m) => m.id === posted.body.id && m.image_url), `${playerList.status}`);
+  const playerFeed = await (await fetch((await api("player", "calendar-feed")).body.url)).text();
+  check("player's calendar feed has the team schedule", (playerFeed.match(/BEGIN:VEVENT/g) ?? []).length === 3);
 
   const del = await api("parent", "delete-message", { message_id: posted.body.id });
   check("author deletes the photo message", del.status === 200);

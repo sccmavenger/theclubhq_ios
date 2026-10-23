@@ -176,9 +176,13 @@ struct MoveFromGroupMeView: View {
             Text(step.message)
                 .font(.callout)
                 .textSelection(.enabled)
+                // List rows can under-measure multi-line text ending in a long URL, which cut
+                // off step 4 in testing; let the message take the height it needs.
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+                // Grouped-list cells are secondarySystemBackground in dark mode; tertiary stands out in both.
+                .background(Color(.tertiarySystemGroupedBackground), in: .rect(cornerRadius: 12))
             HStack(spacing: 12) {
                 Button {
                     UIPasteboard.general.string = step.message
@@ -204,6 +208,7 @@ struct MoveFromGroupMeView: View {
                 Label(note, systemImage: "lightbulb")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.vertical, 6)

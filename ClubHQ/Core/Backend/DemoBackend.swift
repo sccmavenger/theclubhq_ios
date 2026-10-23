@@ -389,7 +389,7 @@ final class DemoBackend: ClubHQBackend {
                 thread.lastMessage = last.map { stored in
                     let message = stored.message
                     if message.isDeleted { return "[deleted]" }
-                    if message.imageURL != nil { return message.hasText ? "📷 \(message.body.prefix(138))" : "📷 Photo" }
+                    if message.imageUrl != nil { return message.hasText ? "📷 \(message.body.prefix(138))" : "📷 Photo" }
                     return String(message.body.prefix(140))
                 }
                 thread.lastMessageAt = last?.message.createdAt
@@ -424,7 +424,7 @@ final class DemoBackend: ClubHQBackend {
                 message.isMine = message.authorId == uid
                 if message.isDeleted {
                     message.body = "[deleted]"
-                    message.imageURL = nil
+                    message.imageUrl = nil
                 }
                 return message
             }
@@ -451,7 +451,7 @@ final class DemoBackend: ClubHQBackend {
         let file = URL.cachesDirectory.appending(path: "demo-chat-\(UUID().uuidString).jpg")
         try photo.jpeg.write(to: file)
         let message = ChatMessage(id: UUID(), authorId: uid, authorName: "", body: caption, createdAt: .now, editedAt: nil,
-                                  isDeleted: false, isMine: true, imageURL: file, imageWidth: photo.width, imageHeight: photo.height)
+                                  isDeleted: false, isMine: true, imageUrl: file, imageWidth: photo.width, imageHeight: photo.height)
         world.messages.append(.init(threadID: threadID, message: message))
         world.threads[index].updatedAt = .now
     }

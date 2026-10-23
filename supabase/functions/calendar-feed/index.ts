@@ -95,7 +95,9 @@ function summary(ev: EventRow, team: Team | undefined, multiTeam: boolean): stri
   let title = ev.title;
   if (ev.event_type === "game" && ev.opponent) title = `${ev.home_away === "away" ? "@" : "vs"} ${ev.opponent}`;
   if (multiTeam && team) title = `${title} · ${team.name}`;
-  return ev.cancelled_at ? `Cancelled: ${title}` : title;
+  // No "Cancelled:" prefix: STATUS:CANCELLED already makes Apple Calendar strike the event
+  // through and label it "CANCELED:" (seen in testing, D-036), so a prefix doubles it.
+  return title;
 }
 
 function description(ev: EventRow, team: Team | undefined): string {
@@ -190,7 +192,7 @@ Deno.serve(async (req) => {
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": 'inline; filename="clubhq.ics"',
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": "private, no-cache", // a reset link must stop working at once
       },
     });
   } catch (e) {

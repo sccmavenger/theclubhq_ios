@@ -63,11 +63,11 @@ struct ChatMessage: Codable, Identifiable, Hashable, Sendable {
     var isDeleted: Bool
     var isMine: Bool
     /// Short-lived signed URL for a chat photo (D-036); nil for text-only messages.
-    var imageURL: URL? = nil
+    var imageUrl: URL? = nil
     var imageWidth: Int? = nil
     var imageHeight: Int? = nil
 
-    var hasPhoto: Bool { imageURL != nil && !isDeleted }
+    var hasPhoto: Bool { imageUrl != nil && !isDeleted }
     /// Photo messages may have no caption.
     var hasText: Bool { !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }

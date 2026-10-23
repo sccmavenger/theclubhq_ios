@@ -75,7 +75,7 @@ struct ChatPhotoView: View {
             .accessibilityAddTraits(.isImage)
             .accessibilityAction(named: "Open") { if let image { onOpen(image) } }
             .task(id: message.id) {
-                guard let url = message.imageURL else { return }
+                guard let url = message.imageUrl else { return }
                 image = ChatImageCache.shared.image(for: message.id.uuidString)
                 guard image == nil else { return }
                 do {
@@ -144,5 +144,7 @@ struct ChatPhotoViewer: View {
                     }
                 }
         }
+        // Black backdrop: keep the title and buttons legible in light mode too.
+        .preferredColorScheme(.dark)
     }
 }

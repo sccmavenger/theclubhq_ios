@@ -232,7 +232,7 @@ struct ChatView: View {
                                   body: body, createdAt: .now, editedAt: nil, isDeleted: false, isMine: true)
         if let photo, let previousPreview {
             ChatImageCache.shared.store(previousPreview, for: pending.id.uuidString)
-            pending.imageURL = URL.temporaryDirectory.appending(path: "pending-\(pending.id.uuidString).jpg")
+            pending.imageUrl = URL.temporaryDirectory.appending(path: "pending-\(pending.id.uuidString).jpg")
             pending.imageWidth = photo.width
             pending.imageHeight = photo.height
         }
