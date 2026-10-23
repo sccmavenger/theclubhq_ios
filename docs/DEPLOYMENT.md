@@ -1,21 +1,18 @@
 # ClubHQ — Backend Deployment Runbook
 
-Everything the iOS app needs on top of the existing Supabase project that already powers
-the web app (`athlete-align-suite`). All changes are additive (DECISIONS D-003). The web
-app keeps working before, during, and after.
+Everything the iOS app needs on its Supabase project, **TeamClubHQ** (`qpchhtakmxcfqtbjjpvi`, D-028).
+All changes are additive (DECISIONS D-003). There is no web client; the earlier web prototype is retired.
+Credentials for the Management API and CLI are in the repo's gitignored `.env.local`.
 
 Steps marked 🤖 can be done through the Supabase MCP. Steps marked 👤 need the owner
 (secrets, Apple/Stripe consoles).
 
 ## 0. Preflight 🤖
-1. Confirm the target project is the one the web app uses (same accounts — the web app's "same accounts" choice).
-2. List tables and confirm they match `athlete-align-suite/src/integrations/supabase/types.ts`
-   (27 tables, including `teams`, `players`, `events`, `rsvps`, `message_threads`, `notification_sends`, `user_roles`).
+1. Confirm the target is the TeamClubHQ project (`SUPABASE_PROJECT_REF` in `.env.local`).
+2. List tables and confirm the core ones exist (`teams`, `players`, `events`, `rsvps`, `message_threads`, `notification_sends`, `user_roles`).
 3. Confirm the helpers exist: `private.can_access_team`, `private.parent_can_read_team`,
    `private.has_team_role`, `private.has_org_role`, `private.has_role`, `private.can_read_thread`.
 4. Take a backup / note the latest migration version.
-
-> **Lovable Cloud note:** If the project is managed by Lovable Cloud, also copy the two migration files into the web repo's `supabase/migrations/`, so Lovable's history doesn't drift from the live database (OQ-02).
 
 ## 1. Migrations 🤖 (apply in order — two transactions on purpose)
 | File | What it does |

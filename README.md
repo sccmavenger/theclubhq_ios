@@ -1,8 +1,8 @@
 # ClubHQ for iPhone
 
 An ad-free youth-sports team app for **coaches, parents, and players**: schedules, RSVPs,
-attendance, team chat, announcements, and team payments. It's the native companion to the
-ClubHQ web app (`sccmavenger/athlete-align-suite`) and shares its Supabase backend.
+attendance, team chat, announcements, and team payments. It runs on its own Supabase
+backend (`supabase/`). There is no web client; the earlier web prototype is retired.
 
 ## Run it
 1. Open `ClubHQ.xcodeproj` in Xcode 27 and pick an iPhone simulator.

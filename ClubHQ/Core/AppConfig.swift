@@ -10,7 +10,7 @@ nonisolated enum AppConfig {
     static let supabaseURL = "https://qpchhtakmxcfqtbjjpvi.supabase.co"
     static let supabasePublishableKey = "sb_publishable_zH1AESb-lq1S8bIyeaPeyw_TN-YYD5o"
 
-    /// Base URL of the ClubHQ web app, used to build shareable invite links.
+    /// Base URL of the teamclubhq.com site, used to build shareable invite links.
     static let webBaseURL = URL(string: "https://teamclubhq.com")!
 
     /// Turn on together with the Associated Domains entitlement (webcredentials:teamclubhq.com)

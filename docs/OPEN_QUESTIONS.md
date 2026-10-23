@@ -19,6 +19,6 @@ Answering one may change the linked decision.
 | OQ-07 | ✅ **Answered 2026-10-20:** minimum iOS lowered to **26.0** (from build 7) | — | — |
 | OQ-08 | A **Stripe** account with Connect enabled, under which business entity? | You'll create one | Dues payments |
 | OQ-09 | ✅ **Answered 2026-10-13:** the owner owns **teamclubhq.com**. Remaining: where to host it (recommended: Cloudflare Pages), and creating the `support@` mailbox | See D-025 | Invites, App Review |
-| OQ-10 | Should the web app adopt the new pieces (sport per team, player accounts, dues UI)? Also fix the web cron route that authenticates with the public key | Yes, via the Ralph loop | Feature parity |
+| OQ-10 | ✅ **Closed 2026-10-23:** there is no web app (the Lovable project was deleted), so there's nothing to bring to parity | — | — |
 | OQ-11 | Trademark check on the "ClubHQ" name before spending on marketing | Not checked | Branding |
 | OQ-12 | Turn on the included StoreKit configuration for local purchase testing? (Edit Scheme → Run → Options → StoreKit Configuration → `StoreKit/ClubHQ.storekit`) | Off; the paywall has a fallback and Demo Mode has a "Demo: unlock" button | Local purchase testing |

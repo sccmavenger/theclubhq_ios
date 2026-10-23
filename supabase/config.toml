@@ -1,7 +1,6 @@
 project_id = "teamclubhq"
 
-# Function-level settings for the ClubHQ mobile backend. Merge these blocks into the
-# web repo's supabase/config.toml (project_id lives there).
+# Function-level settings for the ClubHQ backend (TeamClubHQ project, D-028).
 
 [functions.mobile-api]
 verify_jwt = true

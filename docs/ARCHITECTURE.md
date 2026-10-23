@@ -1,7 +1,7 @@
 # ClubHQ — Architecture
 
 ```
- iPhone app (SwiftUI, iOS 27)                 Supabase (shared with the web app)
+ iPhone app (SwiftUI, iOS 27)                 Supabase (TeamClubHQ project)      
  ┌───────────────────────────────┐            ┌──────────────────────────────────────┐
  │ Features/*  (views)           │            │ Auth (GoTrue) ── email, Apple         │
  │      │  @Environment(AppModel)│  HTTPS     │ PostgREST ── RLS-protected tables     │
@@ -14,12 +14,12 @@
  │ SubscriptionStore (StoreKit 2)│            └──────────────────────────────────────┘
  │ PushManager (APNs)            │                  ▲                 ▲
  └───────────────────────────────┘                  │                 │
-                                  Web app (TanStack Start, Lovable) ──┘   Stripe Connect / APNs / App Store
+                                                  teamclubhq.com site          Stripe Connect / APNs / App Store
 ```
 
 ## Principles
-- **One schema, two clients.** iOS and web share tables, RLS, and accounts. iOS-only additions are additive (D-003).
-- **RLS first.** Plain reads and writes go straight to PostgREST under the user's JWT. `mobile-api` does only what RLS can't express. It ports the web server functions' authorization logic one-to-one (D-005).
+- **One client, one API.** The iPhone app is the only client. The schema came from the retired web prototype; changes stay additive (D-003), and business rules live in `mobile-api`.
+- **RLS first.** Plain reads and writes go straight to PostgREST under the user's JWT. `mobile-api` does only what RLS can't express. Its authorization logic was ported one-to-one from the prototype's server functions (D-005).
 - **Protocol seam.** Views talk to `ClubHQBackend`, never to HTTP. `DemoBackend` powers Demo Mode, previews, and tests (D-006).
 - **Capabilities, not roles.** `TeamMembership.canManageRoster`, `canMessagePrivately`, and similar decide what each screen shows (D-007).
 - **Money is split by Apple's rules.** Coach Pro uses StoreKit. Team dues use Stripe Checkout in Safari (D-010).
