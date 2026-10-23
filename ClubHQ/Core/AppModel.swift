@@ -169,6 +169,13 @@ final class AppModel {
 
     func noteDataChanged() { refreshToken += 1 }
 
+    /// The signed-in context for App Intents. Siri or Shortcuts can launch the app without any
+    /// screen appearing, so load the context here if `start()` hasn't finished yet.
+    func contextForIntents() async -> UserContext? {
+        if context == nil, backend.hasSession { await reloadContext() }
+        return context
+    }
+
     // MARK: - Welcome tour
 
     /// Queues the tour for the selected team's persona the first time this user sees it.

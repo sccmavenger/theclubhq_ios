@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* ClubHQ.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClubHQ.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		66F3A192308BEF43004359F4 /* ClubHQTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClubHQTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -29,10 +30,20 @@
 			path = ClubHQ;
 			sourceTree = "<group>";
 		};
+		66F3A193308BEF43004359F4 /* ClubHQTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ClubHQTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		000000000000000130000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		66F3A18F308BEF43004359F4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -44,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000010 /* ClubHQ */,
+				66F3A193308BEF43004359F4 /* ClubHQTests */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -52,6 +64,7 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000120 /* ClubHQ.app */,
+				66F3A192308BEF43004359F4 /* ClubHQTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -77,6 +90,24 @@
 			productReference = 000000000000000000000120 /* ClubHQ.app */;
 			productType = "com.apple.product-type.application";
 		};
+		66F3A191308BEF43004359F4 /* ClubHQTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 66F3A196308BEF43004359F4 /* Build configuration list for PBXNativeTarget "ClubHQTests" */;
+			buildPhases = (
+				66F3A18E308BEF43004359F4 /* Sources */,
+				66F3A18F308BEF43004359F4 /* Frameworks */,
+				66F3A190308BEF43004359F4 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				66F3A193308BEF43004359F4 /* ClubHQTests */,
+			);
+			name = ClubHQTests;
+			productName = ClubHQTests;
+			productReference = 66F3A192308BEF43004359F4 /* ClubHQTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -84,11 +115,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
+				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					000000000000000100000000 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					66F3A191308BEF43004359F4 = {
+						CreatedOnToolsVersion = 27.0;
 					};
 				};
 			};
@@ -107,6 +141,7 @@
 			projectRoot = "";
 			targets = (
 				000000000000000100000000 /* ClubHQ */,
+				66F3A191308BEF43004359F4 /* ClubHQTests */,
 			);
 		};
 /* End PBXProject section */
@@ -117,10 +152,20 @@
 			files = (
 			);
 		};
+		66F3A190308BEF43004359F4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		000000000000000120000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		66F3A18E308BEF43004359F4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
@@ -352,6 +397,56 @@
 			};
 			name = Release;
 		};
+		66F3A197308BEF43004359F4 /* Debug configuration for PBXNativeTarget "ClubHQTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.teamclubhq.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClubHQ.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClubHQ";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		66F3A198308BEF43004359F4 /* Release configuration for PBXNativeTarget "ClubHQTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.teamclubhq.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClubHQ.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClubHQ";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -368,6 +463,14 @@
 			buildConfigurations = (
 				000000000000000111000000 /* Debug configuration for PBXNativeTarget "ClubHQ" */,
 				000000000000000112000000 /* Release configuration for PBXNativeTarget "ClubHQ" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		66F3A196308BEF43004359F4 /* Build configuration list for PBXNativeTarget "ClubHQTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				66F3A197308BEF43004359F4 /* Debug configuration for PBXNativeTarget "ClubHQTests" */,
+				66F3A198308BEF43004359F4 /* Release configuration for PBXNativeTarget "ClubHQTests" */,
 			);
 			defaultConfigurationName = Release;
 		};

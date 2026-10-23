@@ -31,6 +31,17 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 - **Verified against production:** 21 checks passing, covering all three role registrations, wrong-account and single-use code protections, and the RLS boundaries for players.
 - **Blocker for real users:** Supabase must send through Resend (custom SMTP, sender `info@teamclubhq.com`). The built-in mailer only delivers to project team members, at 2 emails per hour.
 
+## D-039 — Apple Intelligence: on-device helpers with a human in the loop (2026-10-23) — Accepted
+- **Context:** The owner asked for an Apple Intelligence roadmap. The app deploys to iOS 26, which has the on-device `SystemLanguageModel` (4K context, works offline, no usage limits). iOS 27 adds `PrivateCloudComputeLanguageModel` (32K context, network required, daily cap), image input, and the Evaluations framework, so those sit behind `#available(iOS 27.0, *)`. The app had no App Intents yet.
+- **Decision:** Follow the phased track in [`ROADMAP.md`](ROADMAP.md#apple-intelligence-track) under these rules:
+  - **Optional, never required.** Every AI entry point checks `IntelligenceStatus` and hides itself, or explains how to turn Apple Intelligence on. The manual path always remains.
+  - **A human approves.** The model drafts; a person reviews, then saves or sends. No automatic saves, posts or moderation.
+  - **Minors' content stays on the device.** Anything that reads chat (where players may post) uses the on-device model only, never PCC. No AI features in player-facing screens. This keeps the two-adult rule (D-009) and the COPPA position simple.
+  - **Apple models only.** No third-party LLM: it would cost money per use and reopen privacy questions. PCC is allowed for long, non-chat documents (tournament PDFs), with an on-device retry when it fails.
+  - **Structured output** through `@Generable` types, not JSON parsing. Prompt changes are scored against the evaluation fixtures before shipping.
+  - **Pricing follows the strategy rule.** Parent-facing helpers are free; coach time-savers can be Coach Pro.
+- **Consequences:** No App Privacy change is expected (on-device and PCC processing isn't collection by ClubHQ); re-check when Phase 1 ships. App Intents entity IDs are the server UUIDs, so saved shortcuts survive reinstalls and devices.
+
 ## D-038 — Connection hiccups: one safe retry, honest error text (2026-10-23) — Accepted
 - **Report:** the owner tested the GroupMe → ClubHQ family flow on TestFlight 13 (head coach joining his own team as a parent). Tapping **Join** showed "You appear to be offline."
 - **What the logs show:**

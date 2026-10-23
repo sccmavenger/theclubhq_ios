@@ -1,9 +1,17 @@
+import AppIntents
 import SwiftUI
 
 @main struct MyApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var model = AppModel()
+    @State private var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let model = AppModel()
+        self.model = model
+        // App Intents can run on a cold launch with no UI, so register before anything else (D-039).
+        AppDependencyManager.shared.add(dependency: model)
+    }
 
     var body: some Scene {
         WindowGroup {

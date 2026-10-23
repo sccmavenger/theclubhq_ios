@@ -39,6 +39,34 @@ Sizes are rough: **S** ≈ days, **M** ≈ 1–2 weeks, **L** ≈ several weeks.
 
 **On deck but not in the top 10:** Spanish localization, Android, the daily RSVP digest, local sponsorship cards, fundraising (pending legal review).
 
+## Apple Intelligence track
+
+Added 2026-10-23. Guardrails: [D-039](DECISIONS.md). AI is a quiet helper inside jobs ClubHQ already does,
+never a chatbot. Every feature saves a coach or parent taps, shows a review step before anything is saved
+or sent, and keeps a manual path for phones without Apple Intelligence (many parents' phones aren't eligible).
+
+**Status key:** ✅ done · 🔨 in progress · ⬜ not started. Update this table as items ship.
+
+| Phase | Item | Ships with | Size | Status |
+|---|---|---|---|---|
+| **0 · Groundwork** | Availability gate (`Core/Intelligence/IntelligenceStatus.swift`): hide or fall back when the model is off, ineligible or still downloading | — | S | ✅ 2026-10-23 |
+| | App Intents entities for Team, Event and Child (`Core/Intents/`), plus an "Open Event" intent to prove the plumbing | — | S | ✅ 2026-10-23 |
+| | Evaluation harness: `ClubHQTests` target (Swift Testing), 12 schedule-text fixtures with expected events | — | S | ✅ 2026-10-23 |
+| | Real-world fixtures: 20–30 flyers, CNR sheets, emailed PDFs and GroupMe posts (owner to collect) | — | S | ⬜ |
+| **1 · Schedule import** | Screenshot / photo / PDF / pasted text / share sheet → `@Generable` event drafts → review list → save. On-device first; Private Cloud Compute for long PDFs, falling back to on-device | Roadmap #8 | M | ⬜ |
+| | "Paste your old GroupMe schedule post" in `MoveFromGroupMeView` | Roadmap #8 | S | ⬜ |
+| **2 · Siri, Shortcuts, Spotlight** | Intents: next game for a child, RSVP for an event, where's practice; interactive snippet with an RSVP button | Roadmap #7 | M | ⬜ |
+| | Spotlight indexing of upcoming events; `RelevantEntities` for game-day surfacing | Roadmap #7 | S | ⬜ |
+| **3 · Coach assistants** | Announcement drafting that also proposes the matching event edit (Coach Pro) | — | S | ⬜ |
+| | Unpaid-dues reminder wording (Coach Pro) | Roadmap #6 | S | ⬜ |
+| | Attendance report summary (Coach Pro) | — | S | ⬜ |
+| | Inbox catch-up summary for parents (free, on-device only) | — | M | ⬜ |
+| **4 · Later** | Spanish: Translation framework in chat, plus UI localization | On-deck Spanish | M | ⬜ |
+| | Club director weekly digest | Roadmap #10 | S | ⬜ |
+
+**Order:** Phase 0 → 1 (with #8) → 2 (with #7) → 3 → 4. Phases 0 and 1 have no owner blockers.
+**Not doing:** a general chatbot, AI images of kids, a third-party LLM, auto-moderation without a human.
+
 ## Unblockers (owner tasks, not features)
 
 | Task | Unblocks | Ref |
