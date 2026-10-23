@@ -36,6 +36,14 @@ final class PushManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    /// Registers for remote notifications only if the user has already allowed them — never prompts.
+    func registerIfAuthorized() async {
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        if [.authorized, .provisional, .ephemeral].contains(status) {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
+    }
+
     func didRegister(deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         latestToken = token

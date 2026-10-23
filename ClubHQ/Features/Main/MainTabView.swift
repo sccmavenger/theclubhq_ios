@@ -45,6 +45,16 @@ struct MainTabView: View {
             model.pendingDeepLink = nil
             route(link)
         }
+        // First-run tour: once per user per persona, re-checked when switching to a team
+        // where they have a different role (e.g. coach on one team, parent on another).
+        .onChange(of: model.selectedTeam?.primaryPersona, initial: true) {
+            model.showWelcomeTourIfNeeded()
+        }
+        .sheet(item: welcomeTourBinding) { persona in
+            if let team = model.selectedTeam {
+                WelcomeTourView(persona: persona, team: team)
+            }
+        }
         .sheet(item: $presentedLink) { presented in
             NavigationStack {
                 Group {
@@ -66,6 +76,16 @@ struct MainTabView: View {
                 }
             }
         }
+    }
+
+    /// Any dismissal (button or swipe) marks the tour seen.
+    private var welcomeTourBinding: Binding<Persona?> {
+        Binding(
+            get: { model.welcomeTour },
+            set: { newValue in
+                if newValue == nil, let shown = model.welcomeTour { model.finishWelcomeTour(shown) }
+            }
+        )
     }
 
     private func route(_ link: DeepLink) {

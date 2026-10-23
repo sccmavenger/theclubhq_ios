@@ -20,9 +20,15 @@ struct HomeView: View {
     @State private var isLoading = true
     @State private var errorText: String?
     @State private var sheet: HomeSheet?
+    /// Setup checklist inputs (head coach only); nil until loaded so steps never flash unchecked.
+    @State private var hasAnyEvent: Bool?
+    @State private var paymentsConnected = false
+    @State private var checklistHidden = true
+    /// Set once a step is seen unchecked; only then does finishing earn the "all set" card.
+    @State private var checklistIncompleteTeams: Set<UUID> = []
 
     private enum HomeSheet: String, Identifiable {
-        case inbox, newEvent, announcement, invite, dues
+        case inbox, newEvent, announcement, invite, dues, paymentMethods
         var id: String { rawValue }
     }
 
@@ -70,6 +76,15 @@ struct HomeView: View {
                 case .announcement: if let team { AnnouncementComposer(teamID: team.id) }
                 case .invite: if let team { InviteFamiliesView(team: team) }
                 case .dues: if let team { NavigationStack { DuesView(team: team) } }
+                case .paymentMethods:
+                    if let team {
+                        NavigationStack {
+                            PaymentMethodsView(team: team)
+                                .toolbar {
+                                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { self.sheet = nil } }
+                                }
+                        }
+                    }
                 }
             }
             .overlay {
@@ -88,6 +103,12 @@ struct HomeView: View {
     // MARK: - Coach
 
     @ViewBuilder private var coachSections: some View {
+        if let team, team.canManageRoster, !checklistHidden, let hasAnyEvent {
+            SetupChecklistSection(steps: setupSteps(team: team, hasAnyEvent: hasAnyEvent), tint: team.tint) {
+                WelcomeTour.hideChecklist(team: team.id)
+                withAnimation { checklistHidden = true }
+            }
+        }
         if let team, let next = events.first(where: { $0.teamId == team.id && !$0.isCancelled }) {
             Section("Up next") {
                 NavigationLink(value: next) {
@@ -140,6 +161,19 @@ struct HomeView: View {
             ])
             .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
         }
+    }
+
+    private func setupSteps(team: TeamMembership, hasAnyEvent: Bool) -> [SetupChecklistSection.Step] {
+        [
+            .init(id: "invite", title: "Invite your families", symbol: "person.crop.circle.badge.plus",
+                  isDone: !roster.isEmpty) { sheet = .invite },
+            .init(id: "event", title: "Add your first event", symbol: "calendar.badge.plus",
+                  isDone: hasAnyEvent) { sheet = .newEvent },
+            .init(id: "announce", title: "Post a welcome announcement", symbol: "megaphone.fill",
+                  isDone: latestAnnouncement != nil) { sheet = .announcement },
+            .init(id: "pay", title: "Set up how families pay you", symbol: "dollarsign.circle.fill",
+                  isDone: team.hasPaymentHandles || paymentsConnected) { sheet = .paymentMethods },
+        ]
     }
 
     // MARK: - Family (parent)
@@ -272,6 +306,27 @@ struct HomeView: View {
         if persona == .coach {
             let dues = try? await backend.dues(teamID: team.id)
             unpaidCount = dues?.requests.flatMap(\.unpaidItems).count
+            checklistHidden = !team.canManageRoster || WelcomeTour.isChecklistHidden(team: team.id)
+            if !checklistHidden {
+                paymentsConnected = AppConfig.cardPaymentsEnabled && (dues?.paymentsConnected ?? false)
+                // Any event counts, not just the next two weeks shown on the dashboard.
+                if events.contains(where: { $0.teamId == team.id }) {
+                    hasAnyEvent = true
+                } else {
+                    let now = Date.now
+                    let wide = try? await backend.events(teamIDs: [team.id], from: now.addingTimeInterval(-180 * 86_400),
+                                                         to: now.addingTimeInterval(365 * 86_400))
+                    hasAnyEvent = !(wide ?? []).isEmpty
+                }
+                // Teams that were already set up (e.g. existing coaches) never see the card.
+                let allDone = setupSteps(team: team, hasAnyEvent: hasAnyEvent ?? false).allSatisfy(\.isDone)
+                if !allDone {
+                    checklistIncompleteTeams.insert(team.id)
+                } else if !checklistIncompleteTeams.contains(team.id) {
+                    WelcomeTour.hideChecklist(team: team.id)
+                    checklistHidden = true
+                }
+            }
         } else if persona == .parent {
             var due = 0
             for familyTeam in focusTeams {

@@ -24,6 +24,8 @@ final class AppModel {
     var pendingInviteToken: String?
     /// One-shot global error banner.
     var errorMessage: String?
+    /// The first-run welcome tour to present over the main tabs, if any.
+    var welcomeTour: Persona?
     /// Bumped whenever data changes elsewhere so open screens reload.
     private(set) var refreshToken = 0
 
@@ -88,8 +90,9 @@ final class AppModel {
             }
             phase = context.teams.isEmpty ? .onboarding : .ready
             refreshToken += 1
-            // Ask for push only for real accounts — never interrupt a demo walkthrough.
-            if phase == .ready && !backend.isDemo { await PushManager.shared.requestAuthorizationIfNeeded() }
+            // The permission prompt itself comes from the welcome tour, with its reason on screen;
+            // here we only re-register a device that's already allowed. Never in a demo walkthrough.
+            if phase == .ready && !backend.isDemo { await PushManager.shared.registerIfAuthorized() }
         } catch BackendError.unauthorized {
             await signOut()
         } catch {
@@ -109,6 +112,7 @@ final class AppModel {
         await backend.signOut()
         context = nil
         selectedTeamID = nil
+        welcomeTour = nil
         phase = .signedOut
     }
 
@@ -154,6 +158,27 @@ final class AppModel {
     }
 
     func noteDataChanged() { refreshToken += 1 }
+
+    // MARK: - Welcome tour
+
+    /// Queues the tour for the selected team's persona the first time this user sees it.
+    /// Demo mode skips it — the demo is already a guided look around.
+    func showWelcomeTourIfNeeded() {
+        guard phase == .ready, !isDemo, welcomeTour == nil,
+              let userId = context?.userId, let persona = selectedTeam?.primaryPersona,
+              !WelcomeTour.hasSeen(user: userId, persona: persona) else { return }
+        welcomeTour = persona
+    }
+
+    /// Replays the tour from More. Works in demo mode too.
+    func replayWelcomeTour() {
+        welcomeTour = selectedTeam?.primaryPersona
+    }
+
+    func finishWelcomeTour(_ persona: Persona) {
+        if let userId = context?.userId, !isDemo { WelcomeTour.markSeen(user: userId, persona: persona) }
+        welcomeTour = nil
+    }
 
     private func completeAuthRedirect(fragment: String) async {
         // Email links always target the real backend, even if a demo is open.

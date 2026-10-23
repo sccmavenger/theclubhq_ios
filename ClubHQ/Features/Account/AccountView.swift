@@ -61,6 +61,7 @@ struct AccountView: View {
                 }
 
                 Section {
+                    Button("Show App Tour", systemImage: "sparkles") { model.replayWelcomeTour() }
                     Link(destination: AppConfig.privacyPolicyURL) { Label("Privacy Policy", systemImage: "hand.raised.fill") }
                     Link(destination: AppConfig.termsURL) { Label("Terms of Service", systemImage: "doc.text.fill") }
                     if let mail = URL(string: "mailto:\(AppConfig.supportEmail)") {
