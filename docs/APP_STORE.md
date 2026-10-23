@@ -80,6 +80,8 @@ with the ASC key.
 resets the review queue position). Build 15 adds chat photos, calendar sync, the GroupMe guide,
 Daylight Saving-safe repeats, confirmation dialogs anchored to their buttons, and a more
 reliable team join (D-036 to D-038). Still no purchases; release stays automatic after approval.
+Later the same day, **build 17** replaced it in review (adds the Open Event shortcut and Apple
+Intelligence groundwork, D-039). Builds 1–15 are expired; only 16 (never distributed) and 17 remain.
 
 Build **7** adds Report/Block in chat (guideline 1.2). The description and review notes in
 `docs/app-store/metadata.json` no longer mention Stripe card payments or Coach Pro, since both are off in 1.0
