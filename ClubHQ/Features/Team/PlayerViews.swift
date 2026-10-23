@@ -13,6 +13,7 @@ struct PlayerDetailView: View {
     @State private var birthdateDraft = Calendar.current.date(byAdding: .year, value: -14, to: .now) ?? .now
     @State private var showEditor = false
     @State private var confirmArchive = false
+    @State private var showCoParentInvite = false
 
     init(player: Player, team: TeamMembership) {
         self.team = team
@@ -22,6 +23,7 @@ struct PlayerDetailView: View {
 
     private var isMyChild: Bool { team.linkedPlayers.contains { $0.id == player.id } }
     private var canInvitePlayer: Bool { (team.isHeadCoach || isMyChild) && !player.hasAccount }
+    private var canInviteCoParent: Bool { team.isHeadCoach || isMyChild }
     private var age: Int? { AgePolicy.age(birthdate: player.birthdate) }
 
     var body: some View {
@@ -72,6 +74,16 @@ struct PlayerDetailView: View {
                         }
                         .padding(.vertical, 2)
                     }
+                }
+            }
+
+            if canInviteCoParent {
+                Section {
+                    Button { showCoParentInvite = true } label: {
+                        Label("Invite Co-Parent", systemImage: "person.2.badge.plus")
+                    }
+                } footer: {
+                    Text("Another parent or guardian joins \(player.firstName)'s existing profile — no duplicate on the roster.")
                 }
             }
 
@@ -126,6 +138,9 @@ struct PlayerDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $showCoParentInvite) {
+            CoParentInviteView(player: player, team: team)
+        }
         .sheet(isPresented: $showEditor) {
             PlayerEditorView(draft: PlayerDraft(player: player), sport: team.resolvedSport) { updated in
                 player.firstName = updated.firstName
@@ -169,6 +184,73 @@ struct PlayerDetailView: View {
             inviteCode = try await model.backend.createPlayerInvite(playerID: player.id)
         } catch {
             inviteError = error.localizedDescription
+        }
+    }
+}
+
+/// Share sheet for a co-parent invite: a link tied to one child (DECISIONS D-035).
+struct CoParentInviteView: View {
+    let player: Player
+    let team: TeamMembership
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var invite: InviteLink?
+    @State private var errorText: String?
+
+    private var shareText: String {
+        guard let invite else { return "" }
+        return """
+        Join \(player.firstName) on \(team.name) in ClubHQ — schedules, RSVPs, and team chat in one ad-free app.
+        Tap to join: \(invite.url.absoluteString)
+        Or download ClubHQ, choose "I'm a parent or guardian", and enter code: \(invite.token)
+        """
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 50))
+                    .foregroundStyle(team.tint)
+                    .padding(.top, 32)
+                    .accessibilityHidden(true)
+                Text("Invite a co-parent")
+                    .font(.title2.bold())
+                Text("Send this to \(player.firstName)'s other parent or guardian. They'll join \(player.firstName)'s profile and get the same schedule, RSVPs, and announcements.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                if let invite {
+                    VStack(spacing: 12) {
+                        ShareLink(item: shareText) {
+                            Label("Share Invite", systemImage: "square.and.arrow.up")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .tint(team.tint)
+                        Text("Only for \(player.firstName) — don't post it in the team group chat. Works until \(invite.expiresAt.formatted(date: .abbreviated, time: .omitted)).")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                } else if let errorText {
+                    Text(errorText).foregroundStyle(.red).multilineTextAlignment(.center)
+                } else {
+                    ProgressView()
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+            .task {
+                do {
+                    invite = try await model.backend.createGuardianInvite(playerID: player.id)
+                } catch {
+                    errorText = error.localizedDescription
+                }
+            }
         }
     }
 }

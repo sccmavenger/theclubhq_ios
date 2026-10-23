@@ -55,6 +55,9 @@ enum BackendError: LocalizedError, Equatable {
 
     var isEmailNotConfirmed: Bool { code == "email_not_confirmed" }
 
+    /// The team already has a player with this name — likely a co-parent (D-035).
+    var isPossibleDuplicate: Bool { code == "possible_duplicate" }
+
     var isUpgradeRequired: Bool {
         if case .upgradeRequired = self { return true }
         return false

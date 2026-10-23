@@ -127,19 +127,33 @@ final class DemoBackend: ClubHQBackend {
 
     func lookupInvite(token: String) async throws -> InvitePreview {
         await pause()
-        let teamID = world.inviteTokens[token] ?? (token.hasPrefix("demo") ? world.secondTeamID : nil)
+        // Typed codes arrive uppercased, so match demo tokens case-insensitively.
+        func lookup(_ tokens: [String: UUID]) -> UUID? {
+            tokens.first { $0.key.caseInsensitiveCompare(token) == .orderedSame }?.value
+        }
+        let coParentOf = lookup(world.guardianInviteTokens).flatMap { id in world.players.first { $0.id == id } }
+        let teamID = coParentOf?.teamId ?? lookup(world.inviteTokens) ?? (token.lowercased().hasPrefix("demo") ? world.secondTeamID : nil)
         guard let teamID, let team = world.teams.first(where: { $0.id == teamID }) else { return InvitePreview(valid: false) }
         let uid = try me()
         let onTeam = world.context(for: uid).teams.contains { $0.id == teamID }
-        return InvitePreview(valid: true, team: TeamPreview(id: team.id, name: team.name, ageGroup: team.ageGroup, season: team.season, sport: team.sport), alreadyOnTeam: onTeam)
+        return InvitePreview(valid: true, team: TeamPreview(id: team.id, name: team.name, ageGroup: team.ageGroup, season: team.season, sport: team.sport),
+                             player: coParentOf.map { .init(id: $0.id, firstName: $0.firstName) }, alreadyOnTeam: onTeam)
     }
 
-    func claimInvite(token: String, child: NewChildRequest) async throws -> UUID {
+    func claimInvite(token: String, child: NewChildRequest, allowDuplicate: Bool) async throws -> UUID {
         let preview = try await lookupInvite(token: token)
         guard preview.valid, let teamID = preview.team?.id else {
             throw BackendError.server(status: 410, code: "expired", message: "This invite link has expired. Ask your coach for a new one.")
         }
         let uid = try me()
+        let first = child.firstName.trimmingCharacters(in: .whitespaces)
+        let last = child.lastName.trimmingCharacters(in: .whitespaces)
+        if !allowDuplicate, world.players.contains(where: {
+            $0.teamId == teamID && $0.archivedAt == nil
+                && $0.firstName.caseInsensitiveCompare(first) == .orderedSame && $0.lastName.caseInsensitiveCompare(last) == .orderedSame
+        }) {
+            throw BackendError.server(status: 409, code: "possible_duplicate", message: "\(first) \(last) is already on this team.")
+        }
         let player = Player(id: UUID(), teamId: teamID, firstName: child.firstName, lastName: child.lastName,
                             jerseyNumber: child.jerseyNumber.nilIfEmpty, position: child.position.nilIfEmpty,
                             birthdate: child.birthdate.map(JSONCoding.formatDateOnly), notes: nil, archivedAt: nil, userId: nil)
@@ -147,7 +161,42 @@ final class DemoBackend: ClubHQBackend {
         world.links.append(.init(parentID: uid, playerID: player.id))
         world.contacts.append(EmergencyContact(id: UUID(), playerId: player.id, relationship: child.contactRelationship,
                                                name: child.contactName, phone: child.contactPhone, email: child.contactEmail.nilIfEmpty))
+        notifyStaffFamilyJoined(teamID: teamID, playerID: player.id, by: uid,
+                                subject: "\(world.name(of: uid)) added \(player.fullName) to the team", body: "Tap to see your roster.")
         return teamID
+    }
+
+    func claimGuardianInvite(token: String, relationship: EmergencyRelationship) async throws -> UUID {
+        let preview = try await lookupInvite(token: token)
+        guard preview.valid, let teamID = preview.team?.id, let playerID = preview.player?.id else {
+            throw BackendError.server(status: 410, code: "expired", message: "This invite is no longer valid. Ask for a new one.")
+        }
+        let uid = try me()
+        if !world.links.contains(where: { $0.parentID == uid && $0.playerID == playerID }) {
+            world.links.append(.init(parentID: uid, playerID: playerID))
+            let childName = world.players.first { $0.id == playerID }?.fullName ?? "their child"
+            notifyStaffFamilyJoined(teamID: teamID, playerID: playerID, by: uid,
+                                    subject: "\(world.name(of: uid)) joined as \(childName)'s guardian",
+                                    body: "They'll get the schedule, announcements, and RSVPs.")
+        }
+        return teamID
+    }
+
+    /// Mirrors the server's `family_joined` fan-out to staff (D-035).
+    private func notifyStaffFamilyJoined(teamID: UUID, playerID: UUID, by uid: UUID, subject: String, body: String) {
+        let staff = Set(world.roles.filter { $0.teamID == teamID && $0.role.isStaff }.map(\.userID)).subtracting([uid])
+        for userID in staff {
+            let item = InboxItem(id: UUID(), linkPath: "/team", readAt: nil, createdAt: .now, kind: .familyJoined,
+                                 subject: subject, body: body, teamId: teamID, refId: playerID)
+            world.inbox[userID, default: []].insert(item, at: 0)
+        }
+    }
+
+    func createGuardianInvite(playerID: UUID) async throws -> InviteLink {
+        await pause()
+        let token = world.guardianInviteTokens.first { $0.value == playerID }?.key ?? "COPA\(Int.random(in: 100_000...999_999))"
+        world.guardianInviteTokens[token] = playerID
+        return InviteLink(token: token, expiresAt: .now.addingTimeInterval(30 * 86_400))
     }
 
     func createPlayerInvite(playerID: UUID) async throws -> PlayerInviteCode {

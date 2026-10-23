@@ -90,7 +90,8 @@ struct AccountView: View {
                 NavigationStack {
                     JoinOrCreateList()
                         .navigationTitle("Add a Team")
-                        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showAddTeam = false } } }
+                        // Trailing, so the button doesn't morph into the Back button when a flow is pushed.
+                        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { showAddTeam = false } } }
                 }
             }
             .manageSubscriptionsSheet(isPresented: $showManageSubscription, subscriptionGroupID: AppConfig.coachProGroupID)
@@ -104,7 +105,9 @@ struct AccountView: View {
             } message: {
                 Text("This removes your login, your team memberships, and your links to players. Teams where you're the only head coach are archived. This can't be undone.\(model.store.hasActiveSubscription ? " Active App Store subscriptions must be cancelled in Settings." : "")")
             }
-            .onChange(of: model.teams.count) { old, new in
+            // Close after any successful join: a new team, or another child (or co-parent link)
+            // on a team the user is already on, which leaves the team count unchanged.
+            .onChange(of: model.teams.count + model.teams.reduce(0) { $0 + $1.linkedPlayers.count }) { old, new in
                 if new > old { showAddTeam = false }
             }
         }

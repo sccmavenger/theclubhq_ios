@@ -38,7 +38,12 @@ protocol ClubHQBackend: AnyObject {
     func updatePaymentHandles(teamID: UUID, venmoUsername: String?, cashappCashtag: String?) async throws
     func createInvite(teamID: UUID) async throws -> InviteLink
     func lookupInvite(token: String) async throws -> InvitePreview
-    func claimInvite(token: String, child: NewChildRequest) async throws -> UUID
+    /// `allowDuplicate` confirms a second child with the same name as one already on the team.
+    func claimInvite(token: String, child: NewChildRequest, allowDuplicate: Bool) async throws -> UUID
+    /// Co-parent invite: links the caller to the invite's existing child as a guardian (D-035).
+    func claimGuardianInvite(token: String, relationship: EmergencyRelationship) async throws -> UUID
+    /// A guardian of the child, or the head coach, invites a second guardian.
+    func createGuardianInvite(playerID: UUID) async throws -> InviteLink
     func createPlayerInvite(playerID: UUID) async throws -> PlayerInviteCode
     func claimPlayerInvite(code: String) async throws -> UUID
     func teamMembers(teamID: UUID) async throws -> [TeamMember]

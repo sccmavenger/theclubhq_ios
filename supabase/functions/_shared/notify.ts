@@ -10,7 +10,8 @@ export type NotificationKind =
   | "event_reminder"
   | "rsvp_reminder"
   | "message_new"
-  | "event_thread_reply";
+  | "event_thread_reply"
+  | "family_joined";
 
 function linkFor(kind: NotificationKind, refId?: string | null): string {
   if (!refId) return "/notifications";
@@ -25,6 +26,8 @@ function linkFor(kind: NotificationKind, refId?: string | null): string {
       return `/team/messages/${refId}`;
     case "announcement":
       return `/parent`;
+    case "family_joined":
+      return `/team`;
     default:
       return "/notifications";
   }

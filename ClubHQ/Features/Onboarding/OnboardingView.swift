@@ -27,6 +27,9 @@ struct JoinOrCreateList: View {
     @State private var pastedToken: String?
     @State private var clipboardMayHaveInvite = false
 
+    /// A real team's invite never gets used up inside a demo.
+    private var realInviteToken: String? { model.isDemo ? nil : model.pendingInviteToken }
+
     var body: some View {
         List {
             Section {
@@ -35,26 +38,30 @@ struct JoinOrCreateList: View {
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 0, trailing: 4))
             }
-            if clipboardMayHaveInvite && model.pendingInviteToken == nil {
+            if clipboardMayHaveInvite && realInviteToken == nil {
                 Section {
-                    // PasteButton reads the clipboard without iOS's "Allow Paste" prompt.
-                    PasteButton(payloadType: String.self) { strings in
-                        guard let token = strings.lazy.compactMap(InviteCode.token(in:)).first else { return }
-                        pastedToken = token
-                        showJoin = true
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Got an invite link?").font(.headline)
+                            Text("Paste the link your coach sent to join their team.")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 8)
+                        // PasteButton reads the clipboard without iOS's "Allow Paste" prompt.
+                        PasteButton(payloadType: String.self) { strings in
+                            guard let token = strings.lazy.compactMap(InviteCode.token(in:)).first else { return }
+                            pastedToken = token
+                            showJoin = true
+                        }
+                        .labelStyle(.titleAndIcon)
+                        .buttonBorderShape(.capsule)
                     }
-                    .labelStyle(.titleAndIcon)
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
-                } footer: {
-                    Text("Copied an invite link from your coach? Paste it to join their team.")
-                        .frame(maxWidth: .infinity)
-                        .multilineTextAlignment(.center)
+                    .padding(.vertical, 4)
                 }
             }
             Section {
                 NavigationLink {
-                    JoinTeamView(initialToken: model.pendingInviteToken ?? "")
+                    JoinTeamView(initialToken: realInviteToken ?? "")
                 } label: {
                     OptionRow(symbol: "figure.2.and.child.holdinghands", title: "I'm a parent or guardian",
                               detail: "Enter the team code from your coach and add your child.")
@@ -74,15 +81,15 @@ struct JoinOrCreateList: View {
             }
         }
         .navigationDestination(isPresented: $showJoin) {
-            JoinTeamView(initialToken: pastedToken ?? model.pendingInviteToken ?? "")
+            JoinTeamView(initialToken: pastedToken ?? realInviteToken ?? "")
                 .onDisappear {
                     // Backing out means the link has done its job; don't reopen it every time.
                     pastedToken = nil
-                    model.pendingInviteToken = nil
+                    if !model.isDemo { model.pendingInviteToken = nil }
                 }
         }
         .task {
-            if model.pendingInviteToken != nil {
+            if realInviteToken != nil {
                 showJoin = true
             } else {
                 // Pattern detection doesn't read the contents, so it never triggers a paste prompt.
@@ -222,6 +229,9 @@ struct JoinTeamView: View {
     @State private var hasBirthdate = false
     @State private var errorText: String?
     @State private var isLooking = false
+    /// A player with this name is already on the team (co-parent?) — ask before adding another.
+    @State private var duplicateName: String?
+    @State private var coParentRelationship: EmergencyRelationship = .guardian
 
     init(initialToken: String = "") {
         // `@State` is a macro in SDK 27: no declaration default, assign once here.
@@ -273,17 +283,37 @@ struct JoinTeamView: View {
                             Image(systemName: sport.symbolName)
                         }
                     }
-                    childSection
-                    contactSection
-                    Section {
-                        AsyncButton(action: join) {
-                            Text("Join \(team.name)").frame(maxWidth: .infinity)
+                    if let invitedPlayer = preview.player {
+                        // Co-parent invite: the child is already on the roster, with contacts on file.
+                        Section {
+                            Picker("You are \(invitedPlayer.firstName)'s", selection: $coParentRelationship) {
+                                ForEach(EmergencyRelationship.allCases) { Text($0.displayName).tag($0) }
+                            }
+                        } header: {
+                            Text("Joining as \(invitedPlayer.firstName)'s guardian")
+                        } footer: {
+                            Text("You'll get \(invitedPlayer.firstName)'s schedule, RSVPs, and team announcements.")
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!child.isValid)
-                        .listRowBackground(Color.clear)
-                    } footer: {
-                        Text("Your child's info is visible only to their team's coaches and is never sold or used for ads.")
+                        Section {
+                            AsyncButton(action: joinAsCoParent) {
+                                Text("Join \(team.name)").frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .listRowBackground(Color.clear)
+                        }
+                    } else {
+                        childSection
+                        contactSection
+                        Section {
+                            AsyncButton { await join(allowDuplicate: false) } label: {
+                                Text("Join \(team.name)").frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!child.isValid)
+                            .listRowBackground(Color.clear)
+                        } footer: {
+                            Text("Your child's info is visible only to their team's coaches and is never sold or used for ads.")
+                        }
                     }
                 } else {
                     Section {
@@ -300,6 +330,19 @@ struct JoinTeamView: View {
         .keyboardDoneButton()
         .task {
             if !token.isEmpty, preview == nil { await lookUp() }
+        }
+        // A result for the old code would be misleading once the code is edited.
+        .onChange(of: token) {
+            preview = nil
+            errorText = nil
+        }
+        // An alert, not a confirmation dialog: iOS shows dialogs as popovers without the cancel button.
+        .alert(duplicateName.map { "\($0) is already on this team" } ?? "",
+               isPresented: Binding(get: { duplicateName != nil }, set: { if !$0 { duplicateName = nil } })) {
+            Button("Add as a Different Child") { Task { await join(allowDuplicate: true) } }
+            Button("Go Back", role: .cancel) {}
+        } message: {
+            Text("If you're their other parent or guardian, ask the parent who added them to send you a co-parent invite from ClubHQ (on their child's profile). Your coach can send one too — that way you share one profile instead of two.")
         }
     }
 
@@ -353,17 +396,33 @@ struct JoinTeamView: View {
         }
     }
 
-    private func join() async {
+    private func join(allowDuplicate: Bool) async {
         errorText = nil
         do {
-            let teamID = try await model.backend.claimInvite(token: token, child: child)
-            model.pendingInviteToken = nil
-            model.selectedTeamID = teamID
-            await model.reloadContext()
-            dismiss()
+            let teamID = try await model.backend.claimInvite(token: token, child: child, allowDuplicate: allowDuplicate)
+            await finishJoining(teamID: teamID)
+        } catch let error as BackendError where error.isPossibleDuplicate {
+            duplicateName = "\(child.firstName.trimmingCharacters(in: .whitespaces)) \(child.lastName.trimmingCharacters(in: .whitespaces))"
         } catch {
             errorText = error.localizedDescription
         }
+    }
+
+    private func joinAsCoParent() async {
+        errorText = nil
+        do {
+            let teamID = try await model.backend.claimGuardianInvite(token: token, relationship: coParentRelationship)
+            await finishJoining(teamID: teamID)
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    private func finishJoining(teamID: UUID) async {
+        model.pendingInviteToken = nil
+        model.selectedTeamID = teamID
+        await model.reloadContext()
+        dismiss()
     }
 }
 

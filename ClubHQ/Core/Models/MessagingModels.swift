@@ -82,6 +82,7 @@ enum NotificationKind: String, Codable, Sendable {
     case announcement, eventCreated = "event_created", eventUpdated = "event_updated"
     case eventReminder = "event_reminder", rsvpReminder = "rsvp_reminder"
     case messageNew = "message_new", eventThreadReply = "event_thread_reply"
+    case familyJoined = "family_joined"
     case unknown
 
     init(from decoder: Decoder) throws {
@@ -95,6 +96,7 @@ enum NotificationKind: String, Codable, Sendable {
         case .eventCreated, .eventUpdated, .eventReminder: "calendar"
         case .rsvpReminder: "hand.raised.fill"
         case .messageNew, .eventThreadReply: "bubble.left.and.bubble.right.fill"
+        case .familyJoined: "person.crop.circle.badge.plus"
         case .unknown: "bell.fill"
         }
     }

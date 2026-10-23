@@ -281,8 +281,15 @@ struct TeamPreview: Codable, Hashable, Sendable {
 }
 
 struct InvitePreview: Codable, Sendable {
+    /// Set on a co-parent invite: the child the second guardian is joining (D-035).
+    struct InvitedPlayer: Codable, Hashable, Sendable {
+        let id: UUID
+        var firstName: String
+    }
+
     var valid: Bool
     var team: TeamPreview?
+    var player: InvitedPlayer?
     var alreadyOnTeam: Bool?
 }
 

@@ -28,6 +28,8 @@ struct DemoWorld {
     var paymentsEnabled: Set<UUID> = []
     var proUsers: Set<UUID> = []
     var inviteTokens: [String: UUID] = [:]
+    /// Co-parent invite token → player.
+    var guardianInviteTokens: [String: UUID] = [:]
     var playerCodes: [String: UUID] = [:]
     var sponsors: [TeamSponsor] = []
     var names: [UUID: String] = [:]

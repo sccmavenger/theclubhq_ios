@@ -31,6 +31,14 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 - **Verified against production:** 21 checks passing, covering all three role registrations, wrong-account and single-use code protections, and the RLS boundaries for players.
 - **Blocker for real users:** Supabase must send through Resend (custom SMTP, sender `info@teamclubhq.com`). The built-in mailer only delivers to project team members, at 2 emails per hour.
 
+## D-035 — Co-parents share one child; coaches hear when families join (2026-10-23) — Accepted
+- **Problem:** both parents using the team code created two "Jordan Smith" players, splitting RSVPs, dues, and attendance. Coaches also had no signal that families were joining.
+- **Co-parent invites:** a guardian of the child, or the head coach, creates one from the child's profile (Invite Co-Parent). It's a `team_invites` row with the new nullable `player_id`; claiming it links the second guardian to the existing player instead of creating one. `create-invite` never reuses these as the team code.
+- **Why not match by name:** the team code is shared in group texts, so linking to an existing child by name would let any family on the team attach themselves to someone else's minor. The link only comes from someone already trusted with that child.
+- **Safety net:** `claim-invite` on the team code returns `possible_duplicate` (409) when an active player with the same first and last name exists. The app explains co-parent invites and offers "Add as a Different Child", which re-sends with `allow_duplicate`.
+- **Coach notification:** each claim fans out a `family_joined` notification (inbox + push) to staff, linking to the Team tab.
+- **Compatibility:** additive migrations only (D-003). Old app builds ignore `player` in `lookup-invite`, and NotificationKind already decodes unknown kinds. The web app's invite list will also show co-parent invites; the web repo should filter `player_id IS NULL` where it reuses an invite.
+
 ## D-034 — Making Coach Pro purchasable (2026-10-22) — Accepted
 **Owner's goal:** a coach can subscribe to Coach Pro. The owner delegated the "how."
 

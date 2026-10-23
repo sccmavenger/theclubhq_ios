@@ -124,10 +124,11 @@ final class SupabaseBackend: ClubHQBackend {
         try await client.invoke("lookup-invite", ["token": .string(token)])
     }
 
-    func claimInvite(token: String, child: NewChildRequest) async throws -> UUID {
+    func claimInvite(token: String, child: NewChildRequest, allowDuplicate: Bool) async throws -> UUID {
         struct Claimed: Decodable { let teamId: UUID }
         let claimed: Claimed = try await client.invoke("claim-invite", [
             "token": .string(token),
+            "allow_duplicate": .bool(allowDuplicate),
             "child": .object([
                 "first_name": .string(child.firstName),
                 "last_name": .string(child.lastName),
@@ -144,6 +145,19 @@ final class SupabaseBackend: ClubHQBackend {
             ]),
         ])
         return claimed.teamId
+    }
+
+    func claimGuardianInvite(token: String, relationship: EmergencyRelationship) async throws -> UUID {
+        struct Claimed: Decodable { let teamId: UUID }
+        let claimed: Claimed = try await client.invoke("claim-invite", [
+            "token": .string(token),
+            "parent_relationship": .string(relationship.rawValue),
+        ])
+        return claimed.teamId
+    }
+
+    func createGuardianInvite(playerID: UUID) async throws -> InviteLink {
+        try await client.invoke("create-guardian-invite", ["player_id": .uuid(playerID)])
     }
 
     func createPlayerInvite(playerID: UUID) async throws -> PlayerInviteCode {

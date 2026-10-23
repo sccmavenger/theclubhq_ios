@@ -167,6 +167,63 @@ async function profileNames(ctx: Ctx, ids: string[]): Promise<Record<string, str
   const { data } = await ctx.admin.from("profiles").select("id, full_name").in("id", ids);
   return Object.fromEntries((data ?? []).map((p) => [p.id, (p.full_name ?? "").trim() || "Member"]));
 }
+/** Case-insensitive exact match for `ilike`: escapes the `%` and `_` wildcards. */
+function likeExact(value: string): string {
+  return value.trim().replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/** Links the caller to an existing child as an additional guardian (co-parent invite, D-035). */
+async function claimGuardianInvite(ctx: Ctx, teamId: string, playerId: string, p: Params) {
+  const relationship = oneOf(p, "parent_relationship", RELATIONSHIPS);
+  const { data: player } = await ctx.admin
+    .from("players")
+    .select("id, first_name, last_name, archived_at")
+    .eq("id", playerId)
+    .maybeSingle();
+  if (!player || player.archived_at) throw new ApiError("expired", "This invite is no longer valid. Ask for a new one.", 410);
+  const { data: already } = await ctx.admin
+    .from("parent_player_links")
+    .select("id")
+    .eq("player_id", playerId)
+    .eq("parent_user_id", ctx.uid)
+    .maybeSingle();
+  if (!already) {
+    const { error: linkErr } = await ctx.admin
+      .from("parent_player_links")
+      .insert({ player_id: playerId, parent_user_id: ctx.uid, relationship });
+    if (linkErr) throw new ApiError("internal", linkErr.message, 500);
+  }
+  const { data: existingRole } = await ctx.admin
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", ctx.uid)
+    .eq("team_id", teamId)
+    .eq("role", "parent")
+    .maybeSingle();
+  if (!existingRole) await ctx.admin.from("user_roles").insert({ user_id: ctx.uid, role: "parent", team_id: teamId });
+  if (!already) await notifyFamilyJoined(ctx, teamId, playerId, `${player.first_name} ${player.last_name}`, true);
+  return { team_id: teamId, player_id: playerId };
+}
+
+/** Tells the team's staff that a family joined, so coaches see the roster fill up (D-035). */
+async function notifyFamilyJoined(ctx: Ctx, teamId: string, playerId: string, childName: string, coParent: boolean) {
+  const [{ data: profile }, { data: staff }] = await Promise.all([
+    ctx.admin.from("profiles").select("full_name").eq("id", ctx.uid).maybeSingle(),
+    ctx.admin.from("user_roles").select("user_id").eq("team_id", teamId).in("role", ["head_coach", "assistant_coach", "team_manager"]),
+  ]);
+  const recipients = [...new Set((staff ?? []).map((s: { user_id: string }) => s.user_id))].filter((u) => u !== ctx.uid);
+  if (recipients.length === 0) return;
+  const who = profile?.full_name?.trim() || "A parent";
+  await notify(ctx, {
+    teamId,
+    kind: "family_joined",
+    subject: coParent ? `${who} joined as ${childName}'s guardian` : `${who} added ${childName} to the team`,
+    body: coParent ? "They'll get the schedule, announcements, and RSVPs." : "Tap to see your roster.",
+    refId: playerId,
+    recipientUserIds: recipients,
+  });
+}
+
 /** Fan out, then push to iOS immediately (cron catches anything missed). */
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
@@ -336,6 +393,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       .from("team_invites")
       .select("token, expires_at")
       .eq("team_id", teamId)
+      .is("player_id", null)
       .is("revoked_at", null)
       .gt("expires_at", new Date(Date.now() + 24 * 3600_000).toISOString())
       .order("created_at", { ascending: false })
@@ -355,22 +413,41 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const token = inviteToken(p);
     const { data: invite } = await ctx.admin
       .from("team_invites")
-      .select("team_id, expires_at, revoked_at")
+      .select("team_id, player_id, expires_at, revoked_at")
       .eq("token", token)
       .maybeSingle();
     if (!invite || invite.revoked_at || new Date(invite.expires_at) < new Date()) return { valid: false };
+    let player: { id: string; first_name: string } | null = null;
+    if (invite.player_id) {
+      const { data } = await ctx.admin.from("players").select("id, first_name, archived_at").eq("id", invite.player_id).maybeSingle();
+      if (!data || data.archived_at) return { valid: false };
+      player = { id: data.id, first_name: data.first_name };
+    }
     const { data: team } = await ctx.admin
       .from("teams")
       .select("id, name, age_group, season, sport")
       .eq("id", invite.team_id)
       .single();
     const { roles, isParent } = await requireMember(ctx, invite.team_id).catch(() => ({ roles: [], isParent: false }));
-    return { valid: true, team, already_on_team: roles.length > 0 || isParent };
+    return { valid: true, team, player, already_on_team: roles.length > 0 || isParent };
   },
 
   // Port of claimInviteWithNewPlayer: creates player + emergency contacts + parent link + role.
+  // A co-parent invite (player_id set) links to that existing child instead (D-035).
   async "claim-invite"(ctx, p) {
     const token = inviteToken(p);
+    const { data: invite } = await ctx.admin
+      .from("team_invites")
+      .select("team_id, player_id, expires_at, revoked_at")
+      .eq("token", token)
+      .maybeSingle();
+    if (!invite) throw new ApiError("not_found", "Invite not found.", 404);
+    if (invite.revoked_at || new Date(invite.expires_at) < new Date()) {
+      throw new ApiError("expired", "This invite link has expired. Ask your coach for a new one.", 410);
+    }
+    const teamId = invite.team_id;
+    if (invite.player_id) return await claimGuardianInvite(ctx, teamId, invite.player_id, p);
+
     const child = (p.child ?? {}) as Params;
     const firstName = str(child, "first_name", { min: 1, max: 80 });
     const lastName = str(child, "last_name", { min: 1, max: 80 });
@@ -388,16 +465,21 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       email: str(c, "email", { max: 200, optional: true }) || null,
     }));
 
-    const { data: invite } = await ctx.admin
-      .from("team_invites")
-      .select("team_id, expires_at, revoked_at")
-      .eq("token", token)
-      .maybeSingle();
-    if (!invite) throw new ApiError("not_found", "Invite not found.", 404);
-    if (invite.revoked_at || new Date(invite.expires_at) < new Date()) {
-      throw new ApiError("expired", "This invite link has expired. Ask your coach for a new one.", 410);
+    // Co-parents using the team code would otherwise create a second "Jordan Smith".
+    // Ask first; the client re-sends with allow_duplicate when it really is another child.
+    if (p.allow_duplicate !== true) {
+      const { data: sameName } = await ctx.admin
+        .from("players")
+        .select("id")
+        .eq("team_id", teamId)
+        .is("archived_at", null)
+        .ilike("first_name", likeExact(firstName))
+        .ilike("last_name", likeExact(lastName))
+        .limit(1);
+      if (sameName && sameName.length > 0) {
+        throw new ApiError("possible_duplicate", `${firstName.trim()} ${lastName.trim()} is already on this team.`, 409);
+      }
     }
-    const teamId = invite.team_id;
 
     const { data: player, error: pErr } = await ctx.admin
       .from("players")
@@ -424,11 +506,48 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       .from("parent_player_links")
       .upsert({ player_id: player.id, parent_user_id: ctx.uid, relationship }, { onConflict: "player_id,parent_user_id", ignoreDuplicates: true });
     if (linkErr) throw new ApiError("internal", linkErr.message, 500);
+    await notifyFamilyJoined(ctx, teamId, player.id, `${firstName.trim()} ${lastName.trim()}`, false);
     return { team_id: teamId, player_id: player.id };
   },
 
-  // A second guardian joins an existing child (co-parenting) — head coach generates a
-  // guardian code on the player's profile is future work; v1 uses claim-invite per child.
+  // A guardian of the child, or the head coach, invites a second guardian (D-035).
+  // Reuses a live invite so re-opening the screen shows the same link.
+  async "create-guardian-invite"(ctx, p) {
+    const playerId = uuid(p, "player_id");
+    const { data: player } = await ctx.admin
+      .from("players")
+      .select("id, team_id, archived_at")
+      .eq("id", playerId)
+      .maybeSingle();
+    if (!player || player.archived_at) throw new ApiError("not_found", "Player not found.", 404);
+    const roles = await rolesOnTeam(ctx, player.team_id);
+    const { data: link } = await ctx.admin
+      .from("parent_player_links")
+      .select("id")
+      .eq("player_id", playerId)
+      .eq("parent_user_id", ctx.uid)
+      .maybeSingle();
+    if (!roles.includes("head_coach") && !link) {
+      throw new ApiError("forbidden", "Only a guardian or the head coach can invite a co-parent.", 403);
+    }
+    const { data: existing } = await ctx.admin
+      .from("team_invites")
+      .select("token, expires_at")
+      .eq("player_id", playerId)
+      .is("revoked_at", null)
+      .gt("expires_at", new Date(Date.now() + 24 * 3600_000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing) return existing;
+    const { data, error } = await ctx.admin
+      .from("team_invites")
+      .insert({ team_id: player.team_id, player_id: playerId, token: shortCode(10), created_by: ctx.uid })
+      .select("token, expires_at")
+      .single();
+    if (error || !data) throw new ApiError("internal", error?.message ?? "Could not create invite", 500);
+    return data;
+  },
 
   // ----- Player accounts (13+) — DECISIONS D-008 --------------------------------
   async "create-player-invite"(ctx, p) {
