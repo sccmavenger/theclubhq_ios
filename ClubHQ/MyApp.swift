@@ -16,7 +16,7 @@ import SwiftUI
                     if let raw = UserDefaults.standard.string(forKey: "ScreenshotPersona"),
                        let persona = Persona(rawValue: raw) {
                         await model.startDemo(as: persona)
-                        // `-ScreenshotOpen chat|event` opens a detail screen on top.
+                        // `-ScreenshotOpen chat|event|tour` opens a detail screen (or the welcome tour) on top.
                         try? await Task.sleep(for: .seconds(1))  // let the tabs appear first
                         if let teamID = model.selectedTeam?.id {
                             switch UserDefaults.standard.string(forKey: "ScreenshotOpen") {
@@ -28,6 +28,8 @@ import SwiftUI
                                 if let event = try? await model.backend.events(teamIDs: [teamID], from: .now, to: nil).first {
                                     model.pendingDeepLink = .event(event.id)
                                 }
+                            case "tour":
+                                model.replayWelcomeTour()
                             default: break
                             }
                         }

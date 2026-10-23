@@ -87,5 +87,5 @@ Before pressing **Add for Review → Submit**:
 3. `info@teamclubhq.com` receives mail (OQ-16), or change the support address.
 
 Regenerate screenshots: build Debug for an iPhone 17 Pro Max simulator and launch with
-`-ScreenshotPersona coach|parent -ScreenshotTab home|schedule|team|messages -ScreenshotOpen chat|event`
+`-ScreenshotPersona coach|parent -ScreenshotTab home|schedule|team|messages -ScreenshotOpen chat|event|tour`
 (DEBUG-only hooks in `MyApp.swift` and `MainTabView.swift`).
