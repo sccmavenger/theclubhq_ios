@@ -267,6 +267,8 @@ final class SupabaseBackend: ClubHQBackend {
             "location": .optional(draft.location),
             "location_address": .optional(draft.locationAddress),
             "notes": .optional(draft.notes),
+            // Weekly repeats and notification times use the coach's local time (D-037).
+            "time_zone": .string(TimeZone.current.identifier),
         ]
         if draft.eventType == .game {
             params["opponent"] = .optional(draft.opponent)
@@ -282,7 +284,7 @@ final class SupabaseBackend: ClubHQBackend {
     }
 
     func cancelEvent(id: UUID) async throws {
-        let _: OK = try await client.invoke("cancel-event", ["event_id": .uuid(id)])
+        let _: OK = try await client.invoke("cancel-event", ["event_id": .uuid(id), "time_zone": .string(TimeZone.current.identifier)])
     }
 
     func calendarFeedURL(reset: Bool) async throws -> URL {

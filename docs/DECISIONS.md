@@ -31,6 +31,22 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 - **Verified against production:** 21 checks passing, covering all three role registrations, wrong-account and single-use code protections, and the RLS boundaries for players.
 - **Blocker for real users:** Supabase must send through Resend (custom SMTP, sender `info@teamclubhq.com`). The built-in mailer only delivers to project team members, at 2 emails per hour.
 
+## D-037 — Weekly repeats keep their local time across Daylight Saving (2026-10-23) — Accepted
+- **Problem (found while testing D-036):** `save-event` made weekly repeats by adding exactly 7×24 hours in UTC. A 6:00 PM Central practice became 5:00 PM after Daylight Saving ended (Nov 1, 2026), and in spring it would become 7:00 PM. Notifications also printed times in UTC ("Sun, 25 Oct 2026 23:00 UTC").
+- **Decision:**
+  - **Time zone source:** the app sends the phone's IANA time zone (`time_zone`, e.g. `America/Chicago`) with `save-event` and `cancel-event`.
+  - **Repeats:** the server adds whole days on the local wall clock in that zone (`_shared/time.ts`), keeping the same duration, so every week starts at the same local time.
+  - **Remembered per team:** the zone is stored on the team (`teams.time_zone`, set whenever a head coach saves with a valid zone). Older builds that don't send one (1.0 in review, TestFlight 12) use the team's zone, and fall back to the old fixed-7-day behavior only for teams that have never saved from a new build.
+  - **Notifications:** event times in notifications use the same zone ("Sun, Oct 25, 6:00 PM").
+- **Why on the server:** the server already makes the repeats, and other clients get the fix without duplicating the logic. Zones are validated with `Intl.DateTimeFormat`, and unknown zones are ignored rather than rejected.
+- **Existing events aren't rewritten:** nothing marks which rows belong to one series, so a coach whose repeats already shifted edits or recreates them. On 2026-10-23 no production event was affected: the two real teams' future events were all entered individually and sit at normal local times.
+- **Verified 2026-10-23:**
+  - **Deployment:** migration `20261023150000_team_time_zone` and `mobile-api`.
+  - **Unit tests:** `supabase/tests/time_test.ts` 8/8, covering the Chicago fall and spring changes, Auckland, Kolkata, a skipped spring hour, the no-zone fallback, and formatting.
+  - **Live check:** `supabase/tests/d037_live_check.mjs` 8/8. Repeats stay at 6:00 PM across Nov 1; the zone is remembered and then used for a request without one; an unknown zone is ignored; notifications and cancel notices read "Sun, Oct 25, 6:00 PM"; a team with no zone keeps the old step.
+  - **ICU spacing:** production's ICU puts U+202F before "PM" (local Deno doesn't), so formatted times are normalized to plain spaces.
+  - **D-036 live check:** still 49/49.
+
 ## D-036 — Moving a team off GroupMe: guide, chat photos, calendar feed, season-long team code (2026-10-23) — Accepted
 - **Context:** The owner coaches a 6th-grade boys' basketball team that runs on GroupMe and wants a clean move to ClubHQ. Planning found four gaps that would keep GroupMe alive or make the move fail: coaches have no script for the move; chat has no photos (GroupMe's main use); there's no way to put the schedule in a phone calendar; and the team code expires after 30 days, so a link pinned in GroupMe stops working mid-season.
 - **Coach guide ("Move from GroupMe"):** Team → + and the Invite Families sheet open a four-step guide: announce, remind, switch day, wrap up. Each step has a ready message (team name, invite link, code and the switch date filled in) with Copy and Share, plus a checkmark the coach taps. Tips cover the duplicate-child trap (one parent joins first, then sends a co-parent invite), inviting in person at pickup, and answering GroupMe questions with a pointer only. The switch date and checkmarks are stored per team on the device (`UserDefaults`, like the setup checklist). The guide makes no claims about GroupMe menus beyond what Microsoft documents: only the group's owner or admins can rename it, and ending a group deletes it permanently ([support](https://support.microsoft.com/en-us/groupme/manage-group-settings-in-groupme)).

@@ -303,22 +303,24 @@ final class DemoBackend: ClubHQBackend {
 
     func saveEvent(_ draft: EventDraft) async throws -> [UUID] {
         await pause()
-        func make(id: UUID, shift: TimeInterval) -> TeamEvent {
-            TeamEvent(id: id, teamId: draft.teamId, title: draft.resolvedTitle, eventType: draft.eventType,
-                      startsAt: draft.startsAt.addingTimeInterval(shift), endsAt: draft.endsAt.addingTimeInterval(shift),
+        func make(id: UUID, weeks: Int) -> TeamEvent {
+            // Same local start time every week, across Daylight Saving (D-037).
+            let start = Calendar.current.date(byAdding: .day, value: weeks * 7, to: draft.startsAt) ?? draft.startsAt
+            return TeamEvent(id: id, teamId: draft.teamId, title: draft.resolvedTitle, eventType: draft.eventType,
+                      startsAt: start, endsAt: start.addingTimeInterval(draft.endsAt.timeIntervalSince(draft.startsAt)),
                       location: draft.location.nilIfEmpty, locationAddress: draft.locationAddress.nilIfEmpty, notes: draft.notes.nilIfEmpty,
                       opponent: draft.eventType == .game ? draft.opponent.nilIfEmpty : nil,
                       homeAway: draft.eventType == .game ? (draft.isHome ? "home" : "away") : nil,
                       homeScore: nil, awayScore: nil, result: nil, cancelledAt: nil, rsvpCutoffAt: nil)
         }
         if let id = draft.id, let index = world.events.firstIndex(where: { $0.id == id }) {
-            var updated = make(id: id, shift: 0)
+            var updated = make(id: id, weeks: 0)
             updated.homeScore = world.events[index].homeScore
             updated.awayScore = world.events[index].awayScore
             world.events[index] = updated
             return [id]
         }
-        let created = (0...draft.repeatWeeks).map { make(id: UUID(), shift: TimeInterval($0) * 7 * 86_400) }
+        let created = (0...draft.repeatWeeks).map { make(id: UUID(), weeks: $0) }
         world.events.append(contentsOf: created)
         return created.map(\.id)
     }

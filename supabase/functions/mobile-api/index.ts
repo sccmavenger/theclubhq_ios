@@ -21,6 +21,7 @@ import { enqueueTeamNotification } from "../_shared/notify.ts";
 import { dispatchPendingPushes } from "../_shared/dispatch.ts";
 import { syncFromDevice } from "../_shared/appstore.ts";
 import { checkoutFeeCents, stripe } from "../_shared/stripe.ts";
+import { addLocalDays, formatEventTime, validTimeZone } from "../_shared/time.ts";
 
 type Params = Record<string, unknown>;
 interface Ctx {
@@ -258,6 +259,19 @@ async function requirePostableThread(ctx: Ctx, threadId: string) {
 /** Chat photos live at `<team>/<thread>/<author>/<random>.jpg` in the private bucket (D-036). */
 function photoFolder(teamId: string, threadId: string, userId: string): string {
   return `${teamId}/${threadId}/${userId}`;
+}
+
+/**
+ * The zone to schedule in (D-037): the caller's phone zone when sent, else the team's last
+ * known zone. A head coach's valid zone is remembered on the team for older app builds.
+ */
+async function eventTimeZone(ctx: Ctx, teamId: string, p: Params): Promise<string | null> {
+  const sent = validTimeZone(p.time_zone);
+  const { data: team } = await ctx.admin.from("teams").select("time_zone").eq("id", teamId).maybeSingle();
+  if (sent && sent !== team?.time_zone && (await rolesOnTeam(ctx, teamId)).includes("head_coach")) {
+    await ctx.admin.from("teams").update({ time_zone: sent }).eq("id", teamId);
+  }
+  return sent ?? validTimeZone(team?.time_zone);
 }
 
 /** Calendar feed URL for the caller, creating the secret token on first use (D-036). */
@@ -1024,21 +1038,25 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       home_away: eventType === "game" ? homeAway : null,
     };
 
+    const tz = await eventTimeZone(ctx, teamId, p);
+
     if (eventId) {
       const { error } = await ctx.db.from("events").update(row).eq("id", eventId);
       if (error) throw new ApiError("forbidden", "Only the head coach can edit events.", 403);
-      await notify(ctx, { teamId, kind: "event_updated", subject: `Updated: ${row.title}`, body: summarizeEvent(row), refId: eventId, includePlayers: true });
+      await notify(ctx, { teamId, kind: "event_updated", subject: `Updated: ${row.title}`, body: summarizeEvent(row, tz), refId: eventId, includePlayers: true });
       return { event_ids: [eventId] };
     }
 
+    // Weekly repeats keep the same local start time across Daylight Saving (D-037).
     const repeatWeeks = int(p, "repeat_weeks", 0, 26, true) ?? 0;
+    const startMs = new Date(startsAt).getTime();
+    const durationMs = endsAt ? new Date(endsAt).getTime() - startMs : null;
     const rows = Array.from({ length: repeatWeeks + 1 }, (_, i) => {
-      const shift = i * 7 * 24 * 3600_000;
-      const s = new Date(new Date(startsAt).getTime() + shift);
+      const s = new Date(addLocalDays(startMs, i * 7, tz));
       return {
         ...row,
         starts_at: s.toISOString(),
-        ends_at: endsAt ? new Date(new Date(endsAt).getTime() + shift).toISOString() : null,
+        ends_at: durationMs !== null ? new Date(s.getTime() + durationMs).toISOString() : null,
         rsvp_cutoff_at: new Date(s.getTime() - DEFAULT_CUTOFF_LEAD_MS).toISOString(),
         created_by: ctx.uid,
       };
@@ -1049,7 +1067,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       teamId,
       kind: "event_created",
       subject: repeatWeeks > 0 ? `New: ${row.title} (weekly ×${repeatWeeks + 1})` : `New: ${row.title}`,
-      body: summarizeEvent(row),
+      body: summarizeEvent(row, tz),
       refId: data[0].id,
       includePlayers: true,
     });
@@ -1065,11 +1083,12 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       .select("team_id, title, starts_at")
       .single();
     if (error || !ev) throw new ApiError("forbidden", "Only the head coach can cancel events.", 403);
+    const tz = await eventTimeZone(ctx, ev.team_id, p);
     await notify(ctx, {
       teamId: ev.team_id,
       kind: "event_updated",
       subject: `Cancelled: ${ev.title}`,
-      body: `${ev.title} on ${new Date(ev.starts_at).toUTCString()} has been cancelled.`,
+      body: `${ev.title} on ${formatEventTime(ev.starts_at, tz)} has been cancelled.`,
       refId: eventId,
       includePlayers: true,
     });
@@ -1373,9 +1392,8 @@ function messagePreview(body: string, imagePath: string | null, max: number): st
   return text ? `📷 ${text}`.slice(0, max) : "📷 Photo";
 }
 
-function summarizeEvent(row: { starts_at: string; location: string | null; opponent?: string | null }): string {
-  const when = new Date(row.starts_at).toUTCString().replace(":00 GMT", " UTC");
-  return [row.opponent ? `vs ${row.opponent}` : null, when, row.location].filter(Boolean).join(" · ");
+function summarizeEvent(row: { starts_at: string; location: string | null; opponent?: string | null }, tz: string | null): string {
+  return [row.opponent ? `vs ${row.opponent}` : null, formatEventTime(row.starts_at, tz), row.location].filter(Boolean).join(" · ");
 }
 
 // ---------------------------------------------------------------------------
