@@ -24,8 +24,6 @@ struct HomeView: View {
     @State private var hasAnyEvent: Bool?
     @State private var paymentsConnected = false
     @State private var checklistHidden = true
-    /// Set once a step is seen unchecked; only then does finishing earn the "all set" card.
-    @State private var checklistIncompleteTeams: Set<UUID> = []
 
     private enum HomeSheet: String, Identifiable {
         case inbox, newEvent, announcement, invite, dues, paymentMethods
@@ -316,15 +314,20 @@ struct HomeView: View {
                     let now = Date.now
                     let wide = try? await backend.events(teamIDs: [team.id], from: now.addingTimeInterval(-180 * 86_400),
                                                          to: now.addingTimeInterval(365 * 86_400))
-                    hasAnyEvent = !(wide ?? []).isEmpty
+                    hasAnyEvent = wide.map { !$0.isEmpty }
                 }
-                // Teams that were already set up (e.g. existing coaches) never see the card.
-                let allDone = setupSteps(team: team, hasAnyEvent: hasAnyEvent ?? false).allSatisfy(\.isDone)
-                if !allDone {
-                    checklistIncompleteTeams.insert(team.id)
-                } else if !checklistIncompleteTeams.contains(team.id) {
-                    WelcomeTour.hideChecklist(team: team.id)
-                    checklistHidden = true
+                // Decided once per team: an established team (players and events already) never
+                // sees the card; a new team keeps it until the coach finishes or hides it.
+                // A failed load can't tell new from established, so wait for a good one.
+                if !WelcomeTour.isChecklistStarted(team: team.id) {
+                    if errorText != nil || hasAnyEvent == nil {
+                        checklistHidden = true
+                    } else if !roster.isEmpty && hasAnyEvent == true {
+                        WelcomeTour.hideChecklist(team: team.id)
+                        checklistHidden = true
+                    } else {
+                        WelcomeTour.startChecklist(team: team.id)
+                    }
                 }
             }
         } else if persona == .parent {

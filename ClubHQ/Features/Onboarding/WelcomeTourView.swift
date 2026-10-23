@@ -25,6 +25,17 @@ enum WelcomeTour {
     static func hideChecklist(team: UUID) {
         UserDefaults.standard.set(true, forKey: checklistKey(team: team))
     }
+
+    private static func checklistStartedKey(team: UUID) -> String { "setupChecklistStarted.\(team.uuidString)" }
+
+    /// Set the first time the checklist is shown for a team, so it persists across launches.
+    static func isChecklistStarted(team: UUID) -> Bool {
+        UserDefaults.standard.bool(forKey: checklistStartedKey(team: team))
+    }
+
+    static func startChecklist(team: UUID) {
+        UserDefaults.standard.set(true, forKey: checklistStartedKey(team: team))
+    }
 }
 
 /// One-screen, role-specific welcome shown the first time a user reaches the main tabs.
