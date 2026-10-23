@@ -76,6 +76,11 @@ and Support pages updated to match 1.0 and deployed to Cloudflare Pages (`script
 Use Accounts", pass `-authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID`
 with the ASC key.
 
+**2026-10-23: resubmitted with build 15** at the owner's request, replacing build 9 (this
+resets the review queue position). Build 15 adds chat photos, calendar sync, the GroupMe guide,
+Daylight Saving-safe repeats, confirmation dialogs anchored to their buttons, and a more
+reliable team join (D-036 to D-038). Still no purchases; release stays automatic after approval.
+
 Build **7** adds Report/Block in chat (guideline 1.2). The description and review notes in
 `docs/app-store/metadata.json` no longer mention Stripe card payments or Coach Pro, since both are off in 1.0
 (guideline 2.3.1). Paste both into App Store Connect. The 6 screenshots in `design/app-store-screenshots/`
