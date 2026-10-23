@@ -298,6 +298,12 @@ struct InviteLink: Codable, Sendable {
     var expiresAt: Date
 
     var url: URL { AppConfig.webBaseURL.appending(path: "join/\(token)") }
+
+    /// "ABCDE FGHJK": easier to read aloud and type.
+    var spacedToken: String {
+        guard token.count == 10 else { return token }
+        return "\(token.prefix(5)) \(token.suffix(5))"
+    }
 }
 
 struct PlayerInviteCode: Codable, Sendable {

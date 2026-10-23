@@ -10,7 +10,7 @@ struct TeamView: View {
     @State private var sheet: TeamSheet?
 
     private enum TeamSheet: String, Identifiable {
-        case newPlayer, invite, announcement
+        case newPlayer, invite, announcement, groupMe
         var id: String { rawValue }
     }
 
@@ -34,6 +34,8 @@ struct TeamView: View {
                             Button("Invite Families", systemImage: "person.crop.circle.badge.plus") { sheet = .invite }
                             Button("Add Player", systemImage: "person.badge.plus") { sheet = .newPlayer }
                             Button("Post Announcement", systemImage: "megaphone") { sheet = .announcement }
+                            Divider()
+                            Button("Move from GroupMe", systemImage: "arrow.right.arrow.left") { sheet = .groupMe }
                         } label: {
                             Label("Add", systemImage: "plus")
                         }
@@ -46,6 +48,7 @@ struct TeamView: View {
                     case .newPlayer: PlayerEditorView(draft: PlayerDraft(teamId: team.id), sport: team.resolvedSport)
                     case .invite: InviteFamiliesView(team: team)
                     case .announcement: AnnouncementComposer(teamID: team.id)
+                    case .groupMe: NavigationStack { MoveFromGroupMeView(team: team, showsDoneButton: true) }
                     }
                 }
             }
@@ -188,6 +191,8 @@ struct InviteFamiliesView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var invite: InviteLink?
     @State private var errorText: String?
+    @State private var confirmReset = false
+    @State private var isResetting = false
 
     private var shareText: String {
         guard let invite else { return "" }
@@ -198,55 +203,20 @@ struct InviteFamiliesView: View {
         """
     }
 
-    /// "ABCDE FGHJK" — easier to read aloud and type.
-    private var spacedCode: String {
-        guard let token = invite?.token, token.count == 10 else { return invite?.token ?? "" }
-        return "\(token.prefix(5)) \(token.suffix(5))"
-    }
+    private var spacedCode: String { invite?.spacedToken ?? "" }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Image(systemName: "person.3.sequence.fill")
-                    .font(.system(size: 54))
-                    .foregroundStyle(team.tint)
-                    .padding(.top, 32)
-                Text("Invite your families")
-                    .font(.title2.bold())
-                Text("Share your team code in your group text or email. Parents create an account, enter the code, and add their child — no roster typing.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                if let invite {
-                    VStack(spacing: 12) {
-                        VStack(spacing: 4) {
-                            Text("Team code").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                            Text(spacedCode)
-                                .font(.system(size: 32, weight: .bold, design: .monospaced))
-                                .textSelection(.enabled)
-                                .accessibilityLabel("Team code \(invite.token.map(String.init).joined(separator: " "))")
-                        }
-                        .padding(14)
-                        .frame(maxWidth: .infinity)
-                        .background(.quaternary, in: .rect(cornerRadius: 12))
-                        ShareLink(item: shareText) {
-                            Label("Share Invite", systemImage: "square.and.arrow.up")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        Text("Code works until \(invite.expiresAt.formatted(date: .abbreviated, time: .omitted)).")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                } else if let errorText {
-                    Text(errorText).foregroundStyle(.red)
-                } else {
-                    ProgressView()
-                }
-                Spacer()
+            ScrollView {
+                inviteContent
             }
-            .padding(.horizontal, 24)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+            .confirmationDialog("Reset the team code?", isPresented: $confirmReset, titleVisibility: .visible) {
+                Button("Reset Code", role: .destructive) { Task { await reset() } }
+            } message: {
+                Text("The current link and code stop working right away. Families who already joined aren't affected. Share the new invite with anyone still joining.")
             }
             .task {
                 do {
@@ -255,6 +225,74 @@ struct InviteFamiliesView: View {
                     errorText = error.localizedDescription
                 }
             }
+        }
+    }
+
+    private var inviteContent: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "person.3.sequence.fill")
+                .font(.system(size: 54))
+                .foregroundStyle(team.tint)
+                .padding(.top, 32)
+            Text("Invite your families")
+                .font(.title2.bold())
+            Text("Share your team code in your group text or email. Parents create an account, enter the code, and add their child — no roster typing.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+            if let invite {
+                VStack(spacing: 12) {
+                    VStack(spacing: 4) {
+                        Text("Team code").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(spacedCode)
+                            .font(.system(size: 32, weight: .bold, design: .monospaced))
+                            .textSelection(.enabled)
+                            .accessibilityLabel("Team code \(invite.token.map(String.init).joined(separator: " "))")
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity)
+                    .background(.quaternary, in: .rect(cornerRadius: 12))
+                    ShareLink(item: shareText) {
+                        Label("Share Invite", systemImage: "square.and.arrow.up")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    Text("Works all season, until \(invite.expiresAt.formatted(date: .abbreviated, time: .omitted)). Families who already joined never need it again.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    NavigationLink {
+                        MoveFromGroupMeView(team: team)
+                    } label: {
+                        Label("Moving from GroupMe? Step-by-step guide", systemImage: "arrow.right.arrow.left")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .padding(.top, 4)
+                }
+            }
+            if let errorText {
+                Text(errorText).foregroundStyle(.red).multilineTextAlignment(.center)
+            } else if invite == nil {
+                ProgressView()
+            }
+            if invite != nil {
+                Button("Reset Code", role: .destructive) { confirmReset = true }
+                    .font(.footnote)
+                    .disabled(isResetting)
+                    .padding(.top, 8)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, 24)
+    }
+
+    private func reset() async {
+        isResetting = true
+        defer { isResetting = false }
+        do {
+            invite = try await model.backend.resetInvite(teamID: team.id)
+            errorText = nil
+        } catch {
+            errorText = error.localizedDescription
         }
     }
 }
@@ -452,4 +490,17 @@ struct TeamSettingsView: View {
 
 #Preview {
     TeamView().environment(AppModel.preview(.coach))
+}
+
+/// Invite sheet for the demo coach's team, once the context has loaded.
+private struct InviteFamiliesPreview: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        if let team = model.selectedTeam { InviteFamiliesView(team: team) } else { ProgressView() }
+    }
+}
+
+#Preview("Invite families") {
+    InviteFamiliesPreview().environment(AppModel.preview(.coach))
 }

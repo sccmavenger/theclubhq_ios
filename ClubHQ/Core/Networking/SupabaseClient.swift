@@ -284,6 +284,20 @@ final class SupabaseClient {
         return try await send(request)
     }
 
+    // MARK: - Storage
+
+    /// PUTs bytes to a Storage signed upload URL (the `uploadToSignedUrl` contract). The
+    /// token in the URL authorizes the upload; `mobile-api` issued it after its own checks.
+    func uploadToSignedURL(_ url: URL, data: Data, contentType: String) async throws {
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue(publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        request.setValue("false", forHTTPHeaderField: "x-upsert")
+        request.httpBody = data
+        let _: EmptyResponse = try await send(request)
+    }
+
     // MARK: - Transport
 
     private func authorize(_ request: inout URLRequest) async throws {

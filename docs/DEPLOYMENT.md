@@ -36,6 +36,7 @@ Deploy from `supabase/functions/` (shared code is in `_shared/`):
 | `apns-dispatch` | off (own secret) | Pushes `notification_sends` to iPhones (D-021) |
 | `stripe-webhook` | off (Stripe signature) | Marks dues paid; Connect account status |
 | `appstore-notifications` | off (re-verifies with Apple) | Coach Pro renewals, expirations, refunds |
+| `calendar-feed` | off (secret token in the URL) | Calendar subscription (.ics) for Schedule → Calendar Sync (D-036) |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
 

@@ -15,5 +15,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ClubHQ saves team chat photos to your library when you choose Save Image.</string>
 </dict>
 </plist>

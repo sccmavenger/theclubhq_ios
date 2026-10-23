@@ -62,6 +62,14 @@ struct ChatMessage: Codable, Identifiable, Hashable, Sendable {
     var editedAt: Date?
     var isDeleted: Bool
     var isMine: Bool
+    /// Short-lived signed URL for a chat photo (D-036); nil for text-only messages.
+    var imageURL: URL? = nil
+    var imageWidth: Int? = nil
+    var imageHeight: Int? = nil
+
+    var hasPhoto: Bool { imageURL != nil && !isDeleted }
+    /// Photo messages may have no caption.
+    var hasText: Bool { !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }
 
 struct ThreadDetail: Codable, Sendable {

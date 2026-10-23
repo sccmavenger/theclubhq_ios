@@ -14,3 +14,7 @@ verify_jwt = false
 
 [functions.apns-dispatch]
 verify_jwt = false
+
+# Calendar apps can't send a JWT; the secret feed token is the credential (D-036).
+[functions.calendar-feed]
+verify_jwt = false

@@ -16,6 +16,7 @@ struct ScheduleView: View {
     @State private var isLoading = true
     @State private var errorText: String?
     @State private var showEditor = false
+    @State private var showCalendarSync = false
 
     private var team: TeamMembership? { model.selectedTeam }
     private var showsTeamFilter: Bool { model.teams.count > 1 }
@@ -70,6 +71,11 @@ struct ScheduleView: View {
             .navigationTitle("Schedule")
             .navigationDestination(for: TeamEvent.self) { EventDetailView(eventID: $0.id) }
             .toolbar {
+                if team != nil {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { showCalendarSync = true } label: { Label("Calendar Sync", systemImage: "calendar.badge.checkmark") }
+                    }
+                }
                 if team?.canManageSchedule == true {
                     ToolbarItem(placement: .primaryAction) {
                         Button { showEditor = true } label: { Label("New Event", systemImage: "plus") }
@@ -81,6 +87,7 @@ struct ScheduleView: View {
             .sheet(isPresented: $showEditor, onDismiss: { Task { await load() } }) {
                 if let team { EventEditorView(draft: EventDraft(teamId: team.id)) }
             }
+            .sheet(isPresented: $showCalendarSync) { CalendarSyncView() }
             .overlay { if isLoading && events.isEmpty { ProgressView() } }
         }
     }

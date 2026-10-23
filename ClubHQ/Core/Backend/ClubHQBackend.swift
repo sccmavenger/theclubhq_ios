@@ -37,6 +37,8 @@ protocol ClubHQBackend: AnyObject {
     /// Saves the team's Venmo username / $Cashtag (nil clears). Returns the normalized values.
     func updatePaymentHandles(teamID: UUID, venmoUsername: String?, cashappCashtag: String?) async throws
     func createInvite(teamID: UUID) async throws -> InviteLink
+    /// Head coach replaces the team code; the old link and code stop working (D-036).
+    func resetInvite(teamID: UUID) async throws -> InviteLink
     func lookupInvite(token: String) async throws -> InvitePreview
     /// `allowDuplicate` confirms a second child with the same name as one already on the team.
     func claimInvite(token: String, child: NewChildRequest, allowDuplicate: Bool) async throws -> UUID
@@ -62,6 +64,8 @@ protocol ClubHQBackend: AnyObject {
     func saveEvent(_ draft: EventDraft) async throws -> [UUID]
     func cancelEvent(id: UUID) async throws
     func setRSVP(eventID: UUID, playerID: UUID, status: RSVPStatus, note: String?) async throws
+    /// The caller's secret calendar subscription URL (https); `reset` replaces it (D-036).
+    func calendarFeedURL(reset: Bool) async throws -> URL
     func setAttendance(eventID: UUID, entries: [UUID: AttendanceStatus]) async throws
     func setScore(eventID: UUID, homeScore: Int, awayScore: Int) async throws
     func teamAttendance(teamID: UUID) async throws -> [AttendanceRecord]
@@ -71,6 +75,8 @@ protocol ClubHQBackend: AnyObject {
     func teamChatThreadID(teamID: UUID) async throws -> UUID
     func threadDetail(threadID: UUID, since: Date?) async throws -> ThreadDetail
     func postMessage(threadID: UUID, body: String) async throws
+    /// Uploads an already-downsized, metadata-free JPEG and posts it with an optional caption.
+    func postPhoto(threadID: UUID, photo: ChatPhoto, caption: String) async throws
     func createThread(teamID: UUID, title: String, audience: MessageAudience, body: String) async throws -> UUID
     func deleteMessage(id: UUID) async throws
     func setMute(threadID: UUID, muted: Bool) async throws

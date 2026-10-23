@@ -120,6 +120,10 @@ final class SupabaseBackend: ClubHQBackend {
         try await client.invoke("create-invite", ["team_id": .uuid(teamID)])
     }
 
+    func resetInvite(teamID: UUID) async throws -> InviteLink {
+        try await client.invoke("reset-invite", ["team_id": .uuid(teamID)])
+    }
+
     func lookupInvite(token: String) async throws -> InvitePreview {
         try await client.invoke("lookup-invite", ["token": .string(token)])
     }
@@ -281,6 +285,12 @@ final class SupabaseBackend: ClubHQBackend {
         let _: OK = try await client.invoke("cancel-event", ["event_id": .uuid(id)])
     }
 
+    func calendarFeedURL(reset: Bool) async throws -> URL {
+        struct Response: Decodable { let url: URL }
+        let response: Response = try await client.invoke(reset ? "reset-calendar-feed" : "calendar-feed")
+        return response.url
+    }
+
     func setRSVP(eventID: UUID, playerID: UUID, status: RSVPStatus, note: String?) async throws {
         let _: OK = try await client.invoke("set-rsvp", [
             "event_id": .uuid(eventID),
@@ -357,6 +367,17 @@ final class SupabaseBackend: ClubHQBackend {
     func postMessage(threadID: UUID, body: String) async throws {
         struct Posted: Decodable { let id: UUID }
         let _: Posted = try await client.invoke("post-message", ["thread_id": .uuid(threadID), "body": .string(body)])
+    }
+
+    func postPhoto(threadID: UUID, photo: ChatPhoto, caption: String) async throws {
+        struct Upload: Decodable { let uploadUrl: URL; let path: String }
+        struct Posted: Decodable { let id: UUID }
+        let upload: Upload = try await client.invoke("create-photo-upload", ["thread_id": .uuid(threadID)])
+        try await client.uploadToSignedURL(upload.uploadUrl, data: photo.jpeg, contentType: "image/jpeg")
+        let _: Posted = try await client.invoke("post-message", [
+            "thread_id": .uuid(threadID), "body": .string(caption), "image_path": .string(upload.path),
+            "image_width": .int(photo.width), "image_height": .int(photo.height),
+        ])
     }
 
     func createThread(teamID: UUID, title: String, audience: MessageAudience, body: String) async throws -> UUID {

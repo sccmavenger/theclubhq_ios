@@ -122,7 +122,13 @@ final class DemoBackend: ClubHQBackend {
         await pause()
         let token = world.inviteTokens.first { $0.value == teamID }?.key ?? "demo\(Int.random(in: 100_000...999_999))"
         world.inviteTokens[token] = teamID
-        return InviteLink(token: token, expiresAt: .now.addingTimeInterval(14 * 86_400))
+        return InviteLink(token: token, expiresAt: .now.addingTimeInterval(365 * 86_400))
+    }
+
+    func resetInvite(teamID: UUID) async throws -> InviteLink {
+        await pause()
+        world.inviteTokens = world.inviteTokens.filter { $0.value != teamID }
+        return try await createInvite(teamID: teamID)
     }
 
     func lookupInvite(token: String) async throws -> InvitePreview {
@@ -322,6 +328,13 @@ final class DemoBackend: ClubHQBackend {
         world.events[index].cancelledAt = .now
     }
 
+    /// The demo has no server for a calendar app to fetch from.
+    func calendarFeedURL(reset: Bool) async throws -> URL {
+        await pause()
+        throw BackendError.server(status: 409, code: "demo_unavailable",
+                                  message: "Calendar sync needs a real account. Sign up to put your team's schedule in your phone's calendar.")
+    }
+
     func setRSVP(eventID: UUID, playerID: UUID, status: RSVPStatus, note: String?) async throws {
         await pause()
         guard let event = world.events.first(where: { $0.id == eventID }) else { throw notFound("This event") }
@@ -373,7 +386,12 @@ final class DemoBackend: ClubHQBackend {
             .map { thread in
                 var thread = thread
                 let last = world.messages.filter { $0.threadID == thread.id }.max { $0.message.createdAt < $1.message.createdAt }
-                thread.lastMessage = last.map { $0.message.isDeleted ? "[deleted]" : String($0.message.body.prefix(140)) }
+                thread.lastMessage = last.map { stored in
+                    let message = stored.message
+                    if message.isDeleted { return "[deleted]" }
+                    if message.imageURL != nil { return message.hasText ? "📷 \(message.body.prefix(138))" : "📷 Photo" }
+                    return String(message.body.prefix(140))
+                }
                 thread.lastMessageAt = last?.message.createdAt
                 thread.lastAuthorName = last.map { world.name(of: $0.message.authorId) }
                 let readAt = world.reads[ReadKey(userID: uid, threadID: thread.id)]
@@ -404,7 +422,10 @@ final class DemoBackend: ClubHQBackend {
                 var message = stored.message
                 message.authorName = world.name(of: message.authorId)
                 message.isMine = message.authorId == uid
-                if message.isDeleted { message.body = "[deleted]" }
+                if message.isDeleted {
+                    message.body = "[deleted]"
+                    message.imageURL = nil
+                }
                 return message
             }
             .sorted { $0.createdAt < $1.createdAt }
@@ -418,6 +439,19 @@ final class DemoBackend: ClubHQBackend {
         let uid = try me()
         guard let index = world.threads.firstIndex(where: { $0.id == threadID }) else { throw notFound("This conversation") }
         let message = ChatMessage(id: UUID(), authorId: uid, authorName: "", body: body, createdAt: .now, editedAt: nil, isDeleted: false, isMine: true)
+        world.messages.append(.init(threadID: threadID, message: message))
+        world.threads[index].updatedAt = .now
+    }
+
+    /// Demo photos live in the caches folder and are shown through file URLs.
+    func postPhoto(threadID: UUID, photo: ChatPhoto, caption: String) async throws {
+        await pause()
+        let uid = try me()
+        guard let index = world.threads.firstIndex(where: { $0.id == threadID }) else { throw notFound("This conversation") }
+        let file = URL.cachesDirectory.appending(path: "demo-chat-\(UUID().uuidString).jpg")
+        try photo.jpeg.write(to: file)
+        let message = ChatMessage(id: UUID(), authorId: uid, authorName: "", body: caption, createdAt: .now, editedAt: nil,
+                                  isDeleted: false, isMine: true, imageURL: file, imageWidth: photo.width, imageHeight: photo.height)
         world.messages.append(.init(threadID: threadID, message: message))
         world.threads[index].updatedAt = .now
     }

@@ -1,6 +1,8 @@
+import PhotosUI
 import SwiftUI
 
-/// A conversation. Polls every 5 s while visible (DECISIONS D-016).
+/// A conversation. Polls every 5 s while visible (DECISIONS D-016). Messages can carry
+/// one photo (D-036).
 struct ChatView: View {
     let threadID: UUID
     @Environment(AppModel.self) private var model
@@ -12,6 +14,11 @@ struct ChatView: View {
     @State private var isMuted = false
     @State private var blockCandidate: ChatMessage?
     @State private var reportFallbackShown = false
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var attachment: ChatPhoto?
+    @State private var attachmentPreview: UIImage?
+    @State private var isPreparingPhoto = false
+    @State private var viewedPhoto: ChatPhotoViewer.ViewedPhoto?
     @FocusState private var composerFocused: Bool
     @Environment(\.openURL) private var openURL
     /// Comma-separated author IDs this user has blocked; their messages are hidden on this device
@@ -47,7 +54,11 @@ struct ChatView: View {
                                       canDelete: message.isMine || detail?.thread.canModerate == true,
                                       onDelete: { Task { await delete(message) } },
                                       onReport: { report(message) },
-                                      onBlock: { blockCandidate = message })
+                                      onBlock: { blockCandidate = message },
+                                      onOpenPhoto: { image in
+                                          viewedPhoto = .init(id: message.id, image: image,
+                                                              authorName: message.isMine ? "You" : message.authorName)
+                                      })
                         .id(message.id)
                     }
                 }
@@ -98,6 +109,11 @@ struct ChatView: View {
         } message: {
             Text("No mail app is set up. The report has been copied. Paste it into an email to \(AppConfig.supportEmail) and we'll review it within 24 hours.")
         }
+        .fullScreenCover(item: $viewedPhoto) { ChatPhotoViewer(photo: $0) }
+        .onChange(of: pickerItem) { _, item in
+            guard let item else { return }
+            Task { await attach(item) }
+        }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await load()
@@ -121,8 +137,18 @@ struct ChatView: View {
                 if let errorText {
                     Text(errorText).font(.caption).foregroundStyle(.red)
                 }
+                if attachmentPreview != nil || isPreparingPhoto {
+                    attachmentRow
+                }
                 HStack(alignment: .bottom, spacing: 8) {
-                    TextField("Message", text: $draft, axis: .vertical)
+                    PhotosPicker(selection: $pickerItem, matching: .images) {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.system(size: 22))
+                            .frame(width: 34, height: 38)
+                    }
+                    .disabled(isSending || isPreparingPhoto)
+                    .accessibilityLabel("Add Photo")
+                    TextField(attachment == nil ? "Message" : "Add a caption", text: $draft, axis: .vertical)
                         .lineLimit(1...5)
                         .focused($composerFocused)
                         .padding(.horizontal, 14)
@@ -134,7 +160,7 @@ struct ChatView: View {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 34))
                     }
-                    .disabled(draft.nilIfEmpty == nil || isSending)
+                    .disabled((draft.nilIfEmpty == nil && attachment == nil) || isSending || isPreparingPhoto)
                     .accessibilityLabel("Send")
                 }
             }
@@ -142,6 +168,39 @@ struct ChatView: View {
             .padding(.vertical, 8)
             .background(.bar)
         }
+    }
+
+    /// The photo waiting to be sent, with a way to remove it.
+    private var attachmentRow: some View {
+        HStack {
+            ZStack(alignment: .topTrailing) {
+                Group {
+                    if let attachmentPreview {
+                        Image(uiImage: attachmentPreview).resizable().scaledToFill()
+                    } else {
+                        ProgressView()
+                    }
+                }
+                .frame(width: 72, height: 72)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(.rect(cornerRadius: 12))
+                if attachmentPreview != nil {
+                    Button {
+                        clearAttachment()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title3)
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, .black.opacity(0.6))
+                    }
+                    .offset(x: 6, y: -6)
+                    .accessibilityLabel("Remove Photo")
+                }
+            }
+            Spacer()
+        }
+        .padding(.leading, 42)
+        .padding(.top, 4)
     }
 
     private func load() async {
@@ -159,23 +218,64 @@ struct ChatView: View {
     }
 
     private func send() async {
-        guard let body = draft.nilIfEmpty else { return }
+        let photo = attachment
+        let body = draft.nilIfEmpty ?? ""
+        guard !body.isEmpty || photo != nil else { return }
         isSending = true
         defer { isSending = false }
         let previous = draft
+        let previousPreview = attachmentPreview
         draft = ""
+        clearAttachment()
         // Optimistic: show the bubble immediately; the reload replaces it with the server copy.
-        let pending = ChatMessage(id: UUID(), authorId: model.backend.currentUserID ?? UUID(), authorName: "",
+        var pending = ChatMessage(id: UUID(), authorId: model.backend.currentUserID ?? UUID(), authorName: "",
                                   body: body, createdAt: .now, editedAt: nil, isDeleted: false, isMine: true)
+        if let photo, let previousPreview {
+            ChatImageCache.shared.store(previousPreview, for: pending.id.uuidString)
+            pending.imageURL = URL.temporaryDirectory.appending(path: "pending-\(pending.id.uuidString).jpg")
+            pending.imageWidth = photo.width
+            pending.imageHeight = photo.height
+        }
         detail?.messages.append(pending)
         do {
-            try await model.backend.postMessage(threadID: threadID, body: body)
+            if let photo {
+                try await model.backend.postPhoto(threadID: threadID, photo: photo, caption: body)
+            } else {
+                try await model.backend.postMessage(threadID: threadID, body: body)
+            }
             await load()
         } catch {
             detail?.messages.removeAll { $0.id == pending.id }
             draft = previous
+            attachment = photo
+            attachmentPreview = previousPreview
             errorText = error.localizedDescription
         }
+    }
+
+    /// Loads the picked photo and prepares the upload copy off the main thread: downsized,
+    /// re-encoded, metadata removed (D-036).
+    private func attach(_ item: PhotosPickerItem) async {
+        isPreparingPhoto = true
+        defer {
+            isPreparingPhoto = false
+            pickerItem = nil
+        }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else { throw ChatPhoto.EncodingError.unreadable }
+            let photo = try await Task.detached(priority: .userInitiated) { try ChatPhoto.make(from: data) }.value
+            attachment = photo
+            attachmentPreview = UIImage(data: photo.jpeg)
+            errorText = nil
+            composerFocused = true
+        } catch {
+            errorText = (error as? LocalizedError)?.errorDescription ?? ChatPhoto.EncodingError.unreadable.localizedDescription
+        }
+    }
+
+    private func clearAttachment() {
+        attachment = nil
+        attachmentPreview = nil
     }
 
     private func delete(_ message: ChatMessage) async {
@@ -194,7 +294,7 @@ struct ChatView: View {
 
         From: \(message.authorName)
         Sent: \(message.createdAt.formatted(date: .abbreviated, time: .shortened))
-        Message: \(message.body)
+        Message: \(message.hasPhoto ? "[photo] " : "")\(message.body)
 
         Thread ID: \(threadID.uuidString)
         Message ID: \(message.id.uuidString)
@@ -259,6 +359,7 @@ private struct MessageBubble: View {
     let onDelete: () -> Void
     let onReport: () -> Void
     let onBlock: () -> Void
+    let onOpenPhoto: (UIImage) -> Void
 
     var body: some View {
         VStack(alignment: message.isMine ? .trailing : .leading, spacing: 2) {
@@ -266,27 +367,37 @@ private struct MessageBubble: View {
                 Text(message.authorName).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     .padding(.leading, 10)
             }
-            Text(message.body)
-                .italic(message.isDeleted)
-                .foregroundStyle(message.isMine ? Color.white : Color.primary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(message.isMine ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color(.secondarySystemBackground)),
-                            in: .rect(cornerRadius: 18))
-                .contextMenu {
-                    Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.body }
-                    if canDelete && !message.isDeleted {
-                        Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
-                    }
-                    if !message.isMine && !message.isDeleted {
-                        Button("Report", systemImage: "exclamationmark.bubble", action: onReport)
-                        Button("Block \(message.authorName)", systemImage: "hand.raised", role: .destructive, action: onBlock)
-                    }
-                }
+            if message.hasPhoto {
+                ChatPhotoView(message: message, onOpen: onOpenPhoto)
+                    .contextMenu { menu }
+            }
+            if message.hasText || !message.hasPhoto {
+                Text(message.body)
+                    .italic(message.isDeleted)
+                    .foregroundStyle(message.isMine ? Color.white : Color.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(message.isMine ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color(.secondarySystemBackground)),
+                                in: .rect(cornerRadius: 18))
+                    .contextMenu { menu }
+            }
             Text(message.createdAt.timeLabel).font(.caption2).foregroundStyle(.tertiary).padding(.horizontal, 10)
         }
         .frame(maxWidth: .infinity, alignment: message.isMine ? .trailing : .leading)
         .padding(message.isMine ? .leading : .trailing, 48)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: message.hasPhoto ? .contain : .combine)
+    }
+
+    @ViewBuilder private var menu: some View {
+        if message.hasText && !message.isDeleted {
+            Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.body }
+        }
+        if canDelete && !message.isDeleted {
+            Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+        }
+        if !message.isMine && !message.isDeleted {
+            Button("Report", systemImage: "exclamationmark.bubble", action: onReport)
+            Button("Block \(message.authorName)", systemImage: "hand.raised", role: .destructive, action: onBlock)
+        }
     }
 }

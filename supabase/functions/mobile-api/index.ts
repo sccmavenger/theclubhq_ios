@@ -37,6 +37,11 @@ const FREE_TEAM_LIMIT = 1;
 const PRO_TEAM_LIMIT = 3;
 const MIN_PLAYER_ACCOUNT_AGE = 13;
 const DEFAULT_CUTOFF_LEAD_MS = 4 * 3600_000;
+const DAY_MS = 24 * 3600_000;
+/** Team codes last a season (D-036); co-parent invites keep the 30-day column default. */
+const TEAM_CODE_LIFETIME_MS = 365 * DAY_MS;
+const CHAT_PHOTOS_BUCKET = "chat-photos";
+const PHOTO_URL_TTL_SECONDS = 3600;
 
 // ---------------------------------------------------------------------------
 // Validation helpers
@@ -224,6 +229,54 @@ async function notifyFamilyJoined(ctx: Ctx, teamId: string, playerId: string, ch
   });
 }
 
+async function newTeamCode(ctx: Ctx, teamId: string, expiresAt: string) {
+  const { data, error } = await ctx.admin
+    .from("team_invites")
+    .insert({ team_id: teamId, token: shortCode(10), created_by: ctx.uid, expires_at: expiresAt })
+    .select("token, expires_at")
+    .single();
+  if (error || !data) throw new ApiError("internal", error?.message ?? "Could not create invite", 500);
+  return data;
+}
+
+/** Reads the thread under the caller's RLS and applies the two-adult rule (D-009). */
+async function requirePostableThread(ctx: Ctx, threadId: string) {
+  const { data: thread } = await ctx.db
+    .from("message_threads")
+    .select("id, team_id, kind, title, audience")
+    .eq("id", threadId)
+    .maybeSingle();
+  if (!thread) throw new ApiError("not_found", "Conversation not found.", 404);
+  const roles = await rolesOnTeam(ctx, thread.team_id);
+  const isOnlyPlayer = roles.length > 0 && roles.every((r) => r === "player");
+  if (isOnlyPlayer && (thread.kind === "direct" || thread.kind === "group")) {
+    throw new ApiError("forbidden", "Players can post in team chat only.", 403);
+  }
+  return thread;
+}
+
+/** Chat photos live at `<team>/<thread>/<author>/<random>.jpg` in the private bucket (D-036). */
+function photoFolder(teamId: string, threadId: string, userId: string): string {
+  return `${teamId}/${threadId}/${userId}`;
+}
+
+/** Calendar feed URL for the caller, creating the secret token on first use (D-036). */
+async function calendarFeedURL(ctx: Ctx, rotate: boolean): Promise<{ url: string }> {
+  let token: string | null = null;
+  if (!rotate) {
+    const { data } = await ctx.admin.from("calendar_feeds").select("token").eq("user_id", ctx.uid).maybeSingle();
+    token = data?.token ?? null;
+  }
+  if (!token) {
+    token = randomToken(24);
+    const { error } = await ctx.admin
+      .from("calendar_feeds")
+      .upsert({ user_id: ctx.uid, token, created_at: new Date().toISOString(), last_fetched_at: null }, { onConflict: "user_id" });
+    if (error) throw new ApiError("internal", error.message, 500);
+  }
+  return { url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/calendar-feed/${token}.ics` };
+}
+
 /** Fan out, then push to iOS immediately (cron catches anything missed). */
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
@@ -388,25 +441,42 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
   async "create-invite"(ctx, p) {
     const teamId = uuid(p, "team_id");
     await requireHeadCoach(ctx, teamId);
-    // Reuse a live invite so the coach always shares the same link.
+    // Reuse a live invite so the coach always shares the same link, and keep it good for a
+    // season from today: the link gets pinned in group chats (D-036).
+    const seasonEnd = new Date(Date.now() + TEAM_CODE_LIFETIME_MS).toISOString();
     const { data: existing } = await ctx.admin
       .from("team_invites")
-      .select("token, expires_at")
+      .select("id, token, expires_at")
       .eq("team_id", teamId)
       .is("player_id", null)
       .is("revoked_at", null)
-      .gt("expires_at", new Date(Date.now() + 24 * 3600_000).toISOString())
+      .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (existing) return existing;
-    const { data, error } = await ctx.admin
+    if (existing) {
+      if (new Date(existing.expires_at).getTime() < Date.now() + TEAM_CODE_LIFETIME_MS - 7 * DAY_MS) {
+        await ctx.admin.from("team_invites").update({ expires_at: seasonEnd }).eq("id", existing.id);
+        return { token: existing.token, expires_at: seasonEnd };
+      }
+      return { token: existing.token, expires_at: existing.expires_at };
+    }
+    return await newTeamCode(ctx, teamId, seasonEnd);
+  },
+
+  // A long-lived code can leak beyond the team; the head coach replaces it (D-036).
+  // Families who already joined are unaffected; co-parent invites stay valid.
+  async "reset-invite"(ctx, p) {
+    const teamId = uuid(p, "team_id");
+    await requireHeadCoach(ctx, teamId);
+    const { error } = await ctx.admin
       .from("team_invites")
-      .insert({ team_id: teamId, token: shortCode(10), created_by: ctx.uid })
-      .select("token, expires_at")
-      .single();
-    if (error || !data) throw new ApiError("internal", error?.message ?? "Could not create invite", 500);
-    return data;
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("team_id", teamId)
+      .is("player_id", null)
+      .is("revoked_at", null);
+    if (error) throw new ApiError("internal", error.message, 500);
+    return await newTeamCode(ctx, teamId, new Date(Date.now() + TEAM_CODE_LIFETIME_MS).toISOString());
   },
 
   async "lookup-invite"(ctx, p) {
@@ -703,14 +773,14 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       (threads ?? []).map(async (t) => {
         const { data: last } = await ctx.db
           .from("messages")
-          .select("body, author_id, created_at, deleted_at")
+          .select("body, image_path, author_id, created_at, deleted_at")
           .eq("thread_id", t.id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
         return {
           ...t,
-          last_message: last ? (last.deleted_at ? "[deleted]" : last.body.slice(0, 140)) : null,
+          last_message: last ? (last.deleted_at ? "[deleted]" : messagePreview(last.body, last.image_path, 140)) : null,
           last_message_at: last?.created_at ?? null,
           last_author_id: last?.author_id ?? null,
           unread: !!last && last.author_id !== ctx.uid && (!readMap[t.id] || new Date(readMap[t.id]) < new Date(last.created_at)),
@@ -790,7 +860,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const since = typeof p.since === "string" ? isoDate(p, "since") : null;
     let q = ctx.db
       .from("messages")
-      .select("id, author_id, body, edited_at, deleted_at, created_at")
+      .select("id, author_id, body, image_path, image_width, image_height, edited_at, deleted_at, created_at")
       .eq("thread_id", threadId)
       .order("created_at", { ascending: true })
       .limit(500);
@@ -798,40 +868,69 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const { data: msgs, error } = await q;
     if (error) throw new ApiError("internal", error.message, 500);
     const names = await profileNames(ctx, [...new Set((msgs ?? []).map((m) => m.author_id))]);
+    // Photos are private; the caller can read this thread (RLS above), so sign short-lived URLs.
+    const photoPaths = (msgs ?? []).filter((m) => m.image_path && !m.deleted_at).map((m) => m.image_path as string);
+    const photoURLs: Record<string, string> = {};
+    if (photoPaths.length > 0) {
+      const { data: signed } = await ctx.admin.storage.from(CHAT_PHOTOS_BUCKET).createSignedUrls(photoPaths, PHOTO_URL_TTL_SECONDS);
+      (signed ?? []).forEach((s) => {
+        if (s.path && s.signedUrl) photoURLs[s.path] = s.signedUrl;
+      });
+    }
     await ctx.db.from("message_reads").upsert({ user_id: ctx.uid, thread_id: threadId, last_read_at: new Date().toISOString() });
     return {
       thread: { ...thread, can_moderate: canModerate, can_post: !(roles.includes("player") && roles.length === 1 && thread.kind !== "team") },
-      messages: (msgs ?? []).map((m) => ({
-        id: m.id,
-        author_id: m.author_id,
-        author_name: names[m.author_id] ?? "Member",
-        body: m.deleted_at ? "[deleted]" : m.body,
-        created_at: m.created_at,
-        edited_at: m.edited_at,
-        is_deleted: !!m.deleted_at,
-        is_mine: m.author_id === ctx.uid,
-      })),
+      messages: (msgs ?? []).map((m) => {
+        const imageURL = !m.deleted_at && m.image_path ? photoURLs[m.image_path] ?? null : null;
+        return {
+          id: m.id,
+          author_id: m.author_id,
+          author_name: names[m.author_id] ?? "Member",
+          body: m.deleted_at ? "[deleted]" : m.body,
+          image_url: imageURL,
+          image_width: imageURL ? m.image_width : null,
+          image_height: imageURL ? m.image_height : null,
+          created_at: m.created_at,
+          edited_at: m.edited_at,
+          is_deleted: !!m.deleted_at,
+          is_mine: m.author_id === ctx.uid,
+        };
+      }),
     };
+  },
+
+  // Step 1 of a photo message (D-036): a signed upload URL in the caller's folder for this
+  // thread. The app PUTs the JPEG there, then calls post-message with the returned path.
+  async "create-photo-upload"(ctx, p) {
+    const threadId = uuid(p, "thread_id");
+    const thread = await requirePostableThread(ctx, threadId);
+    const path = `${photoFolder(thread.team_id, threadId, ctx.uid)}/${randomToken(12)}.jpg`;
+    const { data, error } = await ctx.admin.storage.from(CHAT_PHOTOS_BUCKET).createSignedUploadUrl(path);
+    if (error || !data) throw new ApiError("internal", error?.message ?? "Could not start the upload", 500);
+    return { upload_url: data.signedUrl, path };
   },
 
   async "post-message"(ctx, p) {
     const threadId = uuid(p, "thread_id");
-    const body = str(p, "body", { min: 1, max: 4000 });
-    const { data: thread } = await ctx.db
-      .from("message_threads")
-      .select("id, team_id, kind, title, audience")
-      .eq("id", threadId)
-      .maybeSingle();
-    if (!thread) throw new ApiError("not_found", "Conversation not found.", 404);
+    const imagePath = str(p, "image_path", { max: 300, optional: true }) || null;
+    const body = str(p, "body", { min: imagePath ? 0 : 1, max: 4000, optional: !!imagePath });
     // Two-adult rule (D-009): players only post in team-wide threads.
-    const roles = await rolesOnTeam(ctx, thread.team_id);
-    const isOnlyPlayer = roles.length > 0 && roles.every((r) => r === "player");
-    if (isOnlyPlayer && (thread.kind === "direct" || thread.kind === "group")) {
-      throw new ApiError("forbidden", "Players can post in team chat only.", 403);
+    const thread = await requirePostableThread(ctx, threadId);
+    let image: { image_path: string; image_width: number | null; image_height: number | null } | null = null;
+    if (imagePath) {
+      // Only a photo this caller uploaded for this thread, and only once it really exists.
+      const folder = photoFolder(thread.team_id, threadId, ctx.uid);
+      const fileName = imagePath.slice(folder.length + 1);
+      if (!imagePath.startsWith(`${folder}/`) || !/^[A-Za-z0-9_-]+\.jpg$/.test(fileName)) {
+        throw new ApiError("invalid_input", "That photo can't be posted here.");
+      }
+      const { data: found } = await ctx.admin.storage.from(CHAT_PHOTOS_BUCKET).list(folder, { search: fileName, limit: 1 });
+      if (!found?.some((f) => f.name === fileName)) throw new ApiError("invalid_input", "The photo didn't finish uploading. Try again.");
+      image = { image_path: imagePath, image_width: int(p, "image_width", 1, 20000, true), image_height: int(p, "image_height", 1, 20000, true) };
     }
     const { data: msg, error } = await ctx.db
       .from("messages")
-      .insert({ thread_id: threadId, author_id: ctx.uid, body })
+      .insert({ thread_id: threadId, author_id: ctx.uid, body, ...(image ?? {}) })
       .select("id, created_at")
       .single();
     if (error || !msg) throw new ApiError("forbidden", "You can't post in this conversation.", 403);
@@ -846,7 +945,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       teamId: thread.team_id,
       kind: thread.kind === "event" ? "event_thread_reply" : "message_new",
       subject: thread.title ?? "New reply",
-      body: body.slice(0, 240),
+      body: messagePreview(body, image?.image_path ?? null, 240),
       refId: threadId,
       recipientUserIds,
       staffOnly: thread.audience === "staff",
@@ -857,12 +956,25 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
 
   async "delete-message"(ctx, p) {
     const messageId = uuid(p, "message_id");
-    const { error } = await ctx.db
+    const { data: deleted, error } = await ctx.db
       .from("messages")
       .update({ deleted_at: new Date().toISOString(), deleted_by: ctx.uid })
-      .eq("id", messageId);
+      .eq("id", messageId)
+      .select("image_path");
     if (error) throw new ApiError("forbidden", "You can't delete this message.", 403);
+    // A deleted photo is gone for good, not just hidden (D-036).
+    const paths = (deleted ?? []).map((m) => m.image_path).filter(Boolean) as string[];
+    if (paths.length > 0) await ctx.admin.storage.from(CHAT_PHOTOS_BUCKET).remove(paths);
     return { ok: true };
+  },
+
+  // ----- Calendar feed (D-036) ---------------------------------------------------
+  async "calendar-feed"(ctx) {
+    return await calendarFeedURL(ctx, false);
+  },
+
+  async "reset-calendar-feed"(ctx) {
+    return await calendarFeedURL(ctx, true);
   },
 
   async "set-mute"(ctx, p) {
@@ -1237,6 +1349,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       ctx.admin.from("thread_participants").delete().eq("user_id", ctx.uid),
       ctx.admin.from("thread_mutes").delete().eq("user_id", ctx.uid),
       ctx.admin.from("message_reads").delete().eq("user_id", ctx.uid),
+      ctx.admin.from("calendar_feeds").delete().eq("user_id", ctx.uid),
     ]);
     const { error } = await ctx.admin.auth.admin.deleteUser(ctx.uid);
     if (error) {
@@ -1252,6 +1365,13 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     return { ok: true };
   },
 };
+
+/** Thread list / push text for a message; photo-only messages read "📷 Photo". */
+function messagePreview(body: string, imagePath: string | null, max: number): string {
+  const text = body.trim();
+  if (!imagePath) return text.slice(0, max);
+  return text ? `📷 ${text}`.slice(0, max) : "📷 Photo";
+}
 
 function summarizeEvent(row: { starts_at: string; location: string | null; opponent?: string | null }): string {
   const when = new Date(row.starts_at).toUTCString().replace(":00 GMT", " UTC");
