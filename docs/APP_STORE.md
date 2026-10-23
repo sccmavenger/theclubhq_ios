@@ -83,7 +83,7 @@ are fine; don't use `docs/app-store/screenshots/iphone-6.9/07-paywall.png`. Mini
 
 Before pressing **Add for Review → Submit**:
 1. Account Holder accepts the updated Apple Developer Program License Agreement (Business page).
-2. ✅ Done 2026-10-14: `teamclubhq.com` is live on Cloudflare Pages (project `teamclubhq`, DNS on Cloudflare, Microsoft 365 email records kept as DNS only). Redeploy by uploading `site/` (minus README and `.htaccess`) in Pages → Create deployment.
+2. ✅ Done 2026-10-14: `teamclubhq.com` is live on Cloudflare Pages (project `teamclubhq`, DNS on Cloudflare, Microsoft 365 email records kept as DNS only). Redeploy with `scripts/deploy-site.sh` (wrangler; excludes README and `.htaccess`).
 3. `info@teamclubhq.com` receives mail (OQ-16), or change the support address.
 
 Regenerate screenshots: build Debug for an iPhone 17 Pro Max simulator and launch with
