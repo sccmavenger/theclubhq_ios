@@ -1,7 +1,7 @@
 # ClubHQ 1.0.1 rebrand: iOS app handoff
 
 **For:** Claude Code working in the `theclubhq_ios` repo in Xcode.
-**Brand kit:** this folder (`ClubHQ-Brand-Kit/`). Below, `$KIT` means its path on the Mac.
+**Brand kit:** this folder, `Marketing/Claude Code Brand Kit/` in the repo. Below, `$KIT` means that path. Quote it in shell commands, because it contains spaces. Start from `START-HERE-Claude-Code.md`.
 **Goal:** replace the "Home Court" identity with the ClubHQ HQ-arrow brand in version **1.0.1**. Behavior stays the same.
 
 ## Ground rules
@@ -92,7 +92,7 @@ The social posts and App Store frames in the kit currently show the **old blue U
 1. Recapture with the existing DEBUG hooks (see `docs/APP_STORE.md`, “Regenerate screenshots”) on the iPhone 17 Pro Max simulator. Save to `design/app-store-screenshots/iphone-6.9/` using the same six filenames. Also capture the Dues screen as `7-dues.png`, **with card payments off**.
 2. Copy the seven PNGs into `$KIT/_source/screens/`, then run:
    ```
-   cd $KIT/_source && pip3 install shapely pillow && python3 social_assets.py
+   cd "$KIT/_source" && pip3 install shapely pillow && python3 social_assets.py
    ```
    It uses Chrome or Edge in headless mode (set `CHQ_BROWSER` if neither is in /Applications).
 

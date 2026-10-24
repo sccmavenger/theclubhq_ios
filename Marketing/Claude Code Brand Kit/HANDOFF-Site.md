@@ -1,7 +1,7 @@
 # ClubHQ rebrand: teamclubhq.com handoff
 
 **For:** Claude Code working in `theclubhq_ios/site/`, a static site on Cloudflare Pages with no build step.
-**Brand kit:** this folder. Below, `$KIT` means its path on the Mac.
+**Brand kit:** this folder, `Marketing/Claude Code Brand Kit/` in the repo. Below, `$KIT` means that path. Quote it in shell commands, because it contains spaces.
 **When:** do this on the same `rebrand-1.0.1` branch as the iOS work. **Deploy on the day 1.0.1 ships**, so the site and the app match. Don't run `scripts/deploy-site.sh` without the owner's go-ahead.
 
 ## 1. Files

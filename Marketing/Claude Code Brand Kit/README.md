@@ -12,6 +12,7 @@ Everything needed to rebrand the ClubHQ iPhone app, teamclubhq.com, and Facebook
 | `05-iOS/` | `ClubHQBrand.xcassets` (colors and logos) and `BrandTheme.swift` | Xcode |
 | `06-Social/` | Facebook, Instagram and TikTok profile, covers, highlights, 6 launch posts, templates, safe zones, captions | You |
 | `07-App-Store/` | Framed 6.9" App Store screenshots | App Store Connect |
+| `START-HERE-Claude-Code.md` | Where Claude Code starts: order of work and ground rules | Claude Code |
 | `HANDOFF-iOS.md` | Step-by-step instructions for Claude Code in Xcode: the app | Claude Code |
 | `HANDOFF-Site.md` | Step-by-step instructions for Claude Code: teamclubhq.com | Claude Code |
 | `_source/` | Generators. Change a value, re-run, and every file updates | Whoever maintains the brand |
