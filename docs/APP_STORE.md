@@ -83,6 +83,10 @@ reliable team join (D-036 to D-038). Still no purchases; release stays automatic
 Later the same day, **build 17** replaced it in review (adds the Open Event shortcut and Apple
 Intelligence groundwork, D-039). Builds 1–15 are expired; only 16 (never distributed) and 17 remain.
 
+**2026-10-24: 1.0.1 build 18 to TestFlight** (the HQ-arrow rebrand, D-040, from branch `rebrand-1.0.1`).
+It's in internal testing and waiting for Beta App Review for the external "Beta Families" group. It is not
+attached to any App Store version. 1.0 (build 17) is still waiting for review and was not touched.
+
 Build **7** adds Report/Block in chat (guideline 1.2). The description and review notes in
 `docs/app-store/metadata.json` no longer mention Stripe card payments or Coach Pro, since both are off in 1.0
 (guideline 2.3.1). Paste both into App Store Connect. The 6 screenshots in `design/app-store-screenshots/`
