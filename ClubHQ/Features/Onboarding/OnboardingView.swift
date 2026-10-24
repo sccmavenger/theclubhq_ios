@@ -188,7 +188,7 @@ struct CreateTeamView: View {
                 AsyncButton(action: create) {
                     Text("Create Team").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(BrandCTAButtonStyle())
                 .disabled(request.teamName.trimmingCharacters(in: .whitespaces).isEmpty
                           || (!model.canCreateAnotherTeam && !model.canSellPro))
                 .listRowBackground(Color.clear)
@@ -299,7 +299,7 @@ struct JoinTeamView: View {
                             AsyncButton(action: joinAsCoParent) {
                                 Text("Join \(team.name)").frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(BrandCTAButtonStyle())
                             .listRowBackground(Color.clear)
                         }
                     } else {
@@ -309,7 +309,7 @@ struct JoinTeamView: View {
                             AsyncButton { await join(allowDuplicate: false) } label: {
                                 Text("Join \(team.name)").frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(BrandCTAButtonStyle())
                             .disabled(!child.isValid)
                             .listRowBackground(Color.clear)
                         } footer: {
@@ -452,7 +452,7 @@ struct PlayerCodeView: View {
                 AsyncButton(action: claim) {
                     Text("Join My Team").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(BrandCTAButtonStyle())
                 .disabled(code.trimmingCharacters(in: .whitespaces).count < 6)
                 .listRowBackground(Color.clear)
             }

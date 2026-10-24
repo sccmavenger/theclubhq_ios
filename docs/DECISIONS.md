@@ -9,6 +9,15 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-040 — Rebrand to the HQ-arrow identity in 1.0.1 (owner-approved 2026-10-23) — Accepted
+- **Context:** The owner replaced the alpha "Home Court" look (D-023) with a designed brand kit, `Marketing/Claude Code Brand Kit/`. 1.0 (build 17) is in App Review, so the rebrand ships as **1.0.1** on branch `rebrand-1.0.1`.
+- **Decision:** New icon, mark, wordmark and palette (navy `#0B1E3A`, cyan `#00C2FF`, orange `#FF8A00`). AccentColor `#0077C2` / dark `#007CBF`, so white text on the accent (own chat bubbles, prominent buttons) stays ≥ 4.5:1. Brand kit: tokens in `docs/brand/clubhq-tokens.json`.
+  - The app icon, `Colors/` and `Logos/` are merged into the existing `Assets.xcassets`. `BrandTheme.swift` adds `Color.Brand`, `Image.Brand` and `BrandCTAButtonStyle`.
+  - `BrandMark` now shows the mark on a navy tile. The sign-in header uses the lockup.
+  - The orange CTA style is used only for the one primary action on the sign-in and onboarding forms. It dims when disabled. The welcome tour button keeps the team's own color.
+  - Unchanged: team tints, the RSVP/attendance/dues semantic colors, and system grouped backgrounds.
+- **Consequences:** Marketing screenshots and the kit's social/App Store art must be regenerated from the rebranded build. The first `TeamView` swatch (`#2457F5`, the old brand blue) waits on the owner.
+
 ## D-029 — Registration uses 6-digit email codes, not links — Accepted (2026-10-13)
 - **Context:** The owner wants registration to work end to end in the app now, without the website. Email links need a web page plus Universal Links (Apple Team ID); codes need neither.
 - **Research:** Code-based verification is the standard mobile pattern (Slack, Notion, Linear, banking apps). It survives email clients that open links in in-app browsers. iOS can autofill codes from Mail (`.oneTimeCode`). Supabase supports it natively: `{{ .Token }}` in the templates, `POST /auth/v1/verify` with `type: "email"` (sign-up) or `"recovery"`.
@@ -332,11 +341,11 @@ Grounded in research section 9. The core principle: **the free tier is genuinely
 - **Context:** The Xcode template created a multiplatform target (iOS, macOS, visionOS). The product is a mobile app, and native macOS would need a separate UIKit-free code path.
 - **Decision:** `SUPPORTED_PLATFORMS = iphoneos iphonesimulator`, `TARGETED_DEVICE_FAMILY = 1,2`. Apple-silicon Macs can still run it as an iPad app. Desktop users have the web app.
 
-## D-023 — App icon: "Home Court" (owner-selected 2026-10-13) — Accepted
+## D-023 — App icon: "Home Court" (owner-selected 2026-10-13) — Superseded by D-040
 - Five concepts in `design/app-icon/` (contact sheet: `ClubHQ-icon-concepts.png`). The owner chose **A · Home Court**: a white house with a center-court circle on a blue gradient. It reads as "HQ / home base", is sport-neutral, and is distinct from TeamSnap's orange.
 - Drawn entirely from custom vector paths. The SF Symbols license forbids symbols in app icons.
 - Installed as `AppIcon.appiconset` with light, dark, and tinted variants. Layered SVGs are in `design/app-icon/A-home-court/layers/` for an Icon Composer `.icon` file later (Liquid Glass specular/refraction tuning).
-- The in-app `BrandMark` draws the same artwork natively. The app accent color is set to the icon blue (`#2457F5`, dark `#5B8CFF`).
+- The in-app `BrandMark` draws the same artwork natively. The app accent color was the icon blue (`#2457F5`, dark `#5B8CFF`); since D-040 it is `#0077C2` / dark `#007CBF`.
 
 ## D-020 — Notification sends: read-state updates go through `mobile-api` — Accepted
 - **Context:** The web migration history drops the recipient UPDATE policy on `notification_sends`.

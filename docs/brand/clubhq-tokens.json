@@ -1,0 +1,101 @@
+{
+  "color": {
+    "navy-950": {
+      "value": "#06122A",
+      "name": "Midnight",
+      "role": "Deepest backgrounds, icon gradient floor"
+    },
+    "navy-900": {
+      "value": "#0B1E3A",
+      "name": "Navy",
+      "role": "Primary brand background (from concept)"
+    },
+    "navy-800": {
+      "value": "#13294D",
+      "name": "Navy 800",
+      "role": "Cards / elevated surfaces on dark"
+    },
+    "navy-700": {
+      "value": "#1C3A68",
+      "name": "Navy 700",
+      "role": "Borders, pressed states on dark"
+    },
+    "cyan-400": {
+      "value": "#00C2FF",
+      "name": "Cyan",
+      "role": "Brand accent: the Q, links & highlights on dark"
+    },
+    "cyan-500": {
+      "value": "#007CBF",
+      "name": "System Cyan",
+      "role": "iOS AccentColor in dark mode: white text on it passes, and it reads on black"
+    },
+    "cyan-600": {
+      "value": "#0077C2",
+      "name": "Deep Cyan",
+      "role": "Text, links & buttons on light (accessible cyan)"
+    },
+    "orange-500": {
+      "value": "#FF8A00",
+      "name": "Orange",
+      "role": "Arrow accent: CTAs, badges, highlights on dark"
+    },
+    "orange-700": {
+      "value": "#B35A00",
+      "name": "Deep Orange",
+      "role": "Orange text on light backgrounds"
+    },
+    "slate-50": {
+      "value": "#F4F7FB",
+      "name": "Cloud",
+      "role": "Light-mode app & site background"
+    },
+    "slate-200": {
+      "value": "#D6DEEA",
+      "name": "Mist",
+      "role": "Dividers & borders on light"
+    },
+    "slate-400": {
+      "value": "#8C9BB2",
+      "name": "Slate",
+      "role": "Secondary text on dark"
+    },
+    "slate-600": {
+      "value": "#4B5C77",
+      "name": "Steel",
+      "role": "Secondary text on light"
+    },
+    "white": {
+      "value": "#FFFFFF",
+      "name": "White",
+      "role": "Primary text on dark, the H"
+    }
+  },
+  "semantic": {
+    "dark": {
+      "background": "navy-900",
+      "surface": "navy-800",
+      "border": "navy-700",
+      "text": "white",
+      "textSecondary": "slate-400",
+      "accent": "cyan-400",
+      "cta": "orange-500",
+      "onAccent": "navy-900"
+    },
+    "light": {
+      "background": "slate-50",
+      "surface": "white",
+      "border": "slate-200",
+      "text": "navy-900",
+      "textSecondary": "slate-600",
+      "accent": "cyan-600",
+      "cta": "orange-500",
+      "onAccent": "white"
+    }
+  },
+  "font": {
+    "display": "Outfit",
+    "web-body": "Inter",
+    "ios": "SF Pro (system)"
+  }
+}
