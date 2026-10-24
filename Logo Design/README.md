@@ -1,17 +1,16 @@
 # ClubHQ Logo Design — HQ Motion / Refined Balance
 
-**Decision:** Selected concept #3 from the *HQ Motion – Refined Variations* board on October 23, 2026.
+The final artwork candidate was approved by the owner on October 23, 2026. The vectors are reconstructed artwork accepted during that review, not original source geometry from the generated concept board.
 
-This is the **approved visual direction**, not yet a production-approved vector. The original concept was generated as a raster design board. The included SVG is an **editable geometric reconstruction draft**, not a pixel-perfect trace. Compare it with the approved image before using it in production.
+## Choose what you need
 
-## Organization
-- `vector/hq-motion-refined-balance-DRAFT.svg` — editable, flat vector reconstruction.
-- `docs/CLAUDE_IMPLEMENTATION.md` — step-by-step production and integration instructions.
-- `docs/DESIGN_DECISION.md` — design intent and acceptance criteria.
+- **[Social media kit](<Social Media/README.md>)** — platform folders, ready-to-upload PNGs, transparent overlays, dimensions, and usage descriptions.
+- **[Visual upload index](<Social Media/PREVIEW.jpg>)** — quick preview of the social assets.
+- `vector/final/` — approved editable master artwork.
+- `docs/IMPLEMENTATION_HANDOFF.md` — application integration instructions.
+- `docs/FINAL_ASSET_MANIFEST.md` — original final package inventory.
+- `vector/hq-motion-refined-balance-DRAFT.svg` — historical draft; do not use for new exports.
 
-## Visual identity
-Deep navy icon background, bold white HQ, orange sweeping motion arrow, small orange X and white O. Sport-neutral, energetic, simple, readable at small sizes.
+## Identity
 
-**Important:** The selected visual reference is the **third option** in the final “HQ Motion – Refined Variations” board from the design discussion. Do not substitute the first or fourth option. Obtain the original image from the conversation before final tracing. Do not use the draft SVG as proof of visual fidelity.
-
-Original source requirements: [Logo brief](../docs/brand/LOGO_DESIGN_BRIEF.md) and [AI logo prompts](../docs/brand/AI_LOGO_PROMPTS.md) (paths relative to repository root: `docs/brand/`).
+Navy `#0B2544`, orange `#FF741C`, white `#FFFFFF`. Preserve the approved logo shapes. Social exports change only scale, placement, canvas, and use existing monochrome variants. This social media package does not modify the application.
