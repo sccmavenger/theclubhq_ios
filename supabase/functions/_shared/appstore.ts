@@ -10,6 +10,17 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.110.0";
 import * as x509 from "npm:@peculiar/x509@1.12.3";
 import { ApiError, base64UrlDecode, signES256 } from "./http.ts";
+import { alertAdmins } from "./adminAlerts.ts";
+
+/** App Store notification types that page the admin (`TYPE/SUBTYPE` or `TYPE`). Renewals stay quiet. */
+const ALERT_HEADLINES: Record<string, string> = {
+  "SUBSCRIBED/INITIAL_BUY": "New Coach Pro subscriber",
+  "SUBSCRIBED/RESUBSCRIBE": "Coach Pro resubscribed",
+  "DID_CHANGE_RENEWAL_STATUS/AUTO_RENEW_DISABLED": "Coach Pro cancelled (runs to period end)",
+  "DID_FAIL_TO_RENEW": "Coach Pro payment failed",
+  "EXPIRED": "Coach Pro expired",
+  "REFUND": "Coach Pro refunded",
+};
 
 export const COACH_PRO_PRODUCT_IDS = ["com.teamclubhq.pro.monthly", "com.teamclubhq.pro.yearly"];
 const BUNDLE_ID = Deno.env.get("APPSTORE_BUNDLE_ID") ?? "com.teamclubhq.app";
@@ -33,6 +44,8 @@ export interface TransactionPayload {
   expiresDate?: number;
   revocationDate?: number;
   signedDate?: number;
+  /** 1 = introductory offer (the Coach Pro free trial), 2 = promotional, 3 = offer code. */
+  offerType?: number;
   environment: "Sandbox" | "Production" | "Xcode" | "LocalTesting";
 }
 
@@ -119,7 +132,7 @@ export async function recordTransaction(
   tx: TransactionPayload,
   renewal: RenewalPayload | undefined,
   expectedUserId?: string,
-): Promise<{ status: string; productId: string; expiresAt: string | null }> {
+): Promise<{ status: string; productId: string; expiresAt: string | null; userId: string }> {
   if (tx.bundleId !== BUNDLE_ID) throw new ApiError("bad_request", "Purchase is for a different app.");
   if (!COACH_PRO_PRODUCT_IDS.includes(tx.productId)) throw new ApiError("bad_request", "Unknown product.");
 
@@ -137,7 +150,7 @@ export async function recordTransaction(
   const status = statusFrom(tx, renewal);
   // A late-arriving older transaction must not overwrite a newer renewal (refunds always apply).
   if (existing?.expires_at && expiresAt && status !== "revoked" && Date.parse(existing.expires_at) > Date.parse(expiresAt)) {
-    return { status: existing.status, productId: tx.productId, expiresAt: existing.expires_at };
+    return { status: existing.status, productId: tx.productId, expiresAt: existing.expires_at, userId };
   }
   const row: Record<string, unknown> = {
     original_transaction_id: tx.originalTransactionId,
@@ -146,12 +159,13 @@ export async function recordTransaction(
     status,
     expires_at: expiresAt,
     environment: tx.environment,
+    in_trial: tx.offerType === 1 && status === "active",
     updated_at: new Date().toISOString(),
   };
   if (renewal?.autoRenewStatus !== undefined) row.auto_renew = renewal.autoRenewStatus === 1;
   const { error } = await admin.from("app_store_subscriptions").upsert(row);
   if (error) throw new ApiError("internal", error.message, 500);
-  return { status, productId: tx.productId, expiresAt };
+  return { status, productId: tx.productId, expiresAt, userId };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -203,6 +217,21 @@ export async function handleNotification(admin: SupabaseClient, signedPayload: s
   if (!note.data?.signedTransactionInfo) return `ignored ${note.notificationType}`;
   const tx = await verifyAppleJws<TransactionPayload>(note.data.signedTransactionInfo);
   const renewal = note.data.signedRenewalInfo ? await verifyAppleJws<RenewalPayload>(note.data.signedRenewalInfo) : undefined;
-  await recordTransaction(admin, tx, renewal);
+  const recorded = await recordTransaction(admin, tx, renewal);
+  // History for revenue metrics, and an alert for the moments the owner cares about (D-041).
+  await admin.from("app_store_events").insert({
+    notification_type: note.notificationType, subtype: note.subtype ?? null, original_transaction_id: tx.originalTransactionId,
+    user_id: recorded.userId, product_id: tx.productId, environment: tx.environment,
+  });
+  const headline = ALERT_HEADLINES[`${note.notificationType}/${note.subtype ?? ""}`] ?? ALERT_HEADLINES[note.notificationType];
+  if (headline) {
+    const plan = tx.productId.endsWith("yearly") ? "yearly" : "monthly";
+    await alertAdmins(admin, {
+      type: "subscription",
+      title: tx.environment === "Production" ? headline : `${headline} (sandbox)`,
+      body: `Coach Pro ${plan}`,
+      url: `#/people/${recorded.userId}`,
+    });
+  }
   return `${note.notificationType}${note.subtype ? "/" + note.subtype : ""}`;
 }

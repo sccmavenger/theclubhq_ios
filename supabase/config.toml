@@ -18,3 +18,7 @@ verify_jwt = false
 # Calendar apps can't send a JWT; the secret feed token is the credential (D-036).
 [functions.calendar-feed]
 verify_jwt = false
+
+# Admin portal writes (D-041). JWT required; admin role + MFA are checked again inside.
+[functions.admin-api]
+verify_jwt = true
