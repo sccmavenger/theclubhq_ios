@@ -3,6 +3,18 @@
 Written 2026-10-24 from an interview with the owner. Decision record: [D-041](DECISIONS.md).
 Status of each piece is tracked in the [launch gate](#launch-gate) table below.
 
+**Phase 1 shipped 2026-10-25.** Portal: **https://clubhq-admin.pages.dev** (admin.teamclubhq.com once its DNS is activated).
+First sign-in: enter dguilloryjr@gmail.com, type the emailed 6-digit code, then scan the QR code with an
+authenticator app (Apple Passwords works). Add support staff under Settings → Admins.
+
+| Verification | Result |
+|---|---|
+| `supabase/tests/d041_live_check.mjs`: backend against production (reports, blocks, usage, MFA gate, grants, moderation, suspension, deletion, audit) | 47/47 |
+| `supabase/tests/admin_portal_ui_check.mjs`: the deployed portal in Chromium (code sign-in, TOTP enrollment, every screen, a moderation action, typed confirmations, no console errors, under the production CSP) | 20/20 |
+| `supabase/tests/webpush_test.ts`: web-push encryption reproduces the RFC 8291 example byte for byte | 1/1 |
+| Earlier live checks d036–d038 after the mobile-api deploy | 64/64 |
+| App unit tests (`ClubHQTests`, incl. `AdminPortalAppTests`) | 15/15 |
+
 ## The ten decisions
 
 | # | Topic | Decision |
@@ -45,31 +57,31 @@ Status key: ✅ done · 🔨 in progress · ⬜ not started · 👤 owner task.
 | # | Item | Where | Status |
 |---|---|---|---|
 | **App** | | | |
-| 1 | Reports go to the server (message and conversation reports), email kept as fallback | `ChatView`, `mobile-api report-content` | ⬜ |
-| 2 | Blocks sync to the server and follow the user across devices; blocked authors are filtered server-side | `ChatView`, `mobile-api block-user` | ⬜ |
-| 3 | Usage events (UI-only moments) batched to the server | `Core/Analytics/UsageTracker.swift`, `mobile-api track` | ⬜ |
-| 4 | "How did you hear about ClubHQ?" on Create Team; how each user arrived (`signup_via`) recorded server-side | `CreateTeamView`, `create-team` / `claim-*` | ⬜ |
-| 5 | Suspended accounts get a clear message instead of generic errors | `BackendError` | ⬜ |
-| 6 | Privacy manifest declares Product Interaction (analytics, linked, not tracking) | `PrivacyInfo.xcprivacy` | ⬜ |
+| 1 | Reports go to the server (message and conversation reports), email kept as fallback | `ChatView`, `mobile-api report-content` | ✅ |
+| 2 | Blocks sync to the server and follow the user across devices; blocked authors are filtered server-side | `ChatView`, `mobile-api block-user` | ✅ |
+| 3 | Usage events (UI-only moments) batched to the server | `Core/Analytics/UsageTracker.swift`, `mobile-api track` | ✅ |
+| 4 | "How did you hear about ClubHQ?" on Create Team; how each user arrived (`signup_via`) recorded server-side | `CreateTeamView`, `create-team` / `claim-*` | ✅ |
+| 5 | Suspended accounts get a clear message instead of generic errors | `BackendError` | ✅ |
+| 6 | Privacy manifest declares Product Interaction (analytics, linked, not tracking) | `PrivacyInfo.xcprivacy` | ✅ |
 | 7 | App Store Connect privacy label updated to match | ASC → App Privacy | 👤 |
 | **Backend** | | | |
-| 8 | Admin roles (`platform_admins`: owner / support), separate from in-app roles | migration `20261024120000_admin_portal.sql` | ⬜ |
-| 9 | Chat privacy enforced in the database: admin reads go through `admin_*` SQL functions that never select message bodies; report snapshots are the only content admins see | same | ⬜ |
-| 10 | Every admin action audited (who, what, when, before/after) | `audit_logs` + `admin-api` | ⬜ |
-| 11 | Pro grants (user / team / club, expiry, reason) honored by `user_has_coach_pro` and `team_is_pro` | same | ⬜ |
-| 12 | Activity: one row per user per active day; mutating API calls logged as usage events automatically | `mobile-api` | ⬜ |
-| 13 | Subscription history (`app_store_events`) and trial flag for revenue metrics | `_shared/appstore.ts` | ⬜ |
-| 14 | Suspension (flag + auth ban) and scheduled deletion with a 7-day grace period | `admin-api` | ⬜ |
+| 8 | Admin roles (`platform_admins`: owner / support), separate from in-app roles | migration `20261025010434_admin_portal.sql` | ✅ |
+| 9 | Chat privacy enforced in the database: admin reads go through `admin_*` SQL functions that never select message bodies; report snapshots are the only content admins see | same | ✅ |
+| 10 | Every admin action audited (who, what, when, before/after) | `audit_logs` + `admin-api` | ✅ |
+| 11 | Pro grants (user / team / club, expiry, reason) honored by `user_has_coach_pro` and `team_is_pro` | same | ✅ |
+| 12 | Activity: one row per user per active day; mutating API calls logged as usage events automatically | `mobile-api` | ✅ |
+| 13 | Subscription history (`app_store_events`) and trial flag for revenue metrics | `_shared/appstore.ts` | ✅ |
+| 14 | Suspension (flag + auth ban) and scheduled deletion with a 7-day grace period | `admin-api` | ✅ |
 | **Portal (Phase 1)** | | | |
-| 15 | Sign-in with emailed code + required authenticator-app MFA (AAL2 enforced server-side) | `admin/` | ⬜ |
-| 16 | Overview: KPIs, weekly signups / active teams, open reports, revenue snapshot | `admin/` | ⬜ |
-| 17 | Teams list with health signals, sortable, "going quiet" first | `admin/` | ⬜ |
-| 18 | Team and user profiles, search by email or name, read-only "view as" | `admin/` | ⬜ |
-| 19 | Moderation queue with 24-hour clock; remove, warn, suspend, dismiss | `admin/` | ⬜ |
-| 20 | Actions with guardrails (typed confirmations, grace period, previews) | `admin/` + `admin-api` | ⬜ |
-| 21 | Web push alerts: new report, new team, subscription changes | `_shared/webpush.ts` | ⬜ |
-| 22 | Hosting: Cloudflare Pages project `clubhq-admin` | `scripts/deploy-admin.sh` | ⬜ |
-| 23 | Custom domain `admin.teamclubhq.com` + Cloudflare Access in front | Cloudflare dashboard | 👤 (optional hardening, see below) |
+| 15 | Sign-in with emailed code + required authenticator-app MFA (AAL2 enforced server-side) | `admin/` | ✅ |
+| 16 | Overview: KPIs, weekly signups / active teams, open reports, revenue snapshot | `admin/` | ✅ |
+| 17 | Teams list with health signals, sortable, "going quiet" first | `admin/` | ✅ |
+| 18 | Team and user profiles, search by email or name, read-only "view as" | `admin/` | ✅ |
+| 19 | Moderation queue with 24-hour clock; remove, warn, suspend, dismiss | `admin/` | ✅ |
+| 20 | Actions with guardrails (typed confirmations, grace period, previews) | `admin/` + `admin-api` | ✅ |
+| 21 | Web push alerts: new report, new team, subscription changes | `_shared/webpush.ts` | ✅ |
+| 22 | Hosting: Cloudflare Pages project `clubhq-admin` | `scripts/deploy-admin.sh` | ✅ |
+| 23 | Custom domain `admin.teamclubhq.com` (attached to the project; needs one-click DNS activation) + optional Cloudflare Access | Cloudflare dashboard | 👤 (see below) |
 | 24 | APNs key so broadcasts and warnings reach phones | OQ-04 | 👤 |
 
 ## Build order after launch
@@ -100,7 +112,7 @@ Status key: ✅ done · 🔨 in progress · ⬜ not started · 👤 owner task.
 - **Alerts:** web push (VAPID, RFC 8291 encryption) to `admin_push_subscriptions`. iPhone delivers web push to web apps added to the Home Screen (iOS 16.4+).
 - **Portal code:** static HTML/JS with no build step and no third-party scripts. The CSP allows only our Supabase project. `noindex`, no framing.
 
-## Data model (migration `20261024120000_admin_portal.sql`)
+## Data model (migration `20261025010434_admin_portal.sql`)
 
 | Table | Purpose |
 |---|---|
@@ -146,7 +158,7 @@ Status key: ✅ done · 🔨 in progress · ⬜ not started · 👤 owner task.
 
 ## Security notes and owner hardening steps
 
-1. **Add the custom domain** `admin.teamclubhq.com` to the Pages project `clubhq-admin` (Cloudflare → Workers & Pages → clubhq-admin → Custom domains).
+1. **Activate the custom domain:** Cloudflare → Workers & Pages → clubhq-admin → Custom domains → `admin.teamclubhq.com` → Activate (it adds the CNAME to `clubhq-admin.pages.dev`; the CLI login can't edit DNS).
 2. **Optional: put Cloudflare Access in front** (Zero Trust → Access → Applications → Self-hosted → `admin.teamclubhq.com` and `clubhq-admin.pages.dev`, allow only your email). MFA and the admin table already protect the data; Access also hides the login page itself.
 3. **Rotate credentials shared in chat** (OQ-13) before launch; the portal doesn't need any new long-lived secret except the VAPID key pair, stored as Edge Function secrets.
 

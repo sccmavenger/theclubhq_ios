@@ -39,7 +39,7 @@ App Store Connect → **Apps** → **+** → **New App**:
 Then **Enable Public Link** and share it.
 
 ## 4. Before App Store release (later)
-- **App Privacy** (matches `ClubHQ/PrivacyInfo.xcprivacy`): Data Linked to You → Name, Email Address, Phone Number, User ID, **Photos or Videos** (chat photos, D-036), Other User Content, Purchase History — all for **App Functionality**. **No tracking.** App Privacy can't be edited through the API (owner edits it in App Store Connect); Photos or Videos was added and published by the owner on 2026-10-23.
+- **App Privacy** (matches `ClubHQ/PrivacyInfo.xcprivacy`): Data Linked to You → Name, Email Address, Phone Number, User ID, **Photos or Videos** (chat photos, D-036), Other User Content, Purchase History — all for **App Functionality**; plus **Product Interaction** for **Analytics** (first-party usage events, D-041; owner must add it in ASC before the build that sends them ships, OQ-19). **No tracking.** App Privacy can't be edited through the API (owner edits it in App Store Connect); Photos or Videos was added and published by the owner on 2026-10-23.
 - **Age rating:** answer the questionnaire honestly (user-generated content/chat → expect **13+**). Not in the Kids category.
 - **Category:** Sports. **Copyright:** © 2026 Danny Guillory.
 - **Screenshots:** 6.9" iPhone and 13" iPad.

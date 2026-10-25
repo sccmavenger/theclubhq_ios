@@ -37,6 +37,7 @@ Deploy from `supabase/functions/` (shared code is in `_shared/`):
 | `stripe-webhook` | off (Stripe signature) | Marks dues paid; Connect account status |
 | `appstore-notifications` | off (re-verifies with Apple) | Coach Pro renewals, expirations, refunds |
 | `calendar-feed` | off (secret token in the URL) | Calendar subscription (.ics) for Schedule → Calendar Sync (D-036) |
+| `admin-api` | **on** (+ admin row and MFA checked inside) | Audited admin-portal writes (D-041) |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
 
@@ -56,6 +57,7 @@ Each feature degrades gracefully until its secrets are set. For example, push is
 | `APNS_DISPATCH_SECRET` | Cron → `apns-dispatch` | Any long random string |
 | `APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`, `APPSTORE_PRIVATE_KEY`, `APPSTORE_BUNDLE_ID` | Coach Pro verification | App Store Connect → Users and Access → Integrations → In-App Purchase key |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Dues | Stripe Dashboard (Connect enabled) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (PKCS#8 PEM), `VAPID_SUBJECT` | Admin-portal web-push alerts (D-041). Set 2026-10-25 | Generated P-256 key pair (no vendor) |
 | `PAYMENTS_RETURN_URL` | After Stripe onboarding/checkout | A page on the web app, e.g. `https://<domain>/payments/return` |
 
 ## 4. Schedules 🤖 (after `APNS_DISPATCH_SECRET` is stored in Vault)
@@ -92,3 +94,10 @@ In `ClubHQ/Core/AppConfig.swift` set `supabaseURL` and `supabasePublishableKey` 
 - [ ] Coach connects Stripe; the parent pays → item shows Paid (webhook).
 - [ ] Sandbox Coach Pro purchase → `app_store_subscriptions` row → second team creation allowed.
 - [ ] Delete account removes roles/links and signs out.
+
+## 9. Admin portal (D-041)
+- Migration `20261025010434_admin_portal.sql` (applied 2026-10-25): admin tables, report-evidence bucket, `admin_*` read functions, Pro grants in `user_has_coach_pro` / `team_is_pro`.
+- Deploy the portal: `scripts/deploy-admin.sh` → Cloudflare Pages project `clubhq-admin`.
+- Add an admin: Settings → Admins in the portal (owner), or `insert into platform_admins (email, role) values (...)`.
+- Due account deletions run from the portal's Overview banner (no cron job yet; `pg_cron` isn't enabled).
+- Live checks: `node supabase/tests/d041_live_check.mjs` and `supabase/tests/admin_portal_ui_check.mjs` (see file headers).
