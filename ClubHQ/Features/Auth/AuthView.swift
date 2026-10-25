@@ -23,6 +23,8 @@ struct AuthView: View {
         var id: String { "\(email)-\(isRecovery)" }
     }
 
+    /// Brand lockup height; grows with Dynamic Type so it keeps up with the text around it.
+    @ScaledMetric(relativeTo: .title) private var lockupHeight: CGFloat = 36
     @State private var mode: Mode = .signIn
     @State private var fullName = ""
     @State private var email = ""
@@ -71,9 +73,12 @@ struct AuthView: View {
 
     private var header: some View {
         VStack(spacing: 12) {
-            BrandMark(size: 76)
-            Text("ClubHQ")
-                .font(.largeTitle.bold())
+            Image.Brand.lockup
+                .resizable()
+                .scaledToFit()
+                .frame(height: lockupHeight)
+                .accessibilityLabel("ClubHQ")
+                .accessibilityAddTraits(.isHeader)
             Text("Schedules, RSVPs, chat, and team payments — in one ad‑free app for coaches, parents, and players.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -144,13 +149,10 @@ struct AuthView: View {
                 ZStack {
                     Text(mode.rawValue).opacity(isWorking ? 0 : 1)
                     // Overlaid at the text's size so the button doesn't grow while loading.
-                    if isWorking { ProgressView().tint(.white).controlSize(.small) }
+                    if isWorking { ProgressView().controlSize(.small) }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 4)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(BrandCTAButtonStyle())
             .disabled(!canSubmit || isWorking)
 
             if mode == .signIn {
