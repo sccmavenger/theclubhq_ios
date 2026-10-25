@@ -271,6 +271,7 @@ STORE_SHOTS = [
     ("4-schedule.png", 'The whole season,<br><span class="c">always up to date.</span>'),
     ("5-chat.png", 'Team chat that\'s<br><span class="c">safe for kids.</span>'),
     ("6-team.png", 'Your whole team<br><span class="c">in one place.</span>'),
+    ("8-sign-in.png", 'Free for families.<br><span class="o">No ads. Ever.</span>'),
 ]
 
 
