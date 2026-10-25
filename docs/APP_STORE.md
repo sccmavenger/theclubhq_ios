@@ -83,6 +83,15 @@ reliable team join (D-036 to D-038). Still no purchases; release stays automatic
 Later the same day, **build 17** replaced it in review (adds the Open Event shortcut and Apple
 Intelligence groundwork, D-039). Builds 1–15 are expired; only 16 (never distributed) and 17 remain.
 
+**2026-10-25: the first release is now 1.0.1 (build 18, the HQ-arrow rebrand)**, at the owner's
+request. 1.0 was never approved, so its submission was cancelled and the same App Store version
+was renamed 1.0.1 (`--version-string`). The screenshots were replaced with the six captioned 6.9"
+shots from `Marketing/Claude Code Brand Kit/07-App-Store/` (branch `rebrand-1.0.1`) as a single
+`APP_IPHONE_67` set (`--screenshots`); the old 6.1" and 6.7" sets showed the pre-rebrand UI and a
+"Pay securely in ClubHQ" card that 1.0 doesn't have. The description and review notes now cover
+chat photos, calendar sync and the GroupMe guide. Still no purchases; release is automatic after
+approval. Builds 1–17 are expired; only 18 remains.
+
 Build **7** adds Report/Block in chat (guideline 1.2). The description and review notes in
 `docs/app-store/metadata.json` no longer mention Stripe card payments or Coach Pro, since both are off in 1.0
 (guideline 2.3.1). Paste both into App Store Connect. The 6 screenshots in `design/app-store-screenshots/`
