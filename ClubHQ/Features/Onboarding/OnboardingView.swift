@@ -171,6 +171,19 @@ struct CreateTeamView: View {
             } footer: {
                 Text("Optional — helps families recognize your club. Your team works the same either way.")
             }
+            // Asked once, on a coach's first team (D-041). The server keeps only the first answer.
+            if (model.context?.headCoachTeamCount ?? 0) == 0 && !model.isDemo {
+                Section {
+                    Picker("How did you hear about ClubHQ?", selection: $request.heardFrom) {
+                        Text("Prefer not to say").tag(AcquisitionSource?.none)
+                        ForEach(AcquisitionSource.allCases) { source in
+                            Text(source.title).tag(AcquisitionSource?.some(source))
+                        }
+                    }
+                } footer: {
+                    Text("Optional. It helps us learn what's working.")
+                }
+            }
             if !model.canCreateAnotherTeam {
                 Section {
                     if model.canSellPro {

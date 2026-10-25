@@ -83,6 +83,18 @@ protocol ClubHQBackend: AnyObject {
     func announcements(teamID: UUID) async throws -> [Announcement]
     func createAnnouncement(teamID: UUID, title: String, body: String) async throws
 
+    // MARK: Safety & analytics (App Review 1.2, D-041)
+    /// Sends a message report to ClubHQ's moderation queue (reviewed within 24 hours).
+    func reportMessage(id: UUID, reason: ReportReason, note: String?) async throws
+    /// Reports a whole conversation; the note says what happened.
+    func reportConversation(threadID: UUID, reason: ReportReason, note: String) async throws
+    /// Blocks a member everywhere this user signs in. Returns the full block list.
+    func blockUser(id: UUID) async throws -> [UUID]
+    /// Clears every block. Returns the (now empty) block list.
+    func unblockAllUsers() async throws -> [UUID]
+    /// First-party usage events, batched.
+    func track(_ events: [UsageEvent]) async throws
+
     // MARK: Inbox & push
     func inbox() async throws -> [InboxItem]
     func markRead(id: UUID?) async throws

@@ -84,6 +84,7 @@ struct CalendarSyncView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .task { await load(reset: false) }
+            .onAppear { model.track("calendar_sync.opened") }
         }
     }
 

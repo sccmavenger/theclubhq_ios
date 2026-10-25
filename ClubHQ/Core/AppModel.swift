@@ -33,6 +33,7 @@ final class AppModel {
     private(set) var refreshToken = 0
 
     let store = SubscriptionStore()
+    @ObservationIgnored let usage = UsageTracker()
     let hasLiveBackend: Bool
     private static let selectedTeamKey = "selectedTeamID"
     private static let pendingInviteKey = "pendingInviteToken"
@@ -46,6 +47,23 @@ final class AppModel {
         store.onVerifiedTransaction = { [weak self] jws in await self?.syncSubscription(jws: jws) }
         PushManager.shared.onToken = { [weak self] token in self?.registerDevice(token: token) }
         PushManager.shared.onOpen = { [weak self] link in self?.pendingDeepLink = link }
+        usage.send = { [weak self] events in try await self?.backend.track(events) }
+        usage.isEnabled = { [weak self] in
+            guard let backend = self?.backend else { return false }
+            return backend.hasSession && !backend.isDemo
+        }
+    }
+
+    /// Records a UI-only usage moment (D-041). Names are `area.action`, e.g. "paywall.viewed".
+    func track(_ name: String, teamID: UUID? = nil, props: [String: String] = [:]) {
+        usage.track(name, teamID: teamID, props: props)
+    }
+
+    /// People this user blocked, as the server knows it (follows them across devices).
+    var blockedUserIDs: Set<UUID> { Set(context?.blockedUserIds ?? []) }
+
+    func updateBlockedUsers(_ ids: [UUID]) {
+        context?.blockedUserIds = ids
     }
 
     // MARK: - Derived state
@@ -105,6 +123,10 @@ final class AppModel {
             if phase == .ready && !backend.isDemo { await PushManager.shared.registerIfAuthorized() }
         } catch BackendError.unauthorized {
             await signOut()
+        } catch let error as BackendError where error.isSuspended {
+            // An admin suspended the account (D-041): say why, then return to sign-in.
+            await signOut()
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
             if context == nil { phase = .signedOut }
@@ -119,6 +141,8 @@ final class AppModel {
     }
 
     func signOut() async {
+        await usage.flush()
+        usage.reset()
         await backend.signOut()
         context = nil
         selectedTeamID = nil
@@ -194,6 +218,7 @@ final class AppModel {
 
     func finishWelcomeTour(_ persona: Persona) {
         if let userId = context?.userId, !isDemo { WelcomeTour.markSeen(user: userId, persona: persona) }
+        track("tour.finished", teamID: selectedTeamID, props: ["persona": "\(persona)"])
         welcomeTour = nil
     }
 

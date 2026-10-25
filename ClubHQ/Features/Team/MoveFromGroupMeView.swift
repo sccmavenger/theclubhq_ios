@@ -146,6 +146,7 @@ struct MoveFromGroupMeView: View {
             }
         }
         .navigationTitle("Move from GroupMe")
+        .onAppear { model.track("groupme_guide.opened", teamID: team.id) }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if showsDoneButton {
