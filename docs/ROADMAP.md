@@ -12,6 +12,10 @@ payments are off; families pay dues through Venmo and Cash App buttons (D-033).
 
 Sizes are rough: **S** ≈ days, **M** ≈ 1–2 weeks, **L** ≈ several weeks.
 
+**Launch gate (added 2026-10-24, D-041):** the public launch waits for Phase 1 of the internal admin
+portal and its app-side changes (reports and blocks on the server, usage events, acquisition source).
+Plan and status: [`ADMIN_PORTAL.md`](ADMIN_PORTAL.md).
+
 ## Now: deliver on the core promise (next 4–6 weeks)
 
 | # | Build | Why it matters | Size | Blocked by |
