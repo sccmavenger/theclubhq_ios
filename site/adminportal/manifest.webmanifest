@@ -1,8 +1,8 @@
 {
   "name": "ClubHQ Admin",
   "short_name": "ClubHQ Admin",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/adminportal/",
+  "scope": "/adminportal/",
   "display": "standalone",
   "background_color": "#0B1E3A",
   "theme_color": "#0B1E3A",

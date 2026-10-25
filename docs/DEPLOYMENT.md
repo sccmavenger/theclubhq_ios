@@ -97,7 +97,7 @@ In `ClubHQ/Core/AppConfig.swift` set `supabaseURL` and `supabasePublishableKey` 
 
 ## 9. Admin portal (D-041)
 - Migration `20261025010434_admin_portal.sql` (applied 2026-10-25): admin tables, report-evidence bucket, `admin_*` read functions, Pro grants in `user_has_coach_pro` / `team_is_pro`.
-- Deploy the portal: `scripts/deploy-admin.sh` → Cloudflare Pages project `clubhq-admin`.
+- The portal is part of the site: `site/adminportal/`, published by `scripts/deploy-site.sh` to https://teamclubhq.com/adminportal. Its CSP and `noindex` headers are in `site/_headers`.
 - Add an admin: Settings → Admins in the portal (owner), or `insert into platform_admins (email, role) values (...)`.
 - Due account deletions run from the portal's Overview banner (no cron job yet; `pg_cron` isn't enabled).
 - Live checks: `node supabase/tests/d041_live_check.mjs` and `supabase/tests/admin_portal_ui_check.mjs` (see file headers).

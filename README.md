@@ -66,7 +66,7 @@ To test Coach Pro purchases locally: Edit Scheme → Run → Options → StoreKi
 - **SwiftUI**, iOS 27, no third-party dependencies. `AppModel` holds the session and teams; views talk to the `ClubHQBackend` protocol, which has a live `SupabaseBackend` and an in-memory `DemoBackend` used for Demo Mode, previews, and tests.
 - **Supabase** backend (`supabase/`): Postgres with row-level security, plus Edge Functions. `mobile-api` handles privileged actions (teams, invites, dues, chat photos, notifications), `calendar-feed` serves each user's calendar subscription, `apns-dispatch` sends push notifications, and webhooks handle Stripe and the App Store.
 - **teamclubhq.com** (`site/`) on Cloudflare Pages serves the privacy, terms, and support pages and the invite landing page, and enables universal links.
-- The iPhone app is the only customer client; an earlier web prototype is retired. Staff use the **admin portal** (`admin/`, Cloudflare Pages `clubhq-admin`) with MFA; see [`docs/ADMIN_PORTAL.md`](docs/ADMIN_PORTAL.md).
+- The iPhone app is the only customer client; an earlier web prototype is retired. Staff use the **admin portal** at teamclubhq.com/adminportal (`site/adminportal/`) with MFA; see [`docs/ADMIN_PORTAL.md`](docs/ADMIN_PORTAL.md).
 
 More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

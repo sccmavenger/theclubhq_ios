@@ -22,3 +22,16 @@
   Cache-Control: public, max-age=31536000, immutable
 /site.webmanifest
   Content-Type: application/manifest+json
+
+# Staff admin portal (D-041). No third-party scripts; only our Supabase project is reachable.
+# Not indexable, not frameable, never cached (staff always get the latest code), no referrer.
+/adminportal/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://qpchhtakmxcfqtbjjpvi.supabase.co; connect-src 'self' https://qpchhtakmxcfqtbjjpvi.supabase.co; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  X-Robots-Tag: noindex, nofollow
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Cache-Control: no-cache
+/adminportal
+  X-Robots-Tag: noindex, nofollow
+/adminportal/manifest.webmanifest
+  Content-Type: application/manifest+json

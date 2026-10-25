@@ -3,7 +3,7 @@
 Written 2026-10-24 from an interview with the owner. Decision record: [D-041](DECISIONS.md).
 Status of each piece is tracked in the [launch gate](#launch-gate) table below.
 
-**Phase 1 shipped 2026-10-25.** Portal: **https://clubhq-admin.pages.dev** (admin.teamclubhq.com once its DNS is activated).
+**Phase 1 shipped 2026-10-25.** Portal: **https://teamclubhq.com/adminportal** (served by the main site's Pages project, owner's choice 2026-10-25).
 First sign-in: enter dguilloryjr@gmail.com, type the emailed 6-digit code, then scan the QR code with an
 authenticator app (Apple Passwords works). Add support staff under Settings → Admins.
 
@@ -73,15 +73,15 @@ Status key: ✅ done · 🔨 in progress · ⬜ not started · 👤 owner task.
 | 13 | Subscription history (`app_store_events`) and trial flag for revenue metrics | `_shared/appstore.ts` | ✅ |
 | 14 | Suspension (flag + auth ban) and scheduled deletion with a 7-day grace period | `admin-api` | ✅ |
 | **Portal (Phase 1)** | | | |
-| 15 | Sign-in with emailed code + required authenticator-app MFA (AAL2 enforced server-side) | `admin/` | ✅ |
-| 16 | Overview: KPIs, weekly signups / active teams, open reports, revenue snapshot | `admin/` | ✅ |
-| 17 | Teams list with health signals, sortable, "going quiet" first | `admin/` | ✅ |
-| 18 | Team and user profiles, search by email or name, read-only "view as" | `admin/` | ✅ |
-| 19 | Moderation queue with 24-hour clock; remove, warn, suspend, dismiss | `admin/` | ✅ |
-| 20 | Actions with guardrails (typed confirmations, grace period, previews) | `admin/` + `admin-api` | ✅ |
+| 15 | Sign-in with emailed code + required authenticator-app MFA (AAL2 enforced server-side) | `site/adminportal/` | ✅ |
+| 16 | Overview: KPIs, weekly signups / active teams, open reports, revenue snapshot | `site/adminportal/` | ✅ |
+| 17 | Teams list with health signals, sortable, "going quiet" first | `site/adminportal/` | ✅ |
+| 18 | Team and user profiles, search by email or name, read-only "view as" | `site/adminportal/` | ✅ |
+| 19 | Moderation queue with 24-hour clock; remove, warn, suspend, dismiss | `site/adminportal/` | ✅ |
+| 20 | Actions with guardrails (typed confirmations, grace period, previews) | `site/adminportal/` + `admin-api` | ✅ |
 | 21 | Web push alerts: new report, new team, subscription changes | `_shared/webpush.ts` | ✅ |
-| 22 | Hosting: Cloudflare Pages project `clubhq-admin` | `scripts/deploy-admin.sh` | ✅ |
-| 23 | Custom domain `admin.teamclubhq.com` (attached to the project; needs one-click DNS activation) + optional Cloudflare Access | Cloudflare dashboard | 👤 (see below) |
+| 22 | Hosting: `teamclubhq.com/adminportal` in the main site, with its own strict CSP and `noindex` (`site/_headers`) | `scripts/deploy-site.sh` | ✅ |
+| 23 | Optional: Cloudflare Access in front of `/adminportal` | Cloudflare dashboard | 👤 (optional hardening, see below) |
 | 24 | APNs key so broadcasts and warnings reach phones | OQ-04 | 👤 |
 
 ## Build order after launch
@@ -96,7 +96,8 @@ Status key: ✅ done · 🔨 in progress · ⬜ not started · 👤 owner task.
 ## Architecture
 
 ```
- Browser / home-screen web app (admin/)          Supabase (TeamClubHQ)
+ Browser / home-screen web app                   Supabase (TeamClubHQ)
+ teamclubhq.com/adminportal
  ┌─────────────────────────────────────┐        ┌──────────────────────────────────────────┐
  │ Sign in: email code → TOTP (AAL2)   │──auth─▶│ GoTrue                                    │
  │ Reads:   rpc/admin_* (user JWT)     │──rest─▶│ admin_* SQL functions (SECURITY DEFINER) │
@@ -158,8 +159,8 @@ Status key: ✅ done · 🔨 in progress · ⬜ not started · 👤 owner task.
 
 ## Security notes and owner hardening steps
 
-1. **Activate the custom domain:** Cloudflare → Workers & Pages → clubhq-admin → Custom domains → `admin.teamclubhq.com` → Activate (it adds the CNAME to `clubhq-admin.pages.dev`; the CLI login can't edit DNS).
-2. **Optional: put Cloudflare Access in front** (Zero Trust → Access → Applications → Self-hosted → `admin.teamclubhq.com` and `clubhq-admin.pages.dev`, allow only your email). MFA and the admin table already protect the data; Access also hides the login page itself.
+1. **Optional: put Cloudflare Access in front** (Zero Trust → Access → Applications → Self-hosted → domain `teamclubhq.com`, path `adminportal`, allow only your email). MFA and the admin table already protect the data; Access also hides the login page itself.
+2. **Same origin as the public site:** the portal's session lives in `teamclubhq.com` storage, so the public pages must stay free of third-party scripts. The portal's CSP already blocks the Cloudflare Web Analytics beacon that Cloudflare injects on the site.
 3. **Rotate credentials shared in chat** (OQ-13) before launch; the portal doesn't need any new long-lived secret except the VAPID key pair, stored as Edge Function secrets.
 
 ## Open questions

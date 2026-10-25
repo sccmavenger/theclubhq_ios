@@ -23,5 +23,5 @@ Answering one may change the linked decision.
 | OQ-11 | Trademark check on the "ClubHQ" name before spending on marketing | Not checked | Branding |
 | OQ-18 | Can a club pay ClubHQ directly (invoice or card) for Pro on all its teams? | Likely, under 3.1.3(c) Enterprise Services or the 2025 US external-link rules; confirm before building club billing. Grants and pilots are fine either way | Club billing |
 | OQ-19 | Update the **App Store Connect privacy label**: Product Interaction → Analytics, linked to the user, not used for tracking (D-041) | Owner, in ASC → App Privacy (no API) | The build with usage events |
-| OQ-20 | Add **admin.teamclubhq.com** to the `clubhq-admin` Pages project, and optionally put Cloudflare Access in front of it | Portal works on `clubhq-admin.pages.dev` with MFA until then | Nothing (hardening) |
+| OQ-20 | ✅ **Answered 2026-10-25:** the portal lives at **teamclubhq.com/adminportal**. Optional: Cloudflare Access in front of that path | MFA protects it today | Nothing (hardening) |
 | OQ-12 | Turn on the included StoreKit configuration for local purchase testing? (Edit Scheme → Run → Options → StoreKit Configuration → `StoreKit/ClubHQ.storekit`) | Off; the paywall has a fallback and Demo Mode has a "Demo: unlock" button | Local purchase testing |

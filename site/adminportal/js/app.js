@@ -781,7 +781,7 @@ function urlB64ToBytes(b64) {
 
 async function currentPushSubscription() {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
-  const reg = await navigator.serviceWorker.getRegistration("/");
+  const reg = await navigator.serviceWorker.getRegistration("/adminportal/");
   return reg ? reg.pushManager.getSubscription() : null;
 }
 
@@ -818,7 +818,7 @@ async function renderSettings() {
         const alerts = [...root.querySelectorAll("input[name=alert]:checked")].map((i) => i.value);
         const ok = await run(e.target, async () => {
           if ((await Notification.requestPermission()) !== "granted") throw new Error("Notifications are blocked for this site. Allow them in your browser or iPhone settings.");
-          const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+          const reg = await navigator.serviceWorker.register("/adminportal/sw.js", { scope: "/adminportal/" });
           await navigator.serviceWorker.ready;
           const s = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToBytes(state.config.vapid_public_key) }));
           const j = s.toJSON();

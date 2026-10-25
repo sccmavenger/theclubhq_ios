@@ -1,14 +1,14 @@
 // Browser check of the admin portal (D-041): sign-in code, TOTP enrollment, every screen,
 // and one moderation action, with throwaway QA accounts that are deleted at the end.
 //   set -a; source .env.local; set +a
-//   PORTAL_URL=http://localhost:8787 PW_CORE=/tmp/pw/node_modules/playwright-core node supabase/tests/admin_portal_ui_check.mjs
+//   PORTAL_URL=https://teamclubhq.com/adminportal/ PW_CORE=/tmp/pw/node_modules/playwright-core node supabase/tests/admin_portal_ui_check.mjs
 import { createHmac } from "node:crypto";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW_CORE ?? "playwright-core");
 
 const { SUPABASE_URL, SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF } = process.env;
-const PORTAL = process.env.PORTAL_URL ?? "http://localhost:8787";
+const PORTAL = process.env.PORTAL_URL ?? "https://teamclubhq.com/adminportal/";
 const SHOTS = process.env.SHOTS_DIR ?? "/tmp/admin-shots";
 if (!SUPABASE_URL || !SUPABASE_ACCESS_TOKEN) throw new Error("source .env.local first");
 const keys = await (await fetch(`https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/api-keys?reveal=true`, { headers: { Authorization: `Bearer ${SUPABASE_ACCESS_TOKEN}` } })).json();
@@ -63,7 +63,8 @@ try {
 
   browser = await chromium.launch({ executablePath: process.env.CHROME_PATH });
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-  page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text()));
+  // Cloudflare injects its Web Analytics beacon on teamclubhq.com; the portal CSP blocking it is intended.
+  page.on("console", (m) => m.type() === "error" && !m.text().includes("cloudflareinsights.com") && consoleErrors.push(m.text()));
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
   await page.goto(PORTAL);
   await page.fill("#email", users.admin.email);

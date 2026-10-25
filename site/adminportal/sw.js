@@ -24,12 +24,12 @@ self.addEventListener("notificationclick", (event) => {
   const url = event.notification.data?.url ?? "#/";
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    const existing = windows.find((w) => new URL(w.url).origin === self.location.origin);
+    const existing = windows.find((w) => new URL(w.url).pathname.startsWith("/adminportal"));
     if (existing) {
       await existing.focus();
       existing.postMessage({ url });
       return;
     }
-    await self.clients.openWindow(`/${url}`);
+    await self.clients.openWindow(`/adminportal/${url}`);
   })());
 });
