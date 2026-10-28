@@ -47,6 +47,7 @@ import {
   leagueTournament,
   parseLeagueURL,
 } from "../_shared/cnrLeague.ts";
+import { unwrapLink } from "../_shared/linkUnwrap.ts";
 
 type Params = Record<string, unknown>;
 interface Ctx {
@@ -405,7 +406,8 @@ interface LoadedSource {
 
 /** Fetches and reads a Google Sheet or a CNR league site; turns reader errors into API errors the app can show. */
 async function loadSource(p: Params): Promise<LoadedSource> {
-  const raw = str(p, "url", { max: 2000 });
+  // Links copied from Outlook, Gmail and Facebook arrive wrapped in a redirect.
+  const raw = unwrapLink(str(p, "url", { max: 4000 }));
   const leagueSource = parseLeagueURL(raw);
   const sheetSource = leagueSource ? null : parseSheetURL(raw);
   if (!leagueSource && !sheetSource) {
