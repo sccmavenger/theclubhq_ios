@@ -36,9 +36,17 @@ import {
   parseTournament,
   scoreTeams,
   SheetImportError,
-  type SheetSource,
   type Tournament,
 } from "../_shared/sheetImport.ts";
+import {
+  canonicalLeagueURL,
+  fetchLeagueIndex,
+  fetchTeamGames,
+  LeagueError,
+  type LeagueIndex,
+  leagueTournament,
+  parseLeagueURL,
+} from "../_shared/cnrLeague.ts";
 
 type Params = Record<string, unknown>;
 interface Ctx {
@@ -384,34 +392,69 @@ function notify(ctx: Ctx, input: Parameters<typeof enqueueTeamNotification>[1]):
 // ---------------------------------------------------------------------------
 const IMPORT_GAME_MINUTES = 60;
 
-interface LoadedSheet {
-  source: SheetSource;
+interface LoadedSource {
+  kind: "google_sheet" | "cnr_league";
+  /** Canonical address stored on the import (a league URL carries its season). */
+  url: string;
   sheetTitle: string | null;
   tabCount: number;
   tournament: Tournament;
+  /** CNR league (D-043): games load per team, so the index is kept for `withLeagueGames`. */
+  league: { index: LeagueIndex; teamSlug: string | null } | null;
 }
 
-/** Fetches and reads the sheet; turns reader errors into API errors the app can show. */
-async function loadSheet(p: Params): Promise<LoadedSheet> {
-  const source = parseSheetURL(str(p, "url", { max: 2000 }));
-  if (!source) {
-    throw new ApiError("not_a_sheet", "That isn't a Google Sheets link. Paste the link the organizer shared (it starts with docs.google.com/spreadsheets).", 422);
+/** Fetches and reads a Google Sheet or a CNR league site; turns reader errors into API errors the app can show. */
+async function loadSource(p: Params): Promise<LoadedSource> {
+  const raw = str(p, "url", { max: 2000 });
+  const leagueSource = parseLeagueURL(raw);
+  const sheetSource = leagueSource ? null : parseSheetURL(raw);
+  if (!leagueSource && !sheetSource) {
+    throw new ApiError("not_a_sheet", "That isn't a schedule link we can read yet. Paste a Google Sheets link from the organizer, or a CNR league link (cnrschedule.stlbasketball.com).", 422);
   }
   const firstDay = typeof p.first_day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.first_day) ? p.first_day : null;
   try {
-    const sheet = await fetchSheet(source);
+    if (leagueSource) {
+      const index = await fetchLeagueIndex(leagueSource);
+      return {
+        kind: "cnr_league", url: canonicalLeagueURL(index.host, index.season.start), sheetTitle: null, tabCount: 0,
+        tournament: leagueTournament(index, []), league: { index, teamSlug: leagueSource.teamSlug },
+      };
+    }
+    const sheet = await fetchSheet(sheetSource!);
     const tournament = parseTournament(sheet, { fallbackYear: new Date().getUTCFullYear(), firstDay });
     if (tournament.games.length === 0) {
       throw new ApiError("no_games", "We opened this sheet but didn't find any games in it. If it's a tournament schedule, tap Report so we can add support for it.", 422);
     }
-    return { source, sheetTitle: sheet.title, tabCount: sheet.tabs.length, tournament };
+    return { kind: "google_sheet", url: sheetSource!.url, sheetTitle: sheet.title, tabCount: sheet.tabs.length, tournament, league: null };
   } catch (e) {
-    if (e instanceof SheetImportError) throw new ApiError(e.code, e.message, 422);
-    if (e instanceof ApiError) throw e;
-    if (e instanceof DOMException && e.name === "TimeoutError") {
-      throw new ApiError("unreadable", "Google Sheets took too long to answer. Try again in a minute.", 504);
-    }
-    throw e;
+    throw importError(e);
+  }
+}
+
+function importError(e: unknown): unknown {
+  if (e instanceof SheetImportError || e instanceof LeagueError) return new ApiError(e.code, e.message, 422);
+  if (e instanceof DOMException && e.name === "TimeoutError") {
+    return new ApiError("unreadable", "The schedule site took too long to answer. Try again in a minute.", 504);
+  }
+  return e;
+}
+
+/** League sources: load these teams' games (each team has its own page). Sheets already have every game. */
+async function withLeagueGames(loaded: LoadedSource, keys: string[]): Promise<Tournament> {
+  if (!loaded.league) return loaded.tournament;
+  const { index } = loaded.league;
+  try {
+    const lists = await Promise.all([...new Set(keys)].filter((k) => index.teams.some((t) => t.key === k)).map((k) =>
+      fetchTeamGames(index, k).catch((e) => {
+        if (e instanceof LeagueError && e.code === "team_not_found") return [];
+        throw e;
+      })
+    ));
+    const games = new Map<string, Game>();
+    for (const g of lists.flat()) if (!games.has(g.key)) games.set(g.key, g);
+    return leagueTournament(index, [...games.values()].sort((a, b) => (a.localStart ?? "").localeCompare(b.localStart ?? "")));
+  } catch (e) {
+    throw importError(e);
   }
 }
 
@@ -437,7 +480,7 @@ function importGameJSON(g: Game, tz: string) {
     time_label: g.timeLabel,
     location: g.location,
     venue_name: g.venue?.name ?? null,
-    address: g.venue?.address ?? null,
+    address: g.venue?.address || null,
     court: g.court,
   };
 }
@@ -468,7 +511,7 @@ function importedEventRow(t: Tournament, g: Game, teamKey: string, alias: string
     ends_at: new Date(startMs + IMPORT_GAME_MINUTES * 60_000).toISOString(),
     rsvp_cutoff_at: new Date(startMs - DEFAULT_CUTOFF_LEAD_MS).toISOString(),
     location: (g.venue ? (g.court ? `${g.venue.name} · Court ${g.court}` : g.venue.name) : g.location)?.slice(0, 200) ?? null,
-    location_address: g.venue?.address ?? null,
+    location_address: g.venue?.address || null,
     notes: notes.slice(0, 2000),
     opponent: opponent.slice(0, 120),
     home_away: isHome === null ? null : isHome ? "home" : "away",
@@ -1311,29 +1354,47 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
   async "import-preview"(ctx, p) {
     const teamId = uuid(p, "team_id");
     await requireHeadCoach(ctx, teamId);
-    const [{ tournament: t, source, sheetTitle, tabCount }, { data: team }, coachNames, { data: aliases }] = await Promise.all([
-      loadSheet(p),
+    const [loaded, { data: team }, coachNames, { data: aliases }] = await Promise.all([
+      loadSource(p),
       ctx.admin.from("teams").select("name, age_group").eq("id", teamId).single(),
       teamCoachNames(ctx, teamId),
       ctx.admin.from("schedule_team_aliases").select("alias").eq("team_id", teamId),
     ]);
-    const tz = await importTimeZone(ctx, teamId, p, t);
-    const counts = Object.fromEntries(t.teams.map((x) => [x.key, gamesForTeam(t, x.key).length]));
-    let match = scoreTeams(t.teams, { teamName: team?.name ?? "", ageGroup: team?.age_group, coachNames, aliases: (aliases ?? []).map((a) => a.alias) }, counts);
+    const { url: sourceURL, sheetTitle, tabCount } = loaded;
+    let t = loaded.tournament;
+    // League teams' games aren't known until their pages load, so they don't count against a team here.
+    const sheetCounts = loaded.league ? {} : Object.fromEntries(t.teams.map((x) => [x.key, gamesForTeam(t, x.key).length]));
+    let match = scoreTeams(t.teams, { teamName: team?.name ?? "", ageGroup: team?.age_group, coachNames, aliases: (aliases ?? []).map((a) => a.alias) }, sheetCounts);
+    // A team page or calendar link says exactly which team.
+    const linkedSlug = loaded.league?.teamSlug;
+    if (linkedSlug && t.teams.some((x) => x.key === linkedSlug)) match = { outcome: "clear", teamKeys: [linkedSlug], scores: match.scores };
 
     const { data: previous } = await ctx.admin
       .from("schedule_imports")
       .select("id, sheet_team_key, sheet_alias, last_imported_at")
       .eq("team_id", teamId)
-      .eq("source_url", source.url)
+      .eq("source_url", sourceURL)
       .maybeSingle();
     let previousImport = null;
     if (previous) {
       const { count } = await ctx.admin.from("events").select("id", { count: "exact", head: true }).eq("import_id", previous.id);
       previousImport = { id: previous.id, team_key: previous.sheet_team_key, alias: previous.sheet_alias, event_count: count ?? 0, last_imported_at: previous.last_imported_at };
       // They already told us which team is theirs.
-      if (t.teams.some((x) => x.key === previous.sheet_team_key)) match = { outcome: "clear", teamKeys: [previous.sheet_team_key], scores: match.scores };
+      if (!linkedSlug && t.teams.some((x) => x.key === previous.sheet_team_key)) match = { outcome: "clear", teamKeys: [previous.sheet_team_key], scores: match.scores };
     }
+
+    // League: load the games of the team the coach picked (`team_key`), or of the best guesses.
+    let loadedKeys: Set<string> | null = null;
+    if (loaded.league) {
+      const requested = typeof p.team_key === "string" && p.team_key.length <= 300 ? p.team_key : null;
+      const keys = requested ? [requested] : match.teamKeys.slice(0, 6);
+      t = await withLeagueGames(loaded, keys);
+      loadedKeys = new Set(keys);
+    }
+    const counts: Record<string, number | null> = Object.fromEntries(t.teams.map((x) => [
+      x.key, loadedKeys && !loadedKeys.has(x.key) ? null : gamesForTeam(t, x.key).length,
+    ]));
+    const tz = await importTimeZone(ctx, teamId, p, t);
 
     // Events already on the schedule around the tournament, so the app can flag clashes.
     const starts = t.games.map((g) => g.localStart).filter((s): s is string => s !== null).map((s) => localToISO(s, tz)).sort();
@@ -1352,7 +1413,8 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
 
     return {
       source: {
-        url: source.url,
+        url: sourceURL,
+        kind: loaded.kind,
         title: t.title,
         sheet_title: sheetTitle,
         time_zone: tz,
@@ -1364,7 +1426,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       match: { outcome: match.outcome, team_keys: match.teamKeys },
       teams: t.teams.map((x) => ({
         key: x.key, name: x.name, grade: x.grade, gender: x.gender, coach: x.coach,
-        bracket: x.bracket, bracket_title: x.bracketTitle, game_count: counts[x.key] ?? 0,
+        bracket: x.bracket, bracket_title: x.bracketTitle, game_count: counts[x.key] ?? null,
       })),
       brackets: t.brackets.map((b) => ({ name: b.name, title: b.title, unmatched_names: b.unmatchedNames })),
       games: t.games.map((g) => importGameJSON(g, tz)),
@@ -1383,7 +1445,9 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const teamKey = str(p, "team_key", { max: 300 });
     const alias = str(p, "alias", { max: 200, optional: true }) || null;
     const wanted = Array.isArray(p.game_keys) ? new Set(p.game_keys.filter((k): k is string => typeof k === "string")) : null;
-    const { tournament: t, source } = await loadSheet(p);
+    const loaded = await loadSource(p);
+    const t = await withLeagueGames(loaded, [teamKey]);
+    const source = { url: loaded.url };
     const team = t.teams.find((x) => x.key === teamKey);
     if (!team) throw new ApiError("not_found", "That team isn't in this sheet anymore. Go back and pick your team again.", 404);
     const tz = await importTimeZone(ctx, teamId, p, t);
@@ -1398,7 +1462,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       .eq("source_url", source.url)
       .maybeSingle();
     const record = {
-      team_id: teamId, source_url: source.url, title: t.title.slice(0, 200),
+      team_id: teamId, source_url: source.url, source_kind: loaded.kind, title: t.title.slice(0, 200),
       sheet_team_key: teamKey, sheet_team_name: team.name.slice(0, 200), sheet_alias: alias, time_zone: tz,
       last_imported_at: new Date().toISOString(),
     };

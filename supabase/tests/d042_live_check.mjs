@@ -103,6 +103,33 @@ try {
   const back = await api("coach", "import-commit", { team_id: team.team_id, url: CNR, team_key: ME, game_keys: mine.slice(0, 2).map((g) => g.key), ...tz });
   check("only the checked games are imported", back.body.added === 2 && (await events(team.team_id)).length === 2, JSON.stringify(back.body));
 
+  // ----- CNR league site (D-043) ------------------------------------------------
+  const LEAGUE = "https://cnrschedule.stlbasketball.com/";
+  const lp = await api("coach", "import-preview", { team_id: team.team_id, url: LEAGUE, ...tz });
+  const lmine = (lp.body.games ?? []).filter((g) => g.left.team_key === "3d-nation-2033-6th-boys" || g.right.team_key === "3d-nation-2033-6th-boys");
+  check("league: preview finds the team with its games", lp.status === 200 && lp.body.source?.kind === "cnr_league" && lp.body.match?.team_keys?.[0] === "3d-nation-2033-6th-boys" && lmine.length >= 1 && /season=/.test(lp.body.source.url), `${lp.status} ${JSON.stringify(lp.body.match ?? lp.body).slice(0, 200)}`);
+  check("league: teams not loaded yet have no game count", lp.body.teams?.some((t) => t.game_count === null), "");
+  const ltp = await api("coach", "import-preview", { team_id: team.team_id, url: "webcal://cnrnovdec2026schedules.stlbasketball.com/3d-nation-2033-6th-boys.ics", ...tz });
+  check("league: a calendar link picks the team directly", ltp.body.match?.outcome === "clear" && ltp.body.match.team_keys[0] === "3d-nation-2033-6th-boys", JSON.stringify(ltp.body.match ?? ltp.body));
+  const kings = await api("coach", "import-preview", { team_id: team.team_id, url: LEAGUE, team_key: "kings-gold-6th-boys", ...tz });
+  check("league: picking another team loads its games", kings.body.games?.some((g) => g.left.team_key === "kings-gold-6th-boys" || g.right.team_key === "kings-gold-6th-boys"), "");
+  const lc = await api("coach", "import-commit", { team_id: team.team_id, url: LEAGUE, team_key: "3d-nation-2033-6th-boys", ...tz });
+  const lrows = await sql(`select opponent, home_away, location, location_address, starts_at, external_key from events where import_id='${lc.body.import_id}' order by starts_at`);
+  check("league: commit adds the upcoming games", lc.status === 200 && lc.body.added === lmine.length && lc.body.upcoming === lmine.length && lrows.every((r) => r.external_key.startsWith("uid:")), JSON.stringify(lc.body).slice(0, 200));
+  check("league: home/away and gym addresses", lrows.some((r) => r.home_away === "home") && lrows.some((r) => r.home_away === "away") && lrows.some((r) => r.location_address?.includes("MO")), JSON.stringify(lrows[0]));
+  const lsaved = (await sql(`select source_url, source_kind from schedule_imports where id='${lc.body.import_id}'`))[0];
+  const lagain = await api("coach", "import-commit", { team_id: team.team_id, url: lsaved.source_url, team_key: "3d-nation-2033-6th-boys", ...tz });
+  check("league: Update from Sheet updates in place", lsaved.source_kind === "cnr_league" && lagain.body.added === 0 && lagain.body.updated === lmine.length, JSON.stringify(lagain.body).slice(0, 200));
+  const stale = await api("coach", "import-commit", { team_id: team.team_id, url: "https://cnrschedule.stlbasketball.com/?season=2026-06-01", team_key: "3d-nation-2033-6th-boys", ...tz });
+  check("league: an old season's import won't 'update' into the new season", stale.status === 422 && stale.body.error?.code === "season_over", JSON.stringify(stale.body));
+  const lnotify = await api("coach", "import-notify", { import_id: lc.body.import_id });
+  check("league: upcoming games can be announced once", lnotify.body.sent === true, JSON.stringify(lnotify.body));
+  const summer = await api("coach", "import-commit", { team_id: team.team_id, url: "https://cnrsummer2026.stlbasketball.com/", team_key: "3d-nation-2033-6th-boys", ...tz });
+  const srows = await sql(`select home_score, away_score, result from events where import_id='${summer.body.import_id}'`);
+  check("league: a past season imports with final scores", summer.status === 200 && summer.body.added >= 7 && srows.every((r) => r.result !== null), `${JSON.stringify(summer.body).slice(0, 160)} ${JSON.stringify(srows[0])}`);
+  await api("coach", "import-undo", { import_id: lc.body.import_id });
+  await api("coach", "import-undo", { import_id: summer.body.import_id });
+
   // ----- Remembered, notify, undo, report -------------------------------------
   const aliases = await sql(`select alias from schedule_team_aliases where team_id='${team.team_id}' order by alias`);
   check("the pairing is remembered", aliases.some((a) => a.alias === "3d nation 2033"), JSON.stringify(aliases));
