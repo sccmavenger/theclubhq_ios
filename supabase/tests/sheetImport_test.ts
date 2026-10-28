@@ -230,3 +230,25 @@ Deno.test("names", () => {
   assert(nameSimilarity("Gensis 2036 3rd", "Genesis 2036 3rd Boys") >= 0.9, "typo");
   assertEquals(matchInBracket("Mavericks", cnr.teams.filter((t) => t.bracket === "8B Drexler")), null);
 });
+
+// ----- A second real sheet: 2026 CNR August 29-30 ---------------------------
+const august = parseTournament(JSON.parse(await Deno.readTextFile(new URL("./fixtures/cnr-2026-08/tabs.json", import.meta.url))), { fallbackYear: 2026 });
+
+Deno.test("August: a mistyped venue code still finds the venue", () => {
+  assertEquals(august.venues.map((v) => v.code), ["CSL"]);
+  assertEquals(august.games.filter((g) => !g.venue).length, 0);
+  const g = august.games.find((x) => x.location === "CSTL 3")!;
+  assertEquals([g.venue?.name, g.court], ["Center St. Louis", "3"]);
+  assertEquals(resolveLocation("CSTL 1", august.venues).venue?.address, "6727 Langley Avenue, St. Louis, MO 63123");
+});
+
+Deno.test("August: owner's team and placeholders", () => {
+  const me = august.teams.find((t) => t.name === "3D Nation 6th Boys")!;
+  assertEquals(gamesForTeam(august, me.key).length, 4);
+  const unmatched = august.brackets.flatMap((b) => b.unmatchedNames.map((n) => `${b.name}: ${n}`));
+  // "2nd Place A" is a bracket slot, not a team; "FZNorth" is an abbreviation the coach can pick.
+  assertEquals(unmatched, ["Varsity Boys: FZNorth"]);
+  assert(isPlaceholder("2nd Place A"), "place slot");
+  assert(isPlaceholder("3rd Place"), "place");
+  assert(!isPlaceholder("1st Place Game- Bradley Beal Elite 2033"), "labelled team is stripped first, not a placeholder");
+});

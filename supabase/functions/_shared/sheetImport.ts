@@ -232,6 +232,7 @@ export function isPlaceholder(name: string): boolean {
   return /^(tbd|tba|bye)$/i.test(name.trim()) ||
     /\b(winner|loser|seed|tbd|tba)\b/i.test(name) ||
     /^\s*(\d(st|nd|rd|th)|first|second|third)\s+(place\s+)?(in\s+)?pool\b/i.test(name) ||
+    /^\s*(\d(st|nd|rd|th)|first|second|third|fourth)\s+place(\s+(in\s+)?(pool\s+)?[a-z0-9])?\s*$/i.test(name) ||
     /^\s*pool\s+[a-z0-9]+\s*#?\s*\d\b/i.test(name);
 }
 
@@ -433,7 +434,15 @@ export function resolveLocation(location: string, venues: Venue[]): { venue: Ven
       }
     }
   }
-  if (!best) return { venue: null, court: null };
+  if (!best) {
+    // Organizers mistype codes ("CSL" on the info tab, "CSTL" in every game). Accept a code one
+    // letter off, or the only venue when there's just one.
+    const m = loc.match(/^(.*?)[\s:-]*(?:(?:court|ct\.?|gym)\s*)?(\d+[a-z]?)?$/i);
+    const prefix = (m?.[1] ?? loc).trim().toLowerCase();
+    const near = venues.filter((v) => prefix.length >= 2 && levenshtein(prefix, v.code.toLowerCase()) <= 1);
+    const venue = near.length === 1 ? near[0] : venues.length === 1 && prefix.length > 0 ? venues[0] : null;
+    return venue ? { venue, court: m?.[2] ?? null } : { venue: null, court: null };
+  }
   const court = best.rest.replace(/^[\s:-]+/, "").replace(/^(court|ct\.?|gym)\s*/i, "").trim();
   return { venue: best.venue, court: court || null };
 }
