@@ -22,6 +22,7 @@ struct ScheduleView: View {
     @State private var imports: [ScheduleImportInfo] = []
     @State private var importToRemove: ScheduleImportInfo?
     @State private var importMessage: String?
+    @State private var refreshingImportID: UUID?
 
     private var team: TeamMembership? { model.selectedTeam }
     private var showsTeamFilter: Bool { model.teams.count > 1 }
@@ -106,16 +107,6 @@ struct ScheduleView: View {
                     ScheduleImportView(team: team, backend: model.backend) { model.noteDataChanged() }
                 }
             }
-            .confirmationDialog(
-                "Remove imported games?",
-                isPresented: Binding(get: { importToRemove != nil }, set: { if !$0 { importToRemove = nil } }),
-                titleVisibility: .visible,
-                presenting: importToRemove
-            ) { info in
-                Button("Remove Games", role: .destructive) { Task { await remove(info) } }
-            } message: { info in
-                Text("Every game imported from \(info.title) is removed, with its RSVPs and attendance.")
-            }
             .alert("Imported schedule", isPresented: Binding(get: { importMessage != nil }, set: { if !$0 { importMessage = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -136,16 +127,27 @@ struct ScheduleView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Menu {
-                        Button { Task { await refresh(info) } } label: { Label("Update from Sheet", systemImage: "arrow.triangle.2.circlepath") }
-                        if let url = URL(string: info.sourceUrl) {
-                            Link(destination: url) { Label("Open Sheet", systemImage: "safari") }
+                    if refreshingImportID == info.id {
+                        ProgressView().accessibilityLabel("Updating from the sheet")
+                    } else {
+                        Menu {
+                            Button { Task { await refresh(info) } } label: { Label("Update from Sheet", systemImage: "arrow.triangle.2.circlepath") }
+                            if let url = URL(string: info.sourceUrl) {
+                                Link(destination: url) { Label("Open Sheet", systemImage: "safari") }
+                            }
+                            Button(role: .destructive) { importToRemove = info } label: { Label("Remove Games", systemImage: "trash") }
+                        } label: {
+                            Image(systemName: "ellipsis.circle").font(.title3)
                         }
-                        Button(role: .destructive) { importToRemove = info } label: { Label("Remove Games", systemImage: "trash") }
-                    } label: {
-                        Image(systemName: "ellipsis.circle").font(.title3)
+                        .accessibilityLabel("Options for \(info.title)")
+                        .confirmationDialog("Remove imported games?", isPresented: Binding(
+                            get: { importToRemove?.id == info.id }, set: { if !$0 { importToRemove = nil } }
+                        ), titleVisibility: .visible) {
+                            Button("Remove Games", role: .destructive) { Task { await remove(info) } }
+                        } message: {
+                            Text("Every game imported from \(info.title) is removed, with its RSVPs and attendance.")
+                        }
                     }
-                    .accessibilityLabel("Options for \(info.title)")
                 }
             }
         } header: {
@@ -155,6 +157,8 @@ struct ScheduleView: View {
 
     /// Re-reads the sheet and applies any changes the organizer made.
     private func refresh(_ info: ScheduleImportInfo) async {
+        refreshingImportID = info.id
+        defer { refreshingImportID = nil }
         do {
             let result = try await model.backend.importCommit(
                 teamID: info.teamId, url: info.sourceUrl, teamKey: info.sheetTeamKey, alias: info.sheetAlias, gameKeys: nil, firstDay: nil

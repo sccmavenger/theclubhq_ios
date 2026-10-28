@@ -15,20 +15,28 @@ struct ScheduleImportView: View {
         NavigationStack(path: $flow.path) {
             ImportLinkStep(flow: flow)
                 .navigationDestination(for: ImportStep.self) { step in
-                    switch step {
-                    case .confirm: ImportConfirmStep(flow: flow)
-                    case .choices: ImportChoicesStep(flow: flow)
-                    case .list(let noGuess): ImportTeamListStep(flow: flow, noGuess: noGuess)
-                    case .alias: ImportAliasStep(flow: flow)
-                    case .preview: ImportPreviewStep(flow: flow)
-                    case .report(let reason): ImportReportStep(flow: flow, reason: reason)
-                    case .done: ImportDoneStep(flow: flow)
+                    Group {
+                        switch step {
+                        case .confirm: ImportConfirmStep(flow: flow)
+                        case .choices: ImportChoicesStep(flow: flow)
+                        case .list(let noGuess): ImportTeamListStep(flow: flow, noGuess: noGuess)
+                        case .alias: ImportAliasStep(flow: flow)
+                        case .preview: ImportPreviewStep(flow: flow)
+                        case .report(let reason): ImportReportStep(flow: flow, reason: reason)
+                        case .done: ImportDoneStep(flow: flow)
+                        }
+                    }
+                    .toolbar {
+                        if step != .done {
+                            ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { flow.close() } }
+                        }
                     }
                 }
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { flow.close() } }
                 }
         }
+        .onAppear { flow.close = { dismiss() } }
     }
 }
 
@@ -303,21 +311,24 @@ private struct ImportPreviewStep: View {
                     }
                 } header: {
                     Text("Games")
-                } footer: {
-                    Text("Families aren't notified when you import. You can tell them on the next screen.")
                 }
                 if let error = flow.errorMessage {
                     Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                AsyncButton {
-                    await flow.commit()
-                } label: {
-                    Text(flow.selectedCount == 1 ? "Import 1 Game" : "Import \(flow.selectedCount) Games")
+                VStack(spacing: 8) {
+                    AsyncButton {
+                        await flow.commit()
+                    } label: {
+                        let verb = flow.isReimport ? "Update" : "Import"
+                        Text(flow.selectedCount == 1 ? "\(verb) 1 Game" : "\(verb) \(flow.selectedCount) Games")
+                    }
+                    .buttonStyle(BrandCTAButtonStyle())
+                    .disabled(flow.selectedCount == 0)
+                    Text("Families aren't notified. You can tell them on the next screen.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                .buttonStyle(BrandCTAButtonStyle())
-                .disabled(flow.selectedCount == 0)
                 .padding()
                 .background(.bar)
             }
@@ -440,7 +451,6 @@ private struct TournamentHeader: View {
 
 private struct ImportDoneStep: View {
     let flow: ScheduleImportFlow
-    @Environment(\.dismiss) private var dismiss
 
     private var headline: String {
         guard let result = flow.result else { return "Done" }
@@ -489,7 +499,7 @@ private struct ImportDoneStep: View {
                             .font(.headline)
                         }
                     }
-                    Button("Done") { dismiss() }
+                    Button("Done") { flow.close() }
                         .buttonStyle(BrandCTAButtonStyle())
                     if !flow.isUndone {
                         AsyncButton(role: .destructive) { await flow.undo() } label: { Text("Undo Import") }
@@ -513,7 +523,6 @@ private struct ImportReportStep: View {
     @State var reason: ImportReportReason
     @State private var note = ""
     @State private var sent = false
-    @Environment(\.dismiss) private var dismiss
 
     init(flow: ScheduleImportFlow, reason: ImportReportReason) {
         self.flow = flow
@@ -550,7 +559,7 @@ private struct ImportReportStep: View {
             }
             Section {
                 Button("Try a Different Link") { flow.reset() }
-                Button("Add Games Myself") { dismiss() }
+                Button("Add Games Myself") { flow.close() }
             }
         }
         .navigationTitle("Report a Problem")

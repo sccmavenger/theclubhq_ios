@@ -39,6 +39,8 @@ final class ScheduleImportFlow {
     private(set) var result: ImportResult?
     private(set) var isUndone = false
     private(set) var familiesNotified = false
+    /// Closes the whole import sheet (a pushed step's own `dismiss` only pops that step).
+    var close: () -> Void = {}
 
     init(team: TeamMembership, backend: any ClubHQBackend, onChange: @escaping () -> Void = {}) {
         self.team = team
@@ -55,6 +57,8 @@ final class ScheduleImportFlow {
     }
 
     var importableGames: [ImportGame] { chosenGames.filter { $0.startsAt != nil } }
+    /// Importing the same team from the same link again updates its games.
+    var isReimport: Bool { preview?.previousImport?.teamKey == chosenKey && chosenKey != nil }
     var selectedCount: Int { importableGames.filter { selectedGameKeys.contains($0.key) }.count }
 
     private var firstDayParam: String? { needsFirstDay ? JSONCoding.formatDateOnly(firstDay) : nil }
