@@ -44,6 +44,14 @@ nonisolated enum AppConfig {
     static let termsURL = URL(string: "https://teamclubhq.com/terms")!
     static let supportEmail = "info@teamclubhq.com"
 
+    /// "1.0.1 (19)": shown to support in the admin portal (D-041).
+    static var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(version) (\(build))"
+    }
+
     static var isBackendConfigured: Bool {
         !supabaseURL.isEmpty && !supabasePublishableKey.isEmpty && URL(string: supabaseURL) != nil
     }

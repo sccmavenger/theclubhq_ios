@@ -22,6 +22,8 @@ import { dispatchPendingPushes } from "../_shared/dispatch.ts";
 import { syncFromDevice } from "../_shared/appstore.ts";
 import { checkoutFeeCents, stripe } from "../_shared/stripe.ts";
 import { addLocalDays, formatEventTime, validTimeZone } from "../_shared/time.ts";
+import { deleteUserAccount } from "../_shared/accounts.ts";
+import { alertAdmins } from "../_shared/adminAlerts.ts";
 
 type Params = Record<string, unknown>;
 interface Ctx {
@@ -208,7 +210,57 @@ async function claimGuardianInvite(ctx: Ctx, teamId: string, playerId: string, p
     .maybeSingle();
   if (!existingRole) await ctx.admin.from("user_roles").insert({ user_id: ctx.uid, role: "parent", team_id: teamId });
   if (!already) await notifyFamilyJoined(ctx, teamId, playerId, `${player.first_name} ${player.last_name}`, true);
+  await markSignupVia(ctx, "co_parent_invite");
   return { team_id: teamId, player_id: playerId };
+}
+
+/** Records how this person first arrived (D-041). Only the first path counts. */
+async function markSignupVia(ctx: Ctx, via: "created_team" | "team_code" | "co_parent_invite" | "player_code") {
+  await ctx.admin.from("profiles").update({ signup_via: via }).eq("id", ctx.uid).is("signup_via", null);
+}
+
+/** IDs this user blocked (App Review 1.2). Their messages are hidden from this user everywhere. */
+async function blockedAuthorIds(ctx: Ctx): Promise<string[]> {
+  const { data } = await ctx.admin.from("user_blocks").select("blocked_id").eq("blocker_id", ctx.uid);
+  return (data ?? []).map((b) => b.blocked_id);
+}
+
+const REPORT_REASONS = ["harassment", "inappropriate", "spam", "safety", "other"] as const;
+const ACQUISITION_SOURCES = ["app_store", "friend_or_coach", "club_or_league", "social_media", "web_search", "other"] as const;
+const REPORT_EVIDENCE_BUCKET = "report-evidence";
+const SUSPENDED_MESSAGE = "This account has been suspended. Contact info@teamclubhq.com if you think this is a mistake.";
+
+/**
+ * Mutating actions logged as first-party usage events (D-041), so feature adoption is measured
+ * without any client change. Names only, never parameters.
+ */
+const SERVER_TRACKED_ACTIONS = new Set([
+  "create-team", "update-team", "create-invite", "reset-invite", "claim-invite", "create-guardian-invite",
+  "create-player-invite", "claim-player-invite", "set-player-birthdate", "create-thread", "post-message",
+  "delete-message", "calendar-feed", "reset-calendar-feed", "set-mute", "create-announcement", "save-event",
+  "cancel-event", "set-rsvp", "register-device", "sync-subscription", "create-dues", "set-dues-status",
+  "remind-unpaid", "connect-payments", "checkout", "report-content", "block-user", "delete-account",
+]);
+
+/** Validates one client usage event; returns null for anything malformed (dropped, not an error). */
+function cleanUsageEvent(raw: unknown): { name: string; team_id: string | null; props: Record<string, string | number | boolean>; created_at: string } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const e = raw as Record<string, unknown>;
+  if (typeof e.name !== "string" || !/^[a-z][a-z0-9_.-]{1,63}$/.test(e.name)) return null;
+  const teamId = typeof e.team_id === "string" && /^[0-9a-f-]{36}$/i.test(e.team_id) ? e.team_id : null;
+  const props: Record<string, string | number | boolean> = {};
+  if (e.props && typeof e.props === "object") {
+    for (const [k, v] of Object.entries(e.props as Record<string, unknown>).slice(0, 8)) {
+      if (!/^[a-z][a-z0-9_]{0,31}$/.test(k)) continue;
+      if (typeof v === "string") props[k] = v.slice(0, 64);
+      else if (typeof v === "number" && Number.isFinite(v)) props[k] = v;
+      else if (typeof v === "boolean") props[k] = v;
+    }
+  }
+  // Client clocks drift; accept the last 7 days, otherwise use now.
+  const at = typeof e.at === "string" ? Date.parse(e.at) : NaN;
+  const createdAt = Number.isFinite(at) && at > Date.now() - 7 * DAY_MS && at <= Date.now() + 60_000 ? new Date(at) : new Date();
+  return { name: e.name, team_id: teamId, props, created_at: createdAt.toISOString() };
 }
 
 /** Tells the team's staff that a family joined, so coaches see the roster fill up (D-035). */
@@ -317,7 +369,13 @@ function notify(ctx: Ctx, input: Parameters<typeof enqueueTeamNotification>[1]):
 // ---------------------------------------------------------------------------
 const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
   // ----- Context ------------------------------------------------------------
-  async context(ctx) {
+  async context(ctx, p) {
+    // "Last seen" and app version for the admin portal (D-041).
+    const appVersion = typeof p.app_version === "string" ? p.app_version.slice(0, 32) : null;
+    await ctx.admin.from("profiles").update({
+      last_seen_at: new Date().toISOString(),
+      ...(appVersion ? { app_version: appVersion } : {}),
+    }).eq("id", ctx.uid);
     const [{ data: roles }, { data: links }, { data: selfPlayers }, { data: profile }] = await Promise.all([
       ctx.admin.from("user_roles").select("team_id, org_id, role").eq("user_id", ctx.uid),
       ctx.admin
@@ -375,6 +433,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       full_name: profile?.full_name ?? null,
       is_coach_pro: await isCoachPro(ctx),
       teams: result,
+      blocked_user_ids: await blockedAuthorIds(ctx),
     };
   },
 
@@ -427,6 +486,17 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     if (orgType === "club") roles.push({ user_id: ctx.uid, role: "program_director", team_id: null as unknown as string, org_id: org.id });
     const { error: roleErr } = await ctx.admin.from("user_roles").insert(roles);
     if (roleErr) throw new ApiError("internal", roleErr.message, 500);
+
+    // "How did you hear about ClubHQ?" is optional and only the first answer is kept (D-041).
+    const heardFrom = typeof p.heard_from === "string" && (ACQUISITION_SOURCES as readonly string[]).includes(p.heard_from) ? p.heard_from : null;
+    if (heardFrom) await ctx.admin.from("profiles").update({ acquisition_source: heardFrom }).eq("id", ctx.uid).is("acquisition_source", null);
+    await markSignupVia(ctx, "created_team");
+    await alertAdmins(ctx.admin, {
+      type: "team",
+      title: "New team",
+      body: `${teamName} · ${sport}${orgType === "club" ? ` · ${orgName}` : ""}`,
+      url: `#/teams/${team.id}`,
+    });
     return { team_id: team.id, org_id: org.id };
   },
 
@@ -601,6 +671,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       .upsert({ player_id: player.id, parent_user_id: ctx.uid, relationship }, { onConflict: "player_id,parent_user_id", ignoreDuplicates: true });
     if (linkErr) throw new ApiError("internal", linkErr.message, 500);
     await notifyFamilyJoined(ctx, teamId, player.id, `${firstName.trim()} ${lastName.trim()}`, false);
+    await markSignupVia(ctx, "team_code");
     return { team_id: teamId, player_id: player.id };
   },
 
@@ -713,6 +784,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       .maybeSingle();
     if (!existingRole) await ctx.admin.from("user_roles").insert({ user_id: ctx.uid, role: "player", team_id: player.team_id });
     await ctx.admin.from("player_invites").update({ claimed_at: new Date().toISOString(), claimed_by: ctx.uid }).eq("id", invite.id);
+    await markSignupVia(ctx, "player_code");
     return { team_id: player.team_id, player_id: player.id };
   },
 
@@ -889,6 +961,9 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       .order("created_at", { ascending: true })
       .limit(500);
     if (since) q = q.gt("created_at", since);
+    // Blocked authors are hidden on every device the blocker uses (App Review 1.2, D-041).
+    const blocked = await blockedAuthorIds(ctx);
+    if (blocked.length > 0) q = q.not("author_id", "in", `(${blocked.join(",")})`);
     const { data: msgs, error } = await q;
     if (error) throw new ApiError("internal", error.message, 500);
     const names = await profileNames(ctx, [...new Set((msgs ?? []).map((m) => m.author_id))]);
@@ -1363,35 +1438,96 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
 
   // ----- Account deletion (D-014) ---------------------------------------------------------
   async "delete-account"(ctx) {
-    // Teams where this user is the ONLY head coach get archived (not deleted) so other
-    // families keep their history; staff can be re-assigned by support.
-    const { data: hc } = await ctx.admin.from("user_roles").select("team_id").eq("user_id", ctx.uid).eq("role", "head_coach");
-    for (const r of hc ?? []) {
-      const { count } = await ctx.admin.from("user_roles").select("id", { count: "exact", head: true }).eq("team_id", r.team_id).eq("role", "head_coach");
-      if ((count ?? 0) <= 1) await ctx.admin.from("teams").update({ archived_at: new Date().toISOString() }).eq("id", r.team_id);
-    }
-    await Promise.all([
-      ctx.admin.from("device_tokens").delete().eq("user_id", ctx.uid),
-      ctx.admin.from("user_roles").delete().eq("user_id", ctx.uid),
-      ctx.admin.from("parent_player_links").delete().eq("parent_user_id", ctx.uid),
-      ctx.admin.from("players").update({ user_id: null }).eq("user_id", ctx.uid),
-      ctx.admin.from("thread_participants").delete().eq("user_id", ctx.uid),
-      ctx.admin.from("thread_mutes").delete().eq("user_id", ctx.uid),
-      ctx.admin.from("message_reads").delete().eq("user_id", ctx.uid),
-      ctx.admin.from("calendar_feeds").delete().eq("user_id", ctx.uid),
-    ]);
-    const { error } = await ctx.admin.auth.admin.deleteUser(ctx.uid);
-    if (error) {
-      // Foreign keys (e.g. authored messages) can block a hard delete. Scrub instead:
-      // no email, no name, banned — personal data is gone, history shows "Deleted user".
-      await ctx.admin.auth.admin.updateUserById(ctx.uid, {
-        email: `deleted+${ctx.uid}@users.clubhq.invalid`,
-        user_metadata: {},
-        ban_duration: "876000h",
-      });
-      await ctx.admin.from("profiles").update({ full_name: "Deleted user", phone: null, avatar_url: null }).eq("id", ctx.uid);
-    }
+    const { data: profile } = await ctx.admin.from("profiles").select("full_name").eq("id", ctx.uid).maybeSingle();
+    await deleteUserAccount(ctx.admin, ctx.uid);
+    await alertAdmins(ctx.admin, {
+      type: "account",
+      title: "Account deleted",
+      body: `${profile?.full_name ?? "A user"} deleted their account in the app.`,
+      url: "#/audit",
+    });
     return { ok: true };
+  },
+
+  // ----- Safety: reports and blocks (App Review 1.2, D-041) -----------------------
+  // A message report snapshots what the reporter saw (text, and a copy of any photo) so the
+  // author editing or deleting it can't erase the evidence. Admins see only these snapshots.
+  async "report-content"(ctx, p) {
+    const reason = oneOf(p, "reason", REPORT_REASONS, "other");
+    const note = str(p, "note", { max: 1000, optional: true }) || null;
+    const messageId = typeof p.message_id === "string" ? uuid(p, "message_id") : null;
+    const threadId = messageId ? null : uuid(p, "thread_id");
+
+    let row: Record<string, unknown>;
+    if (messageId) {
+      // RLS: the reporter must be able to read the message they're reporting.
+      const { data: msg } = await ctx.db.from("messages")
+        .select("id, thread_id, author_id, body, image_path, deleted_at").eq("id", messageId).maybeSingle();
+      if (!msg) throw new ApiError("not_found", "That message is no longer available.", 404);
+      if (msg.author_id === ctx.uid) throw new ApiError("invalid_input", "You can't report your own message.");
+      const { data: thread } = await ctx.admin.from("message_threads").select("team_id, title").eq("id", msg.thread_id).single();
+      const names = await profileNames(ctx, [msg.author_id]);
+      row = {
+        kind: "message", reporter_id: ctx.uid, team_id: thread?.team_id ?? null, thread_id: msg.thread_id,
+        message_id: msg.id, author_id: msg.author_id, reason, note,
+        snapshot_body: msg.deleted_at ? null : msg.body, snapshot_author_name: names[msg.author_id] ?? null,
+        snapshot_thread_title: thread?.title ?? null,
+      };
+      const { data: existing } = await ctx.admin.from("content_reports").select("id")
+        .eq("reporter_id", ctx.uid).eq("message_id", msg.id).eq("status", "open").maybeSingle();
+      if (existing) return { report_id: existing.id, duplicate: true };
+      const { data: created, error } = await ctx.admin.from("content_reports").insert(row).select("id").single();
+      if (error || !created) throw new ApiError("internal", error?.message ?? "Could not save the report.", 500);
+      if (msg.image_path && !msg.deleted_at) {
+        const evidence = `${created.id}.jpg`;
+        const { data: file } = await ctx.admin.storage.from(CHAT_PHOTOS_BUCKET).download(msg.image_path);
+        if (file) {
+          const { error: upErr } = await ctx.admin.storage.from(REPORT_EVIDENCE_BUCKET).upload(evidence, file, { contentType: "image/jpeg" });
+          if (!upErr) await ctx.admin.from("content_reports").update({ snapshot_image_path: evidence }).eq("id", created.id);
+        }
+      }
+      await alertAdmins(ctx.admin, { type: "report", title: "New report", body: `${reason} · ${thread?.title ?? "Team chat"}`, url: "#/moderation" });
+      return { report_id: created.id, duplicate: false };
+    }
+
+    const { data: thread } = await ctx.db.from("message_threads").select("id, team_id, title").eq("id", threadId!).maybeSingle();
+    if (!thread) throw new ApiError("not_found", "Conversation not found.", 404);
+    if (!note) throw new ApiError("invalid_input", "Tell us what happened so we can look into it.");
+    row = { kind: "conversation", reporter_id: ctx.uid, team_id: thread.team_id, thread_id: thread.id, reason, note, snapshot_thread_title: thread.title };
+    const { data: created, error } = await ctx.admin.from("content_reports").insert(row).select("id").single();
+    if (error || !created) throw new ApiError("internal", error?.message ?? "Could not save the report.", 500);
+    await alertAdmins(ctx.admin, { type: "report", title: "New report", body: `${reason} · ${thread.title ?? "Conversation"}`, url: "#/moderation" });
+    return { report_id: created.id, duplicate: false };
+  },
+
+  async "block-user"(ctx, p) {
+    const blockedId = uuid(p, "user_id");
+    if (blockedId === ctx.uid) throw new ApiError("invalid_input", "You can't block yourself.");
+    const { error } = await ctx.admin.from("user_blocks").upsert({ blocker_id: ctx.uid, blocked_id: blockedId }, { ignoreDuplicates: true });
+    if (error) throw new ApiError("internal", error.message, 500);
+    return { blocked_user_ids: await blockedAuthorIds(ctx) };
+  },
+
+  async "unblock-user"(ctx, p) {
+    const blockedId = typeof p.user_id === "string" ? uuid(p, "user_id") : null;
+    let q = ctx.admin.from("user_blocks").delete().eq("blocker_id", ctx.uid);
+    if (blockedId) q = q.eq("blocked_id", blockedId); // no user_id = unblock everyone
+    const { error } = await q;
+    if (error) throw new ApiError("internal", error.message, 500);
+    return { blocked_user_ids: await blockedAuthorIds(ctx) };
+  },
+
+  // ----- First-party usage analytics (D-041) ------------------------------------------
+  // The app batches UI-only moments (paywall viewed, tour finished, …). Malformed events are dropped.
+  async track(ctx, p) {
+    const raw = Array.isArray(p.events) ? p.events.slice(0, 50) : [];
+    const appVersion = typeof p.app_version === "string" ? p.app_version.slice(0, 32) : null;
+    const rows = raw.map(cleanUsageEvent).filter((e) => e !== null).map((e) => ({ ...e, user_id: ctx.uid, source: "app", app_version: appVersion }));
+    if (rows.length > 0) {
+      const { error } = await ctx.admin.from("usage_events").insert(rows);
+      if (error) console.error("track", error.message);
+    }
+    return { accepted: rows.length };
   },
 };
 
@@ -1418,6 +1554,10 @@ Deno.serve(async (req) => {
     if (!jwt) throw new ApiError("unauthorized", "Please sign in again.", 401);
     const admin = adminClient();
     const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
+    // Suspension also bans the auth user (D-041); say so instead of a generic sign-in error.
+    if (userErr && (userErr.code === "user_banned" || /banned/i.test(userErr.message))) {
+      throw new ApiError("account_suspended", SUSPENDED_MESSAGE, 403);
+    }
     if (userErr || !userData.user) throw new ApiError("unauthorized", "Please sign in again.", 401);
 
     const body = (await req.json().catch(() => ({}))) as Params;
@@ -1426,7 +1566,22 @@ Deno.serve(async (req) => {
     if (!handler) throw new ApiError("unknown_action", `Unknown action "${action}"`, 404);
 
     const ctx: Ctx = { uid: userData.user.id, email: userData.user.email ?? "", admin, db: userClient(authHeader) };
-    return json(await handler(ctx, body));
+    // Suspended by an admin (D-041): everything stops except deleting the account.
+    const [{ data: standing }] = await Promise.all([
+      admin.from("profiles").select("suspended_at").eq("id", ctx.uid).maybeSingle(),
+      // One row per active day powers DAU/WAU/"last seen" in the admin portal.
+      admin.from("user_activity_days").upsert({ user_id: ctx.uid, day: new Date().toISOString().slice(0, 10) }, { ignoreDuplicates: true }),
+    ]);
+    if (standing?.suspended_at && action !== "delete-account") {
+      throw new ApiError("account_suspended", SUSPENDED_MESSAGE, 403);
+    }
+    const result = await handler(ctx, body);
+    if (SERVER_TRACKED_ACTIONS.has(action) && action !== "delete-account") {
+      const teamId = typeof body.team_id === "string" && /^[0-9a-f-]{36}$/i.test(body.team_id) ? body.team_id : null;
+      const { error: trackErr } = await admin.from("usage_events").insert({ user_id: ctx.uid, team_id: teamId, name: `api.${action}`, source: "server" });
+      if (trackErr) console.error("usage event", trackErr.message);
+    }
+    return json(result);
   } catch (e) {
     return errorResponse(e);
   }

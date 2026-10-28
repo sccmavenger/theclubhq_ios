@@ -9,6 +9,12 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-041 — Internal admin portal before public launch (owner-approved 2026-10-24) — Accepted
+- **Context:** The owner needs analytics, insights and customer management. Today there is only Supabase Studio, reports arrive by email, blocks live on one phone, and nothing records activity.
+- **Decision:** A web portal at teamclubhq.com/adminportal (`site/adminportal/`) for the owner and future support staff, gated by a new `platform_admins` table, an emailed sign-in code and required TOTP MFA (AAL2, checked in SQL and in `admin-api`). Reads are `admin_*` SQL functions under the admin's JWT; writes go through the audited `admin-api` Edge Function. Admins see chat content **only** as report snapshots, so the in-app `super_admin` role (which reads every thread) is not used. Pro becomes "App Store subscription **or** an admin grant" (`pro_grants`). Usage analytics are first-party (`usage_events`, `user_activity_days`). The public launch waits for Phase 1. Full plan: [`ADMIN_PORTAL.md`](ADMIN_PORTAL.md).
+- **Why:** At 100 teams the owner can know every customer personally, so per-team views and support tools matter more than aggregate analytics. A portal outside the App Store binary keeps admin code away from customers and App Review. First-party analytics keep the privacy story simple for a youth-sports app.
+- **Consequences:** The App Store privacy label gains Product Interaction (OQ-19). Broadcast and warning pushes need the APNs key (OQ-04). Club billing outside IAP needs a guideline check (OQ-18). The club director portal reuses this data model (roadmap #10).
+
 ## D-040 — Rebrand to the HQ-arrow identity in 1.0.1 (owner-approved 2026-10-23) — Accepted
 - **Context:** The owner replaced the alpha "Home Court" look (D-023) with a designed brand kit, `Marketing/Claude Code Brand Kit/`. 1.0 (build 17) is in App Review, so the rebrand ships as **1.0.1** on branch `rebrand-1.0.1`.
 - **Decision:** New icon, mark, wordmark and palette (navy `#0B1E3A`, cyan `#00C2FF`, orange `#FF8A00`). AccentColor `#0077C2` / dark `#007CBF`, so white text on the accent (own chat bubbles, prominent buttons) stays ≥ 4.5:1. Brand kit: tokens in `docs/brand/clubhq-tokens.json`.

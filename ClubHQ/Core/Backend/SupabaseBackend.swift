@@ -83,7 +83,8 @@ final class SupabaseBackend: ClubHQBackend {
     // MARK: - Context & teams
 
     func loadContext() async throws -> UserContext {
-        try await client.invoke("context")
+        // The version lets support see which build someone is on (admin portal, D-041).
+        try await client.invoke("context", ["app_version": .string(AppConfig.appVersion)])
     }
 
     func updateProfile(fullName: String) async throws {
@@ -99,6 +100,7 @@ final class SupabaseBackend: ClubHQBackend {
             "season": .optional(request.season),
             "org_type": .string(request.isClub ? "club" : "independent"),
             "org_name": .optional(request.isClub ? request.clubName : request.teamName),
+            "heard_from": .optional(request.heardFrom?.rawValue),
         ])
         return created.teamId
     }
@@ -406,6 +408,50 @@ final class SupabaseBackend: ClubHQBackend {
         struct Created: Decodable { let id: UUID }
         let _: Created = try await client.invoke("create-announcement", [
             "team_id": .uuid(teamID), "title": .string(title), "body": .string(body),
+        ])
+    }
+
+    // MARK: - Safety & analytics (D-041)
+
+    func reportMessage(id: UUID, reason: ReportReason, note: String?) async throws {
+        struct Reported: Decodable { let reportId: UUID }
+        let _: Reported = try await client.invoke("report-content", [
+            "message_id": .uuid(id), "reason": .string(reason.rawValue), "note": .optional(note),
+        ])
+    }
+
+    func reportConversation(threadID: UUID, reason: ReportReason, note: String) async throws {
+        struct Reported: Decodable { let reportId: UUID }
+        let _: Reported = try await client.invoke("report-content", [
+            "thread_id": .uuid(threadID), "reason": .string(reason.rawValue), "note": .string(note),
+        ])
+    }
+
+    func blockUser(id: UUID) async throws -> [UUID] {
+        struct Response: Decodable { let blockedUserIds: [UUID] }
+        let response: Response = try await client.invoke("block-user", ["user_id": .uuid(id)])
+        return response.blockedUserIds
+    }
+
+    func unblockAllUsers() async throws -> [UUID] {
+        struct Response: Decodable { let blockedUserIds: [UUID] }
+        let response: Response = try await client.invoke("unblock-user")
+        return response.blockedUserIds
+    }
+
+    func track(_ events: [UsageEvent]) async throws {
+        guard !events.isEmpty else { return }
+        struct Response: Decodable { let accepted: Int }
+        let _: Response = try await client.invoke("track", [
+            "app_version": .string(AppConfig.appVersion),
+            "events": .array(events.map { event in
+                .object([
+                    "name": .string(event.name),
+                    "team_id": event.teamID.map(JSONValue.uuid) ?? .null,
+                    "props": .object(event.props.mapValues(JSONValue.string)),
+                    "at": .date(event.at),
+                ])
+            }),
         ])
     }
 

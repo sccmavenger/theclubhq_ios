@@ -9,6 +9,7 @@ A static site with no build step, deployed to **Cloudflare Pages**. Routes are i
 | `/auth/callback` | `auth-callback.html` | Supabase email confirm / password reset → app |
 | `/payments/return` | `payments-return.html` | After Stripe Checkout / Connect onboarding |
 | `/privacy`, `/terms`, `/support` | `*.html` | Required by App Review. **Privacy and Terms are DRAFTS** that need legal review |
+| `/adminportal/` | `adminportal/` | Staff admin portal (D-041): MFA, strict CSP, `noindex` |
 | `/download` | `download.html` | "Coming soon" until the App Store listing exists |
 | `/.well-known/apple-app-site-association` | Universal Links | Replace `TEAMID` with your Apple Developer Team ID |
 

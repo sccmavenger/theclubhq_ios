@@ -51,6 +51,7 @@ struct AttendanceReportView: View {
             }
         }
         .navigationTitle("Season Report")
+        .onAppear { model.track("attendance_report.opened", teamID: team.id, props: ["pro": team.isPro ? "yes" : "no"]) }
         .toolbar {
             if team.isPro, !rows.isEmpty {
                 ToolbarItem(placement: .primaryAction) {

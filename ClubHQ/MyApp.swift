@@ -48,6 +48,8 @@ import SwiftUI
                 // Coach Pro appears as soon as the App Store starts selling it (D-034).
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { Task { await model.store.loadProducts() } }
+                    // Send queued usage events before iOS suspends the app (D-041).
+                    if phase == .background { Task { await model.usage.flush() } }
                 }
         }
     }

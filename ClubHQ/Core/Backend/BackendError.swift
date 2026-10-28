@@ -57,7 +57,12 @@ enum BackendError: LocalizedError, Equatable {
         "user_already_exists": "An account with this email already exists. Try signing in.",
         "email_address_invalid": "That email address doesn't look right.",
         "signup_disabled": "New sign-ups are paused right now. Please try again later.",
+        // Sign-in for an account an admin suspended (D-041); mobile-api sends its own message.
+        "user_banned": "This account has been suspended. Contact info@teamclubhq.com if you think this is a mistake.",
     ]
+
+    /// An admin suspended this account (D-041).
+    var isSuspended: Bool { code == "account_suspended" || code == "user_banned" }
 
     var isEmailNotConfirmed: Bool { code == "email_not_confirmed" }
 

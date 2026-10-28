@@ -13,6 +13,7 @@ final class DemoBackend: ClubHQBackend {
     var latency: Duration
 
     private var world: DemoWorld
+    private var blockedUserIDs: Set<UUID> = []
 
     init(persona: Persona? = nil, latency: Duration = .milliseconds(120), now: Date = .now) {
         self.persona = persona
@@ -471,6 +472,36 @@ final class DemoBackend: ClubHQBackend {
         guard let index = world.messages.firstIndex(where: { $0.message.id == id }) else { throw notFound("This message") }
         world.messages[index].message.isDeleted = true
     }
+
+    // MARK: Safety & analytics: a demo has no moderation queue or analytics, so reports and
+    // events go nowhere; blocks last for the session.
+
+    func reportMessage(id: UUID, reason: ReportReason, note: String?) async throws {
+        await pause()
+        guard world.messages.contains(where: { $0.message.id == id }) else { throw notFound("This message") }
+    }
+
+    func reportConversation(threadID: UUID, reason: ReportReason, note: String) async throws {
+        await pause()
+        guard !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw BackendError.server(status: 400, code: "invalid_input", message: "Tell us what happened so we can look into it.")
+        }
+    }
+
+    func blockUser(id: UUID) async throws -> [UUID] {
+        guard id != (try me()) else {
+            throw BackendError.server(status: 400, code: "invalid_input", message: "You can't block yourself.")
+        }
+        blockedUserIDs.insert(id)
+        return Array(blockedUserIDs)
+    }
+
+    func unblockAllUsers() async throws -> [UUID] {
+        blockedUserIDs.removeAll()
+        return []
+    }
+
+    func track(_ events: [UsageEvent]) async throws {}
 
     func setMute(threadID: UUID, muted: Bool) async throws {
         let key = ReadKey(userID: try me(), threadID: threadID)

@@ -14,6 +14,7 @@ struct ChatView: View {
     @State private var isMuted = false
     @State private var blockCandidate: ChatMessage?
     @State private var reportFallbackShown = false
+    @State private var reportTarget: ReportTarget?
     @State private var pickerItem: PhotosPickerItem?
     @State private var attachment: ChatPhoto?
     @State private var attachmentPreview: UIImage?
@@ -21,12 +22,14 @@ struct ChatView: View {
     @State private var viewedPhoto: ChatPhotoViewer.ViewedPhoto?
     @FocusState private var composerFocused: Bool
     @Environment(\.openURL) private var openURL
-    /// Comma-separated author IDs this user has blocked; their messages are hidden on this device
-    /// (App Review guideline 1.2).
+    /// Comma-separated author IDs blocked on this device (App Review guideline 1.2). The server
+    /// keeps the real list so blocks follow the user to every device (D-041); this copy hides
+    /// messages instantly and covers Demo Mode.
     @AppStorage("blockedAuthorIDs") private var blockedAuthorIDsRaw = ""
 
     private var blockedAuthorIDs: Set<UUID> {
         Set(blockedAuthorIDsRaw.split(separator: ",").compactMap { UUID(uuidString: String($0)) })
+            .union(model.blockedUserIDs)
     }
 
     private var messages: [ChatMessage] {
@@ -53,7 +56,7 @@ struct ChatView: View {
                         MessageBubble(message: message, showAuthor: previous?.authorId != message.authorId,
                                       canDelete: message.isMine || detail?.thread.canModerate == true,
                                       onDelete: { Task { await delete(message) } },
-                                      onReport: { report(message) },
+                                      onReport: { reportTarget = .message(message) },
                                       onBlock: { blockCandidate = message },
                                       onOpenPhoto: { image in
                                           viewedPhoto = .init(id: message.id, image: image,
@@ -83,12 +86,12 @@ struct ChatView: View {
                 }
             }
             ToolbarItem(placement: .secondaryAction) {
-                Button("Report a Concern", systemImage: "exclamationmark.bubble") { reportConversation() }
+                Button("Report a Concern", systemImage: "exclamationmark.bubble") { reportTarget = .conversation }
             }
             if !blockedAuthorIDs.isEmpty {
                 ToolbarItem(placement: .secondaryAction) {
                     Button("Unblock All Members", systemImage: "person.crop.circle.badge.checkmark") {
-                        blockedAuthorIDsRaw = ""
+                        Task { await unblockAll() }
                     }
                 }
             }
@@ -99,10 +102,19 @@ struct ChatView: View {
             Button("Block", role: .destructive) { block(message.authorId) }
             Button("Block and Report", role: .destructive) {
                 block(message.authorId)
-                report(message)
+                reportTarget = .message(message)
             }
         } message: { _ in
-            Text("You won't see their messages on this device. Report them so we can review it.")
+            Text("You won't see their messages anywhere you use ClubHQ. Report them so we can review it.")
+        }
+        .sheet(item: $reportTarget) { target in
+            ReportSheet(target: target, threadID: threadID) {
+                // The server couldn't take the report: fall back to email so it isn't lost.
+                switch target {
+                case .message(let message): emailReport(message)
+                case .conversation: emailConversationReport()
+                }
+            }
         }
         .alert("Report Copied", isPresented: $reportFallbackShown) {
             Button("OK", role: .cancel) {}
@@ -287,8 +299,9 @@ struct ChatView: View {
         }
     }
 
-    /// Opens a prefilled email to ClubHQ support identifying the message, for moderation review.
-    private func report(_ message: ChatMessage) {
+    /// Fallback when the report can't reach the server: a prefilled email to ClubHQ support
+    /// identifying the message, for moderation review.
+    private func emailReport(_ message: ChatMessage) {
         let body = """
         I'd like to report this message as objectionable.
 
@@ -315,8 +328,8 @@ struct ChatView: View {
         }
     }
 
-    /// General report about this conversation, reachable from the toolbar (long-press reports one message).
-    private func reportConversation() {
+    /// Email fallback for a report about the whole conversation (long-press reports one message).
+    private func emailConversationReport() {
         let body = """
         I'd like to report a concern in this conversation.
 
@@ -337,9 +350,22 @@ struct ChatView: View {
     }
 
     private func block(_ authorID: UUID) {
-        var ids = blockedAuthorIDs
+        var ids = Set(blockedAuthorIDsRaw.split(separator: ",").compactMap { UUID(uuidString: String($0)) })
         ids.insert(authorID)
         blockedAuthorIDsRaw = ids.map(\.uuidString).joined(separator: ",")
+        Task {
+            if let serverIDs = try? await model.backend.blockUser(id: authorID) { model.updateBlockedUsers(serverIDs) }
+        }
+    }
+
+    private func unblockAll() async {
+        blockedAuthorIDsRaw = ""
+        do {
+            model.updateBlockedUsers(try await model.backend.unblockAllUsers())
+        } catch {
+            errorText = error.localizedDescription
+        }
+        await load()
     }
 
     private func toggleMute() async {

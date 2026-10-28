@@ -152,6 +152,8 @@ struct UserContext: Codable, Sendable {
     var fullName: String?
     var isCoachPro: Bool
     var teams: [TeamMembership]
+    /// People this user blocked, kept on the server so blocks follow them to every device (D-041).
+    var blockedUserIds: [UUID]? = nil
 
     var headCoachTeamCount: Int { teams.filter(\.isHeadCoach).count }
     var displayName: String {
@@ -249,6 +251,31 @@ struct NewTeamRequest: Equatable, Sendable {
     var season = ""
     var isClub = false
     var clubName = ""
+    /// Optional "How did you hear about ClubHQ?" answer (D-041).
+    var heardFrom: AcquisitionSource?
+}
+
+/// Answers to "How did you hear about ClubHQ?". Raw values match `profiles.acquisition_source`.
+enum AcquisitionSource: String, CaseIterable, Identifiable, Sendable {
+    case appStore = "app_store"
+    case friendOrCoach = "friend_or_coach"
+    case clubOrLeague = "club_or_league"
+    case socialMedia = "social_media"
+    case webSearch = "web_search"
+    case other
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .appStore: "Searching the App Store"
+        case .friendOrCoach: "A friend or another coach"
+        case .clubOrLeague: "My club or league"
+        case .socialMedia: "Social media"
+        case .webSearch: "A web search"
+        case .other: "Somewhere else"
+        }
+    }
 }
 
 /// A child a guardian adds when accepting a team invite.

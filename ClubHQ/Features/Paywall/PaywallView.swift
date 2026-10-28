@@ -27,6 +27,7 @@ struct PaywallView: View {
             }
         }
         .task { await checkProducts() }
+        .onAppear { model.track("paywall.viewed", teamID: model.selectedTeamID) }
         .safeAreaInset(edge: .bottom) {
             if model.isDemo { demoUnlock }
         }
