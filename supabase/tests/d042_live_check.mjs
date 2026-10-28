@@ -146,6 +146,8 @@ try {
   const keptRows = await sql(`select id, import_id, result from events where team_id='${team.team_id}' and external_key like '%~%' and starts_at < '2026-08-01'`);
   const summerImport = await sql(`select count(*)::int n from schedule_imports where id='${summer.body.import_id}'`);
   check("keep games: the import leaves the list, the games and scores stay", detach.status === 200 && detach.body.kept === summer.body.added && summerImport[0].n === 0 && keptRows.length === summer.body.added && keptRows.every((r) => r.import_id === null && r.result !== null), `${JSON.stringify(detach.body)} ${keptRows.length}`);
+  const rePreview = await api("coach", "import-preview", { team_id: team.team_id, url: "https://cnrsummer2026.stlbasketball.com/", ...tz });
+  check("keep games: the preview knows they're already on the schedule and doesn't call them clashes", rePreview.body.kept_keys?.length === summer.body.added && !rePreview.body.existing_events?.some((e) => keptRows.some((k) => k.id === e.id)), `${rePreview.body.kept_keys?.length} kept, ${rePreview.body.existing_events?.length} clashes`);
   const reimport = await api("coach", "import-commit", { team_id: team.team_id, url: "https://cnrsummer2026.stlbasketball.com/", team_key: "3d-nation-2033-6th-boys", ...tz });
   const afterRe = await sql(`select count(*)::int n, count(distinct import_id)::int i from events where team_id='${team.team_id}' and starts_at < '2026-08-01' and external_key like '%~%'`);
   check("keep games: importing the same link again reattaches them, no copies", reimport.body.added === 0 && reimport.body.updated === summer.body.added && afterRe[0].n === summer.body.added && afterRe[0].i === 1, `${JSON.stringify(reimport.body).slice(0, 160)} ${JSON.stringify(afterRe[0])}`);

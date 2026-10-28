@@ -60,7 +60,15 @@ final class ScheduleImportFlow {
 
     var importableGames: [ImportGame] { chosenGames.filter { $0.startsAt != nil } }
     /// Importing the same team from the same link again updates its games.
-    var isReimport: Bool { preview?.previousImport?.teamKey == chosenKey && chosenKey != nil }
+    var isReimport: Bool {
+        guard chosenKey != nil else { return false }
+        return preview?.previousImport?.teamKey == chosenKey || keptGameCount > 0
+    }
+    /// The chosen team's games already on the schedule from an earlier import the coach kept.
+    var keptGameCount: Int {
+        let kept = Set(preview?.keptKeys ?? [])
+        return chosenGames.filter { kept.contains($0.key) }.count
+    }
     var selectedCount: Int { importableGames.filter { selectedGameKeys.contains($0.key) }.count }
     /// Some checked games are still to be played, so families can be told after importing.
     var hasUpcomingSelection: Bool {

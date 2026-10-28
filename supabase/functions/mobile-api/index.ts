@@ -1412,6 +1412,14 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       if (previous) q = q.or(`import_id.is.null,import_id.neq.${previous.id}`);
       existing = (await q).data ?? [];
     }
+    // Games kept from an earlier import of this link ("Keep Games, Remove from List") will be
+    // updated, not copied, so they aren't clashes; the app says they're already on the schedule.
+    const gameKeys = t.games.map((g) => g.key);
+    const { data: keptRows } = gameKeys.length > 0
+      ? await ctx.admin.from("events").select("id, external_key").eq("team_id", teamId).is("import_id", null).in("external_key", gameKeys)
+      : { data: [] };
+    const keptIds = new Set((keptRows ?? []).map((r) => r.id));
+    existing = (existing as { id: string }[]).filter((e) => !keptIds.has(e.id));
 
     return {
       source: {
@@ -1433,6 +1441,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       brackets: t.brackets.map((b) => ({ name: b.name, title: b.title, unmatched_names: b.unmatchedNames })),
       games: t.games.map((g) => importGameJSON(g, tz)),
       previous_import: previousImport,
+      kept_keys: (keptRows ?? []).map((r) => r.external_key),
       existing_events: existing,
     };
   },

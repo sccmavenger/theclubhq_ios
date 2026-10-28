@@ -47,6 +47,9 @@ struct ImportPreview: Codable, Sendable {
     var brackets: [ImportBracket]
     var games: [ImportGame]
     var previousImport: PreviousImport?
+    /// Keys of games already on the schedule from an earlier import of this link that the coach
+    /// kept ("Keep Games, Remove from List"). Importing updates them.
+    var keptKeys: [String]? = nil
     var existingEvents: [ImportExistingEvent]
 
     var timeZone: TimeZone { TimeZone(identifier: source.timeZone) ?? .current }
@@ -65,6 +68,7 @@ struct ImportPreview: Codable, Sendable {
         }
         let existing = Set(existingEvents.map(\.id))
         existingEvents += other.existingEvents.filter { !existing.contains($0.id) }
+        keptKeys = Array(Set((keptKeys ?? []) + (other.keptKeys ?? [])))
     }
 
     func team(_ key: String) -> ImportTeam? { teams.first { $0.key == key } }

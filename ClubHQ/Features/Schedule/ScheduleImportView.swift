@@ -359,7 +359,7 @@ private struct ImportPreviewStep: View {
     private func notices(preview: ImportPreview, key: String) -> some View {
         let previous = preview.previousImport
         let zoneDiffers = preview.timeZone.secondsFromGMT() != TimeZone.current.secondsFromGMT()
-        if flow.levelWarning != nil || previous != nil || zoneDiffers || preview.source.homeNote != nil {
+        if flow.levelWarning != nil || previous != nil || flow.keptGameCount > 0 || zoneDiffers || preview.source.homeNote != nil {
             Section {
                 if let warning = flow.levelWarning {
                     Label(warning, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
@@ -370,6 +370,12 @@ private struct ImportPreviewStep: View {
                     } else {
                         Label("You picked \(preview.team(previous.teamKey)?.name ?? "another team") last time. Importing now replaces those games.", systemImage: "arrow.left.arrow.right")
                     }
+                }
+                if previous == nil, flow.keptGameCount > 0 {
+                    Label(flow.keptGameCount == 1
+                          ? "1 of these games is already on your schedule from before. Importing updates it instead of adding a copy."
+                          : "\(flow.keptGameCount) of these games are already on your schedule from before. Importing updates them instead of adding copies.",
+                          systemImage: "arrow.triangle.2.circlepath")
                 }
                 if zoneDiffers, let zone = preview.timeZone.localizedName(for: .generic, locale: .current) {
                     Label("Times are \(zone), where the games are played.", systemImage: "globe.americas")
@@ -394,6 +400,13 @@ private struct ImportGameRow: View {
     let clashes: [ImportExistingEvent]
     let toggle: () -> Void
 
+    /// In the tournament's zone, like the game times above it.
+    private func clashTime(_ date: Date) -> String {
+        var style = Date.FormatStyle.dateTime.hour().minute()
+        style.timeZone = timeZone
+        return date.formatted(style)
+    }
+
     var body: some View {
         Button(action: toggle) {
             HStack(alignment: .top, spacing: 12) {
@@ -409,7 +422,7 @@ private struct ImportGameRow: View {
                         Text("No date in the sheet — this game won't be imported.").font(.caption).foregroundStyle(.orange)
                     }
                     ForEach(clashes) { clash in
-                        Label("Overlaps \(clash.displayTitle) at \(clash.startsAt.formatted(date: .omitted, time: .shortened))", systemImage: "exclamationmark.circle")
+                        Label("Overlaps \(clash.displayTitle) at \(clashTime(clash.startsAt))", systemImage: "exclamationmark.circle")
                             .font(.caption).foregroundStyle(.orange)
                     }
                 }

@@ -147,10 +147,11 @@ struct ScheduleView: View {
                 Text(info.title).font(.subheadline.weight(.semibold))
                 Text("As \(info.sheetTeamName) · updated \(info.lastImportedAt.formatted(.relative(presentation: .named)))")
                     .font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             Spacer()
             if refreshingImportID == info.id {
-                ProgressView().accessibilityLabel("Checking for changes")
+                ProgressView().accessibilityLabel("Working…")
             } else {
                 Menu {
                     Button { Task { await refresh(info) } } label: { Label("Check for Changes", systemImage: "arrow.triangle.2.circlepath") }
@@ -200,6 +201,8 @@ struct ScheduleView: View {
     }
 
     private func detach(_ info: ScheduleImportInfo) async {
+        refreshingImportID = info.id
+        defer { refreshingImportID = nil }
         do {
             let kept = try await model.backend.importDetach(importID: info.id)
             importMessage = kept == 1 ? "Removed from the list. The game stays on your schedule." : "Removed from the list. \(kept) games stay on your schedule."
@@ -210,6 +213,8 @@ struct ScheduleView: View {
     }
 
     private func remove(_ info: ScheduleImportInfo) async {
+        refreshingImportID = info.id
+        defer { refreshingImportID = nil }
         do {
             let removed = try await model.backend.importUndo(importID: info.id)
             importMessage = removed == 1 ? "1 game removed." : "\(removed) games removed."
