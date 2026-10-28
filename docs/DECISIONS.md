@@ -9,6 +9,16 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-043 — CNR league schedules from cnrschedule.stlbasketball.com (owner-approved 2026-10-28) — Accepted
+- **Context:** CNR posts its league season (e.g. 11/7/26 – 12/20/26, 818 teams) on a Next.js site, cnrschedule.stlbasketball.com, with past seasons on their own sites (cnrsummer2026.stlbasketball.com and others). Each team has a page and, in the current season, a calendar feed. There's no public API.
+- **Decision:** The D-042 import flow also accepts CNR league links: the home page, a team page, a division page, or a team's `webcal://` feed. `_shared/cnrLeague.ts` builds the same shape as the sheet reader, so preview, commit, Check for Changes and Remove Games are shared.
+  - **Teams** come from the home page's team search (name + division). A team or feed link picks the team directly; otherwise the D-042 matcher scores name, grade, gender and remembered pairings. The site has no coach column.
+  - **Games** load per team, only for the guessed or picked team (`import-preview` `team_key`). Each comes from the team page: date, time, gym, home/away, scores and ranks. Addresses come from the facility pages.
+  - **Keys** name both teams plus which meeting it is (`away~home|n`), so a game has the same key from either team's page and survives a reschedule. Calendar-feed UIDs differ per team's feed, so they aren't used.
+  - **Seasons:** an import stores the site plus the season start (`…/?season=2026-11-07`). Checking an old season's import after the site rolls over returns `season_over` instead of cancelling every game.
+- **Why:** League play is most of a team's season, and the site is public and regular. Reading one team's pages per import is what the site's own "Subscribe to Team Calendar" does. Its terms only forbid automated use that degrades the service.
+- **Consequences / next:** If the site's page format changes, this reader breaks; scores and gyms would stop updating, but already-imported games stay. A partnership with CNR is the durable fix. v2 scheduled re-checks (D-042) apply here too, and the next season can be offered when the site rolls over. Tests: `supabase/tests/cnrLeague_test.ts` (8, on saved current and Summer 2026 pages) and the league section of `d042_live_check.mjs` (36/36).
+
 ## D-042 — Tournament schedule import from a Google Sheets link, v1 (owner-approved 2026-10-28) — Accepted
 - **Context:** Roadmap #4. St. Louis tournaments (CNR) publish schedules as public Google Sheets: one tab per bracket, typed by hand, with venue codes on an info tab. Organizers change the schedule during the weekend, and bracket games appear only after pool play. Coaches retype it all today.
 - **Decision:** Schedule → + → **Import Tournament Schedule**. The coach pastes the link, and `mobile-api` `import-preview` downloads every tab as CSV (docs.google.com only, published or "anyone with the link" sheets) and reads it with `_shared/sheetImport.ts`.
