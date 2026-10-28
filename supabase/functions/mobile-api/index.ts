@@ -24,6 +24,21 @@ import { checkoutFeeCents, stripe } from "../_shared/stripe.ts";
 import { addLocalDays, formatEventTime, validTimeZone } from "../_shared/time.ts";
 import { deleteUserAccount } from "../_shared/accounts.ts";
 import { alertAdmins } from "../_shared/adminAlerts.ts";
+import {
+  fetchSheet,
+  type Game,
+  type GameSide,
+  gamesForTeam,
+  localToISO,
+  normalizeName,
+  ourSide,
+  parseSheetURL,
+  parseTournament,
+  scoreTeams,
+  SheetImportError,
+  type SheetSource,
+  type Tournament,
+} from "../_shared/sheetImport.ts";
 
 type Params = Record<string, unknown>;
 interface Ctx {
@@ -238,7 +253,7 @@ const SERVER_TRACKED_ACTIONS = new Set([
   "create-team", "update-team", "create-invite", "reset-invite", "claim-invite", "create-guardian-invite",
   "create-player-invite", "claim-player-invite", "set-player-birthdate", "create-thread", "post-message",
   "delete-message", "calendar-feed", "reset-calendar-feed", "set-mute", "create-announcement", "save-event",
-  "cancel-event", "set-rsvp", "register-device", "sync-subscription", "create-dues", "set-dues-status",
+  "cancel-event", "set-rsvp", "import-preview", "import-commit", "import-undo", "import-notify", "import-report", "register-device", "sync-subscription", "create-dues", "set-dues-status",
   "remind-unpaid", "connect-payments", "checkout", "report-content", "block-user", "delete-account",
 ]);
 
@@ -362,6 +377,117 @@ function notify(ctx: Ctx, input: Parameters<typeof enqueueTeamNotification>[1]):
     return Promise.resolve();
   }
   return work;
+}
+
+// ---------------------------------------------------------------------------
+// Schedule import from a Google Sheets link (D-042)
+// ---------------------------------------------------------------------------
+const IMPORT_GAME_MINUTES = 60;
+
+interface LoadedSheet {
+  source: SheetSource;
+  sheetTitle: string | null;
+  tabCount: number;
+  tournament: Tournament;
+}
+
+/** Fetches and reads the sheet; turns reader errors into API errors the app can show. */
+async function loadSheet(p: Params): Promise<LoadedSheet> {
+  const source = parseSheetURL(str(p, "url", { max: 2000 }));
+  if (!source) {
+    throw new ApiError("not_a_sheet", "That isn't a Google Sheets link. Paste the link the organizer shared (it starts with docs.google.com/spreadsheets).", 422);
+  }
+  const firstDay = typeof p.first_day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.first_day) ? p.first_day : null;
+  try {
+    const sheet = await fetchSheet(source);
+    const tournament = parseTournament(sheet, { fallbackYear: new Date().getUTCFullYear(), firstDay });
+    if (tournament.games.length === 0) {
+      throw new ApiError("no_games", "We opened this sheet but didn't find any games in it. If it's a tournament schedule, tap Report so we can add support for it.", 422);
+    }
+    return { source, sheetTitle: sheet.title, tabCount: sheet.tabs.length, tournament };
+  } catch (e) {
+    if (e instanceof SheetImportError) throw new ApiError(e.code, e.message, 422);
+    if (e instanceof ApiError) throw e;
+    if (e instanceof DOMException && e.name === "TimeoutError") {
+      throw new ApiError("unreadable", "Google Sheets took too long to answer. Try again in a minute.", 504);
+    }
+    throw e;
+  }
+}
+
+/** The zone the tournament's local times are in: the venues' state, else the team's/coach's zone. */
+async function importTimeZone(ctx: Ctx, teamId: string, p: Params, t: Tournament): Promise<string> {
+  return t.timeZone ?? (await eventTimeZone(ctx, teamId, p)) ?? "America/Chicago";
+}
+
+function sideOf(game: Game, side: "left" | "right"): GameSide {
+  return side === "left" ? game.left : game.right;
+}
+
+function importGameJSON(g: Game, tz: string) {
+  const side = (s: GameSide) => ({ name: s.name, team_key: s.teamKey, score: s.score, placeholder: s.placeholder });
+  return {
+    key: g.key,
+    bracket: g.bracket,
+    round: g.round,
+    left: side(g.left),
+    right: side(g.right),
+    starts_at: g.localStart ? localToISO(g.localStart, tz) : null,
+    day_label: g.dayLabel,
+    time_label: g.timeLabel,
+    location: g.location,
+    venue_name: g.venue?.name ?? null,
+    address: g.venue?.address ?? null,
+    court: g.court,
+  };
+}
+
+/** An `events` row for one of our games. Scores and home/away follow the organizer's rule. */
+function importedEventRow(t: Tournament, g: Game, teamKey: string, alias: string | null, tz: string) {
+  const ours = ourSide(g, teamKey, alias);
+  const us = sideOf(g, ours), them = sideOf(g, ours === "left" ? "right" : "left");
+  const isHome = t.homeSide ? ours === t.homeSide : null;
+  const opponent = them.placeholder ? `TBD (${them.name})` : them.name;
+  const startsAt = localToISO(g.localStart!, tz);
+  const startMs = new Date(startsAt).getTime();
+  const hasScore = us.score !== null && them.score !== null;
+  // With no home rule, `home_away` stays null and the app reads home_score as ours.
+  const homeScore = hasScore ? (isHome === false ? them.score : us.score) : null;
+  const awayScore = hasScore ? (isHome === false ? us.score : them.score) : null;
+  const result = hasScore ? (us.score! > them.score! ? "win" : us.score! < them.score! ? "loss" : "tie") : null;
+  const color = t.homeNote?.match(/wears (\w+)/)?.[1];
+  const notes = [
+    [g.bracketTitle, g.round].filter(Boolean).join(" · "),
+    isHome === true ? `Home team${color ? ` — wear ${color}` : ""}.` : isHome === false ? `Away team${color ? ` (home team wears ${color})` : ""}.` : null,
+    `Imported from ${t.title}.`,
+  ].filter(Boolean).join("\n");
+  return {
+    title: `${g.round ?? "Game"} · ${t.title}`.slice(0, 140),
+    event_type: "game",
+    starts_at: startsAt,
+    ends_at: new Date(startMs + IMPORT_GAME_MINUTES * 60_000).toISOString(),
+    rsvp_cutoff_at: new Date(startMs - DEFAULT_CUTOFF_LEAD_MS).toISOString(),
+    location: (g.venue ? (g.court ? `${g.venue.name} · Court ${g.court}` : g.venue.name) : g.location)?.slice(0, 200) ?? null,
+    location_address: g.venue?.address ?? null,
+    notes: notes.slice(0, 2000),
+    opponent: opponent.slice(0, 120),
+    home_away: isHome === null ? null : isHome ? "home" : "away",
+    home_score: homeScore,
+    away_score: awayScore,
+    result,
+  };
+}
+
+/** "6b-carter-610861338|pool-b|a~b|1" → "610861338|pool-b": same tab and round. */
+function gameSlot(key: string): string {
+  return key.split("|").slice(0, 2).join("|");
+}
+
+/** Every head coach's name on the team, plus the caller's: the sheet's Coach column is matched against these. */
+async function teamCoachNames(ctx: Ctx, teamId: string): Promise<string[]> {
+  const { data: coaches } = await ctx.admin.from("user_roles").select("user_id").eq("team_id", teamId).eq("role", "head_coach");
+  const ids = [...new Set([ctx.uid, ...(coaches ?? []).map((c) => c.user_id)])];
+  return Object.values(await profileNames(ctx, ids)).filter((n) => n !== "Member");
 }
 
 // ---------------------------------------------------------------------------
@@ -1176,6 +1302,233 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       body: `${ev.title} on ${formatEventTime(ev.starts_at, tz)} has been cancelled.`,
       refId: eventId,
       includePlayers: true,
+    });
+    return { ok: true };
+  },
+
+  // ----- Schedule import (D-042) ---------------------------------------------
+  /** Reads a tournament sheet and suggests which team is the caller's. Writes nothing. */
+  async "import-preview"(ctx, p) {
+    const teamId = uuid(p, "team_id");
+    await requireHeadCoach(ctx, teamId);
+    const [{ tournament: t, source, sheetTitle, tabCount }, { data: team }, coachNames, { data: aliases }] = await Promise.all([
+      loadSheet(p),
+      ctx.admin.from("teams").select("name, age_group").eq("id", teamId).single(),
+      teamCoachNames(ctx, teamId),
+      ctx.admin.from("schedule_team_aliases").select("alias").eq("team_id", teamId),
+    ]);
+    const tz = await importTimeZone(ctx, teamId, p, t);
+    const counts = Object.fromEntries(t.teams.map((x) => [x.key, gamesForTeam(t, x.key).length]));
+    let match = scoreTeams(t.teams, { teamName: team?.name ?? "", ageGroup: team?.age_group, coachNames, aliases: (aliases ?? []).map((a) => a.alias) }, counts);
+
+    const { data: previous } = await ctx.admin
+      .from("schedule_imports")
+      .select("id, sheet_team_key, sheet_alias, last_imported_at")
+      .eq("team_id", teamId)
+      .eq("source_url", source.url)
+      .maybeSingle();
+    let previousImport = null;
+    if (previous) {
+      const { count } = await ctx.admin.from("events").select("id", { count: "exact", head: true }).eq("import_id", previous.id);
+      previousImport = { id: previous.id, team_key: previous.sheet_team_key, alias: previous.sheet_alias, event_count: count ?? 0, last_imported_at: previous.last_imported_at };
+      // They already told us which team is theirs.
+      if (t.teams.some((x) => x.key === previous.sheet_team_key)) match = { outcome: "clear", teamKeys: [previous.sheet_team_key], scores: match.scores };
+    }
+
+    // Events already on the schedule around the tournament, so the app can flag clashes.
+    const starts = t.games.map((g) => g.localStart).filter((s): s is string => s !== null).map((s) => localToISO(s, tz)).sort();
+    let existing: unknown[] = [];
+    if (starts.length > 0) {
+      let q = ctx.admin
+        .from("events")
+        .select("id, title, event_type, opponent, home_away, starts_at, ends_at, import_id")
+        .eq("team_id", teamId)
+        .is("cancelled_at", null)
+        .gte("starts_at", new Date(new Date(starts[0]).getTime() - DAY_MS).toISOString())
+        .lte("starts_at", new Date(new Date(starts[starts.length - 1]).getTime() + DAY_MS).toISOString());
+      if (previous) q = q.or(`import_id.is.null,import_id.neq.${previous.id}`);
+      existing = (await q).data ?? [];
+    }
+
+    return {
+      source: {
+        url: source.url,
+        title: t.title,
+        sheet_title: sheetTitle,
+        time_zone: tz,
+        dates: t.dates,
+        home_note: t.homeNote,
+        tab_count: tabCount,
+        needs_dates: t.games.some((g) => g.localStart === null),
+      },
+      match: { outcome: match.outcome, team_keys: match.teamKeys },
+      teams: t.teams.map((x) => ({
+        key: x.key, name: x.name, grade: x.grade, gender: x.gender, coach: x.coach,
+        bracket: x.bracket, bracket_title: x.bracketTitle, game_count: counts[x.key] ?? 0,
+      })),
+      brackets: t.brackets.map((b) => ({ name: b.name, title: b.title, unmatched_names: b.unmatchedNames })),
+      games: t.games.map((g) => importGameJSON(g, tz)),
+      previous_import: previousImport,
+      existing_events: existing,
+    };
+  },
+
+  /**
+   * Saves the chosen team's games. Importing the same link again updates those games instead of
+   * copying them; picking a different team swaps them. Sends no notifications (see import-notify).
+   */
+  async "import-commit"(ctx, p) {
+    const teamId = uuid(p, "team_id");
+    await requireHeadCoach(ctx, teamId);
+    const teamKey = str(p, "team_key", { max: 300 });
+    const alias = str(p, "alias", { max: 200, optional: true }) || null;
+    const wanted = Array.isArray(p.game_keys) ? new Set(p.game_keys.filter((k): k is string => typeof k === "string")) : null;
+    const { tournament: t, source } = await loadSheet(p);
+    const team = t.teams.find((x) => x.key === teamKey);
+    if (!team) throw new ApiError("not_found", "That team isn't in this sheet anymore. Go back and pick your team again.", 404);
+    const tz = await importTimeZone(ctx, teamId, p, t);
+    const ourGames = gamesForTeam(t, teamKey, alias);
+    const games = ourGames.filter((g) => g.localStart !== null && (!wanted || wanted.has(g.key)));
+    if (games.length === 0) throw new ApiError("invalid_input", "Pick at least one game to import.");
+
+    const { data: previous } = await ctx.admin
+      .from("schedule_imports")
+      .select("id, sheet_team_key")
+      .eq("team_id", teamId)
+      .eq("source_url", source.url)
+      .maybeSingle();
+    const record = {
+      team_id: teamId, source_url: source.url, title: t.title.slice(0, 200),
+      sheet_team_key: teamKey, sheet_team_name: team.name.slice(0, 200), sheet_alias: alias, time_zone: tz,
+      last_imported_at: new Date().toISOString(),
+    };
+    const { data: saved, error: saveErr } = previous
+      ? await ctx.admin.from("schedule_imports").update(record).eq("id", previous.id).select("id").single()
+      : await ctx.admin.from("schedule_imports").insert({ ...record, created_by: ctx.uid }).select("id").single();
+    if (saveErr || !saved) throw new ApiError("internal", saveErr?.message ?? "Could not save the import", 500);
+    const importId = saved.id as string;
+
+    // Existing games from this link. A different team means those games were never ours: swap them out.
+    let removed = 0;
+    let existing: { id: string; external_key: string; starts_at: string }[] = [];
+    if (previous) {
+      const { data } = await ctx.admin.from("events").select("id, external_key, starts_at").eq("import_id", importId).order("starts_at");
+      existing = data ?? [];
+      if (previous.sheet_team_key !== teamKey && existing.length > 0) {
+        await ctx.admin.from("events").delete().eq("import_id", importId);
+        removed = existing.length;
+        existing = [];
+      }
+    }
+
+    // Match by key first; a game whose opponent was filled in (bracket TBD → real team) keeps its
+    // tab and round, so pair leftovers by slot in time order.
+    const byKey = new Map(existing.map((e) => [e.external_key, e]));
+    const used = new Set<string>();
+    const plan: { game: Game; eventId: string | null }[] = games.map((g) => {
+      const hit = byKey.get(g.key);
+      if (hit) used.add(hit.id);
+      return { game: g, eventId: hit?.id ?? null };
+    });
+    for (const item of plan.filter((x) => x.eventId === null)) {
+      const slotHit = existing.find((e) => !used.has(e.id) && gameSlot(e.external_key) === gameSlot(item.game.key) && !ourGames.some((g) => g.key === e.external_key));
+      if (slotHit) {
+        used.add(slotHit.id);
+        item.eventId = slotHit.id;
+      }
+    }
+
+    let added = 0, updated = 0;
+    const eventIds: string[] = [];
+    for (const { game, eventId } of plan) {
+      const row = { ...importedEventRow(t, game, teamKey, alias, tz), external_key: game.key, cancelled_at: null };
+      if (eventId) {
+        const { error } = await ctx.admin.from("events").update(row).eq("id", eventId);
+        if (error) throw new ApiError("internal", error.message, 500);
+        eventIds.push(eventId);
+        updated++;
+      } else {
+        const { data, error } = await ctx.admin
+          .from("events")
+          .insert({ ...row, team_id: teamId, created_by: ctx.uid, import_id: importId })
+          .select("id")
+          .single();
+        if (error || !data) throw new ApiError("internal", error?.message ?? "Could not add a game", 500);
+        eventIds.push(data.id);
+        added++;
+      }
+    }
+    // Games the organizer removed from the sheet are cancelled, not deleted (families may have RSVP'd).
+    const vanished = existing.filter((e) => !used.has(e.id) && !ourGames.some((g) => g.key === e.external_key));
+    if (vanished.length > 0) {
+      await ctx.admin.from("events").update({ cancelled_at: new Date().toISOString() }).in("id", vanished.map((e) => e.id)).is("cancelled_at", null);
+    }
+
+    // Remember the pairing for next season's sheet.
+    const aliasRows = [normalizeName(team.name), alias ? normalizeName(alias) : ""].filter((a) => a).map((a) => ({ team_id: teamId, alias: a.slice(0, 200) }));
+    if (aliasRows.length > 0) await ctx.admin.from("schedule_team_aliases").upsert(aliasRows, { onConflict: "team_id,alias", ignoreDuplicates: true });
+
+    const now = Date.now();
+    return {
+      import_id: importId,
+      added, updated, removed, cancelled: vanished.length,
+      skipped: ourGames.filter((g) => g.localStart === null).length,
+      upcoming: games.filter((g) => new Date(localToISO(g.localStart!, tz)).getTime() > now).length,
+      event_ids: eventIds,
+    };
+  },
+
+  /** Removes every game an import added (Undo, or "Remove imported games"). */
+  async "import-undo"(ctx, p) {
+    const importId = uuid(p, "import_id");
+    const { data: imp } = await ctx.admin.from("schedule_imports").select("id, team_id").eq("id", importId).maybeSingle();
+    if (!imp) throw new ApiError("not_found", "This import was already removed.", 404);
+    await requireHeadCoach(ctx, imp.team_id);
+    const { data: gone } = await ctx.admin.from("events").delete().eq("import_id", importId).select("id");
+    await ctx.admin.from("schedule_imports").delete().eq("id", importId);
+    return { removed: gone?.length ?? 0 };
+  },
+
+  /** One summary notification for an import's upcoming games, when the coach chooses to send it. */
+  async "import-notify"(ctx, p) {
+    const importId = uuid(p, "import_id");
+    const { data: imp } = await ctx.admin.from("schedule_imports").select("id, team_id, title, time_zone").eq("id", importId).maybeSingle();
+    if (!imp) throw new ApiError("not_found", "This import was removed.", 404);
+    await requireHeadCoach(ctx, imp.team_id);
+    const { data: upcoming } = await ctx.admin
+      .from("events")
+      .select("id, starts_at, location, opponent")
+      .eq("import_id", importId)
+      .is("cancelled_at", null)
+      .gt("starts_at", new Date().toISOString())
+      .order("starts_at");
+    if (!upcoming || upcoming.length === 0) return { sent: false };
+    const n = upcoming.length;
+    await notify(ctx, {
+      teamId: imp.team_id,
+      kind: "event_created",
+      subject: `Tournament schedule: ${imp.title}`.slice(0, 140),
+      body: `${n} game${n === 1 ? "" : "s"} added. First: ${summarizeEvent(upcoming[0], imp.time_zone)}`,
+      refId: upcoming[0].id,
+      includePlayers: true,
+    });
+    return { sent: true };
+  },
+
+  /** "Couldn't find my team" and similar: stored for review and sent to admins. */
+  async "import-report"(ctx, p) {
+    const teamId = p.team_id ? uuid(p, "team_id") : null;
+    if (teamId) await requireHeadCoach(ctx, teamId);
+    const url = str(p, "url", { max: 500 });
+    const reason = oneOf(p, "reason", ["team_missing", "games_wrong", "unreadable", "other"] as const);
+    const note = str(p, "note", { max: 1000, optional: true }) || null;
+    const { error } = await ctx.admin.from("schedule_import_reports").insert({ team_id: teamId, user_id: ctx.uid, source_url: url, reason, note });
+    if (error) throw new ApiError("internal", error.message, 500);
+    await alertAdmins(ctx.admin, {
+      type: "team",
+      title: "Schedule import report",
+      body: `${reason.replace("_", " ")}${note ? `: ${note.slice(0, 120)}` : ""}`,
+      url: "#/teams",
     });
     return { ok: true };
   },
