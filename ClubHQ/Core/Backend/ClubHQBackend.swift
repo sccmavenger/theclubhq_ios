@@ -70,6 +70,21 @@ protocol ClubHQBackend: AnyObject {
     func setScore(eventID: UUID, homeScore: Int, awayScore: Int) async throws
     func teamAttendance(teamID: UUID) async throws -> [AttendanceRecord]
 
+    // MARK: Schedule import (D-042)
+    /// Reads a tournament's Google Sheet and guesses which team is ours. Saves nothing.
+    /// `firstDay` ("yyyy-MM-dd") is only needed when the sheet doesn't say when it starts.
+    func importPreview(teamID: UUID, url: String, firstDay: String?) async throws -> ImportPreview
+    /// Saves the chosen team's games (all of them when `gameKeys` is nil). Importing the same link
+    /// again updates those games; a different team swaps them. Sends no notifications.
+    func importCommit(teamID: UUID, url: String, teamKey: String, alias: String?, gameKeys: [String]?, firstDay: String?) async throws -> ImportResult
+    /// Removes every game an import added.
+    func importUndo(importID: UUID) async throws -> Int
+    /// One notification about the import's upcoming games. Returns false when none are upcoming.
+    func importNotify(importID: UUID) async throws -> Bool
+    func importReport(teamID: UUID?, url: String, reason: ImportReportReason, note: String?) async throws
+    /// Links this team imported from, newest first.
+    func scheduleImports(teamID: UUID) async throws -> [ScheduleImportInfo]
+
     // MARK: Messaging
     func threads(teamID: UUID) async throws -> [MessageThread]
     func teamChatThreadID(teamID: UUID) async throws -> UUID

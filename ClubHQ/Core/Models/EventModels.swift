@@ -65,8 +65,11 @@ struct TeamEvent: Codable, Identifiable, Hashable, Sendable {
     var result: String?
     var cancelledAt: Date?
     var rsvpCutoffAt: Date?
+    /// Set when the game came from a tournament sheet (D-042).
+    var importId: UUID? = nil
 
     var isCancelled: Bool { cancelledAt != nil }
+    var isImported: Bool { importId != nil }
     var isPast: Bool { (endsAt ?? startsAt.addingTimeInterval(3600)) < .now }
 
     /// RSVP lock time: explicit cutoff, else 4 hours before start (DECISIONS D-019).

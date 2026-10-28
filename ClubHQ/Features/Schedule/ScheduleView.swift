@@ -17,6 +17,11 @@ struct ScheduleView: View {
     @State private var errorText: String?
     @State private var showEditor = false
     @State private var showCalendarSync = false
+    @State private var showImport = false
+    /// Tournament sheets the selected team imported from (head coach only, D-042).
+    @State private var imports: [ScheduleImportInfo] = []
+    @State private var importToRemove: ScheduleImportInfo?
+    @State private var importMessage: String?
 
     private var team: TeamMembership? { model.selectedTeam }
     private var showsTeamFilter: Bool { model.teams.count > 1 }
@@ -48,6 +53,9 @@ struct ScheduleView: View {
                 if let errorText {
                     Section { Text(errorText).foregroundStyle(.secondary) }
                 }
+                if !imports.isEmpty {
+                    importsSection
+                }
                 if events.isEmpty && !isLoading {
                     ContentUnavailableView {
                         Label(scope == .upcoming ? "No upcoming events" : "No past events", systemImage: "calendar")
@@ -78,7 +86,12 @@ struct ScheduleView: View {
                 }
                 if team?.canManageSchedule == true {
                     ToolbarItem(placement: .primaryAction) {
-                        Button { showEditor = true } label: { Label("New Event", systemImage: "plus") }
+                        Menu {
+                            Button { showEditor = true } label: { Label("New Event", systemImage: "calendar.badge.plus") }
+                            Button { showImport = true } label: { Label("Import Tournament Schedule", systemImage: "tablecells") }
+                        } label: {
+                            Label("Add", systemImage: "plus")
+                        }
                     }
                 }
             }
@@ -88,7 +101,81 @@ struct ScheduleView: View {
                 if let team { EventEditorView(draft: EventDraft(teamId: team.id)) }
             }
             .sheet(isPresented: $showCalendarSync) { CalendarSyncView() }
+            .sheet(isPresented: $showImport, onDismiss: { Task { await load() } }) {
+                if let team {
+                    ScheduleImportView(team: team, backend: model.backend) { model.noteDataChanged() }
+                }
+            }
+            .confirmationDialog(
+                "Remove imported games?",
+                isPresented: Binding(get: { importToRemove != nil }, set: { if !$0 { importToRemove = nil } }),
+                titleVisibility: .visible,
+                presenting: importToRemove
+            ) { info in
+                Button("Remove Games", role: .destructive) { Task { await remove(info) } }
+            } message: { info in
+                Text("Every game imported from \(info.title) is removed, with its RSVPs and attendance.")
+            }
+            .alert("Imported schedule", isPresented: Binding(get: { importMessage != nil }, set: { if !$0 { importMessage = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(importMessage ?? "")
+            }
             .overlay { if isLoading && events.isEmpty { ProgressView() } }
+        }
+    }
+
+    /// Each imported tournament, with "Update from Sheet" and "Remove Games".
+    private var importsSection: some View {
+        Section {
+            ForEach(imports) { info in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(info.title).font(.subheadline.weight(.semibold))
+                        Text("As \(info.sheetTeamName) · updated \(info.lastImportedAt.formatted(.relative(presentation: .named)))")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Menu {
+                        Button { Task { await refresh(info) } } label: { Label("Update from Sheet", systemImage: "arrow.triangle.2.circlepath") }
+                        if let url = URL(string: info.sourceUrl) {
+                            Link(destination: url) { Label("Open Sheet", systemImage: "safari") }
+                        }
+                        Button(role: .destructive) { importToRemove = info } label: { Label("Remove Games", systemImage: "trash") }
+                    } label: {
+                        Image(systemName: "ellipsis.circle").font(.title3)
+                    }
+                    .accessibilityLabel("Options for \(info.title)")
+                }
+            }
+        } header: {
+            Text("Imported schedules")
+        }
+    }
+
+    /// Re-reads the sheet and applies any changes the organizer made.
+    private func refresh(_ info: ScheduleImportInfo) async {
+        do {
+            let result = try await model.backend.importCommit(
+                teamID: info.teamId, url: info.sourceUrl, teamKey: info.sheetTeamKey, alias: info.sheetAlias, gameKeys: nil, firstDay: nil
+            )
+            var parts = ["\(result.updated) games checked"]
+            if result.added > 0 { parts.append("\(result.added) new") }
+            if result.cancelled > 0 { parts.append("\(result.cancelled) no longer in the sheet (marked cancelled)") }
+            importMessage = parts.joined(separator: ", ") + "."
+            model.noteDataChanged()
+        } catch {
+            importMessage = error.localizedDescription
+        }
+    }
+
+    private func remove(_ info: ScheduleImportInfo) async {
+        do {
+            let removed = try await model.backend.importUndo(importID: info.id)
+            importMessage = removed == 1 ? "1 game removed." : "\(removed) games removed."
+            model.noteDataChanged()
+        } catch {
+            importMessage = error.localizedDescription
         }
     }
 
@@ -108,6 +195,11 @@ struct ScheduleView: View {
             errorText = nil
         } catch {
             errorText = error.localizedDescription
+        }
+        if let team, team.canManageSchedule {
+            imports = (try? await model.backend.scheduleImports(teamID: team.id)) ?? []
+        } else {
+            imports = []
         }
     }
 }
