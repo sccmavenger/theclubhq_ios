@@ -21,6 +21,8 @@ struct ScheduleView: View {
     /// Tournament sheets the selected team imported from (head coach only, D-042).
     @State private var imports: [ScheduleImportInfo] = []
     @State private var importToRemove: ScheduleImportInfo?
+    @State private var importToDetach: ScheduleImportInfo?
+    @State private var showFinishedImports = false
     @State private var importMessage: String?
     @State private var refreshingImportID: UUID?
 
@@ -116,42 +118,66 @@ struct ScheduleView: View {
         }
     }
 
-    /// Each imported tournament, with "Update from Sheet" and "Remove Games".
+    /// Imported tournaments and seasons with games still to play; finished ones fold into a "Finished" group.
     private var importsSection: some View {
-        Section {
-            ForEach(imports) { info in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(info.title).font(.subheadline.weight(.semibold))
-                        Text("As \(info.sheetTeamName) · updated \(info.lastImportedAt.formatted(.relative(presentation: .named)))")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if refreshingImportID == info.id {
-                        ProgressView().accessibilityLabel("Checking for changes")
-                    } else {
-                        Menu {
-                            Button { Task { await refresh(info) } } label: { Label("Check for Changes", systemImage: "arrow.triangle.2.circlepath") }
-                            if let url = URL(string: info.sourceUrl) {
-                                Link(destination: url) { Label("Open Schedule", systemImage: "safari") }
-                            }
-                            Button(role: .destructive) { importToRemove = info } label: { Label("Remove Games", systemImage: "trash") }
-                        } label: {
-                            Image(systemName: "ellipsis.circle").font(.title3)
-                        }
-                        .accessibilityLabel("Options for \(info.title)")
-                        .confirmationDialog("Remove imported games?", isPresented: Binding(
-                            get: { importToRemove?.id == info.id }, set: { if !$0 { importToRemove = nil } }
-                        ), titleVisibility: .visible) {
-                            Button("Remove Games", role: .destructive) { Task { await remove(info) } }
-                        } message: {
-                            Text("Every game imported from \(info.title) is removed, with its RSVPs and attendance.")
-                        }
-                    }
+        let active = imports.filter { !$0.isFinished() }
+        let finished = imports.filter { $0.isFinished() }
+        return Section {
+            ForEach(active) { importRow($0) }
+            if !finished.isEmpty {
+                DisclosureGroup(isExpanded: $showFinishedImports) {
+                    ForEach(finished) { importRow($0) }
+                } label: {
+                    Text("Finished (\(finished.count))").font(.subheadline)
                 }
             }
         } header: {
             Text("Imported schedules")
+        } footer: {
+            if !finished.isEmpty && active.isEmpty {
+                Text("All imported games have been played. Finished imports keep their games; open the group to check or remove them.")
+            }
+        }
+    }
+
+    /// One import, with Check for Changes, Open Schedule, Keep Games/Remove from List, and Remove Games.
+    private func importRow(_ info: ScheduleImportInfo) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(info.title).font(.subheadline.weight(.semibold))
+                Text("As \(info.sheetTeamName) · updated \(info.lastImportedAt.formatted(.relative(presentation: .named)))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if refreshingImportID == info.id {
+                ProgressView().accessibilityLabel("Checking for changes")
+            } else {
+                Menu {
+                    Button { Task { await refresh(info) } } label: { Label("Check for Changes", systemImage: "arrow.triangle.2.circlepath") }
+                    if let url = URL(string: info.sourceUrl) {
+                        Link(destination: url) { Label("Open Schedule", systemImage: "safari") }
+                    }
+                    Button { importToDetach = info } label: { Label("Keep Games, Remove from List", systemImage: "tray.and.arrow.down") }
+                    Button(role: .destructive) { importToRemove = info } label: { Label("Remove Games", systemImage: "trash") }
+                } label: {
+                    Image(systemName: "ellipsis.circle").font(.title3)
+                }
+                .accessibilityLabel("Options for \(info.title)")
+                .confirmationDialog("Remove imported games?", isPresented: Binding(
+                    get: { importToRemove?.id == info.id }, set: { if !$0 { importToRemove = nil } }
+                ), titleVisibility: .visible) {
+                    Button("Remove Games", role: .destructive) { Task { await remove(info) } }
+                } message: {
+                    Text("Every game imported from \(info.title) is removed, with its RSVPs and attendance.")
+                }
+                .confirmationDialog("Keep the games?", isPresented: Binding(
+                    get: { importToDetach?.id == info.id }, set: { if !$0 { importToDetach = nil } }
+                ), titleVisibility: .visible) {
+                    Button("Keep Games, Remove from List") { Task { await detach(info) } }
+                } message: {
+                    Text("The games stay on your schedule with their scores and RSVPs, but changes to \(info.title) won't update them anymore.")
+                }
+            }
         }
     }
 
@@ -167,6 +193,16 @@ struct ScheduleView: View {
             if result.added > 0 { parts.append("\(result.added) new") }
             if result.cancelled > 0 { parts.append("\(result.cancelled) no longer in the sheet (marked cancelled)") }
             importMessage = parts.joined(separator: ", ") + "."
+            model.noteDataChanged()
+        } catch {
+            importMessage = error.localizedDescription
+        }
+    }
+
+    private func detach(_ info: ScheduleImportInfo) async {
+        do {
+            let kept = try await model.backend.importDetach(importID: info.id)
+            importMessage = kept == 1 ? "Removed from the list. The game stays on your schedule." : "Removed from the list. \(kept) games stay on your schedule."
             model.noteDataChanged()
         } catch {
             importMessage = error.localizedDescription

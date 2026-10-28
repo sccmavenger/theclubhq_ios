@@ -262,7 +262,7 @@ const SERVER_TRACKED_ACTIONS = new Set([
   "create-team", "update-team", "create-invite", "reset-invite", "claim-invite", "create-guardian-invite",
   "create-player-invite", "claim-player-invite", "set-player-birthdate", "create-thread", "post-message",
   "delete-message", "calendar-feed", "reset-calendar-feed", "set-mute", "create-announcement", "save-event",
-  "cancel-event", "set-rsvp", "import-preview", "import-commit", "import-undo", "import-notify", "import-report", "register-device", "sync-subscription", "create-dues", "set-dues-status",
+  "cancel-event", "set-rsvp", "import-preview", "import-commit", "import-undo", "import-detach", "import-notify", "import-report", "register-device", "sync-subscription", "create-dues", "set-dues-status",
   "remind-unpaid", "connect-payments", "checkout", "report-content", "block-user", "delete-account",
 ]);
 
@@ -1487,6 +1487,22 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       }
     }
 
+    // Games kept from an earlier import of this link ("Keep Games, Remove from List") come back
+    // under this import instead of being copied.
+    const detachedKeys = games.map((g) => g.key).filter((k) => !existing.some((e) => e.external_key === k));
+    if (detachedKeys.length > 0) {
+      const { data: kept } = await ctx.admin
+        .from("events")
+        .select("id, external_key, starts_at")
+        .eq("team_id", teamId)
+        .is("import_id", null)
+        .in("external_key", detachedKeys);
+      if (kept && kept.length > 0) {
+        await ctx.admin.from("events").update({ import_id: importId }).in("id", kept.map((e) => e.id));
+        existing = [...existing, ...kept];
+      }
+    }
+
     // Match by key first; a game whose opponent was filled in (bracket TBD → real team) keeps its
     // tab and round, so pair leftovers by slot in time order.
     const byKey = new Map(existing.map((e) => [e.external_key, e]));
@@ -1553,6 +1569,22 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const { data: gone } = await ctx.admin.from("events").delete().eq("import_id", importId).select("id");
     await ctx.admin.from("schedule_imports").delete().eq("id", importId);
     return { removed: gone?.length ?? 0 };
+  },
+
+  /**
+   * "Keep Games, Remove from List": the import goes away, its games stay as ordinary games (scores,
+   * RSVPs and attendance kept). Deleting the row clears `events.import_id`; `external_key` stays, so
+   * importing the same link again reattaches these games instead of copying them.
+   */
+  async "import-detach"(ctx, p) {
+    const importId = uuid(p, "import_id");
+    const { data: imp } = await ctx.admin.from("schedule_imports").select("id, team_id").eq("id", importId).maybeSingle();
+    if (!imp) throw new ApiError("not_found", "This import was already removed.", 404);
+    await requireHeadCoach(ctx, imp.team_id);
+    const { count } = await ctx.admin.from("events").select("id", { count: "exact", head: true }).eq("import_id", importId);
+    const { error } = await ctx.admin.from("schedule_imports").delete().eq("id", importId);
+    if (error) throw new ApiError("internal", error.message, 500);
+    return { kept: count ?? 0 };
   },
 
   /** One summary notification for an import's upcoming games, when the coach chooses to send it. */

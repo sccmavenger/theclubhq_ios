@@ -80,6 +80,8 @@ protocol ClubHQBackend: AnyObject {
     func importCommit(teamID: UUID, url: String, teamKey: String, alias: String?, gameKeys: [String]?, firstDay: String?) async throws -> ImportResult
     /// Removes every game an import added.
     func importUndo(importID: UUID) async throws -> Int
+    /// Removes the import from the list but keeps its games as ordinary games. Returns how many were kept.
+    func importDetach(importID: UUID) async throws -> Int
     /// One notification about the import's upcoming games. Returns false when none are upcoming.
     func importNotify(importID: UUID) async throws -> Bool
     func importReport(teamID: UUID?, url: String, reason: ImportReportReason, note: String?) async throws

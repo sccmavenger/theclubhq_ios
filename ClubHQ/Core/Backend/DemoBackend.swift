@@ -442,6 +442,17 @@ final class DemoBackend: ClubHQBackend {
         return removed
     }
 
+    func importDetach(importID: UUID) async throws -> Int {
+        await pause()
+        var kept = 0
+        for i in world.events.indices where world.events[i].importId == importID {
+            world.events[i].importId = nil
+            kept += 1
+        }
+        scheduleImportRecords.removeAll { $0.id == importID }
+        return kept
+    }
+
     func importNotify(importID: UUID) async throws -> Bool {
         await pause()
         return world.events.contains { $0.importId == importID && $0.startsAt > .now }
@@ -452,7 +463,11 @@ final class DemoBackend: ClubHQBackend {
     }
 
     func scheduleImports(teamID: UUID) async throws -> [ScheduleImportInfo] {
-        scheduleImportRecords.filter { $0.teamId == teamID }
+        scheduleImportRecords.filter { $0.teamId == teamID }.map { record in
+            var info = record
+            info.events = world.events.filter { $0.importId == record.id }.map { .init(startsAt: $0.startsAt, cancelledAt: $0.cancelledAt) }
+            return info
+        }
     }
 
     // MARK: - Messaging

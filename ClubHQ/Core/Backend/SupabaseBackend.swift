@@ -365,6 +365,12 @@ final class SupabaseBackend: ClubHQBackend {
         return response.removed
     }
 
+    func importDetach(importID: UUID) async throws -> Int {
+        struct Kept: Decodable { let kept: Int }
+        let response: Kept = try await client.invoke("import-detach", ["import_id": .uuid(importID)])
+        return response.kept
+    }
+
     func importNotify(importID: UUID) async throws -> Bool {
         struct Sent: Decodable { let sent: Bool }
         let response: Sent = try await client.invoke("import-notify", ["import_id": .uuid(importID)])
@@ -380,7 +386,7 @@ final class SupabaseBackend: ClubHQBackend {
     func scheduleImports(teamID: UUID) async throws -> [ScheduleImportInfo] {
         try await client.rest("schedule_imports", query: [
             ("team_id", eq(teamID)),
-            ("select", "id,team_id,source_url,title,sheet_team_key,sheet_team_name,sheet_alias,last_imported_at"),
+            ("select", "id,team_id,source_url,title,sheet_team_key,sheet_team_name,sheet_alias,last_imported_at,events(starts_at,cancelled_at)"),
             ("order", "last_imported_at.desc"),
         ])
     }

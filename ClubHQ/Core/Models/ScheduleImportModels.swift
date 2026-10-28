@@ -237,6 +237,19 @@ struct ScheduleImportInfo: Codable, Identifiable, Hashable, Sendable {
     var sheetTeamName: String
     var sheetAlias: String?
     var lastImportedAt: Date
+    /// The import's games (start times only), embedded by PostgREST.
+    var events: [GameTime]? = nil
+
+    struct GameTime: Codable, Hashable, Sendable {
+        var startsAt: Date
+        var cancelledAt: Date? = nil
+    }
+
+    /// Every game has been played (or cancelled), so there's nothing left to check for.
+    func isFinished(now: Date = .now) -> Bool {
+        let games = events ?? []
+        return !games.isEmpty && !games.contains { $0.cancelledAt == nil && $0.startsAt.addingTimeInterval(3600) > now }
+    }
 }
 
 enum ImportReportReason: String, Codable, CaseIterable, Identifiable, Sendable {

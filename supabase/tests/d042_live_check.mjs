@@ -131,6 +131,25 @@ try {
   const summer = await api("coach", "import-commit", { team_id: team.team_id, url: "https://cnrsummer2026.stlbasketball.com/", team_key: "3d-nation-2033-6th-boys", ...tz });
   const srows = await sql(`select home_score, away_score, result from events where import_id='${summer.body.import_id}'`);
   check("league: a past season imports with final scores", summer.status === 200 && summer.body.added >= 7 && srows.every((r) => r.result !== null), `${JSON.stringify(summer.body).slice(0, 160)} ${JSON.stringify(srows[0])}`);
+  const listRes = await fetch(`${SUPABASE_URL}/rest/v1/schedule_imports?team_id=eq.${team.team_id}&select=id,title,last_imported_at,events(starts_at,cancelled_at)`, {
+    headers: { apikey: ANON, Authorization: `Bearer ${users.coach.jwt}` },
+  });
+  const list = await listRes.json();
+  check("the imports list includes each import's game times (coach's own permissions)", listRes.status === 200 && list.length >= 2 && list.every((i) => Array.isArray(i.events) && i.events.length > 0), `${listRes.status} ${JSON.stringify(list).slice(0, 160)}`);
+  const strangerList = await (await fetch(`${SUPABASE_URL}/rest/v1/schedule_imports?team_id=eq.${team.team_id}&select=id`, { headers: { apikey: ANON, Authorization: `Bearer ${users.stranger.jwt}` } })).json();
+  check("other teams' coaches can't see this team's imports", Array.isArray(strangerList) && strangerList.length === 0, JSON.stringify(strangerList));
+
+  // ----- Keep Games, Remove from List -------------------------------------------
+  const strangerDetach = await api("stranger", "import-detach", { import_id: summer.body.import_id });
+  check("only the head coach can remove an import from the list", strangerDetach.status === 403, String(strangerDetach.status));
+  const detach = await api("coach", "import-detach", { import_id: summer.body.import_id });
+  const keptRows = await sql(`select id, import_id, result from events where team_id='${team.team_id}' and external_key like '%~%' and starts_at < '2026-08-01'`);
+  const summerImport = await sql(`select count(*)::int n from schedule_imports where id='${summer.body.import_id}'`);
+  check("keep games: the import leaves the list, the games and scores stay", detach.status === 200 && detach.body.kept === summer.body.added && summerImport[0].n === 0 && keptRows.length === summer.body.added && keptRows.every((r) => r.import_id === null && r.result !== null), `${JSON.stringify(detach.body)} ${keptRows.length}`);
+  const reimport = await api("coach", "import-commit", { team_id: team.team_id, url: "https://cnrsummer2026.stlbasketball.com/", team_key: "3d-nation-2033-6th-boys", ...tz });
+  const afterRe = await sql(`select count(*)::int n, count(distinct import_id)::int i from events where team_id='${team.team_id}' and starts_at < '2026-08-01' and external_key like '%~%'`);
+  check("keep games: importing the same link again reattaches them, no copies", reimport.body.added === 0 && reimport.body.updated === summer.body.added && afterRe[0].n === summer.body.added && afterRe[0].i === 1, `${JSON.stringify(reimport.body).slice(0, 160)} ${JSON.stringify(afterRe[0])}`);
+  summer.body.import_id = reimport.body.import_id;
   await api("coach", "import-undo", { import_id: lc.body.import_id });
   await api("coach", "import-undo", { import_id: summer.body.import_id });
 

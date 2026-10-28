@@ -196,4 +196,37 @@ struct ScheduleImportTests {
         #expect(ScheduleImportText.looksLikeLeagueLink("webcal://cnrnovdec2026schedules.stlbasketball.com/3d-nation-2033-6th-boys.ics"))
         #expect(!ScheduleImportText.looksLikeLeagueLink("https://stlbasketball.com.example.com/"))
     }
+
+    // MARK: - Keep games, remove from list
+
+    @Test func keepGamesRemovesTheImportButNotTheGames() async throws {
+        let backend = DemoBackend(persona: .coach, latency: .zero)
+        let team = try await coachTeam(backend, name: "3D Nation 6th Grade")
+        let flow = ScheduleImportFlow(team: team, backend: backend)
+        flow.url = cnr
+        await flow.read()
+        await flow.choose(me)
+        await flow.commit()
+        let info = try #require(try await backend.scheduleImports(teamID: team.id).first)
+        #expect(info.events?.count == 3)
+        // October's games were all played, so the import counts as finished.
+        #expect(info.isFinished())
+
+        #expect(try await backend.importDetach(importID: info.id) == 3)
+        #expect(try await backend.scheduleImports(teamID: team.id).isEmpty)
+        let games = try await backend.events(teamIDs: [team.id], from: .distantPast, to: nil).filter { $0.eventType == .game }
+        #expect(games.filter { $0.opponent == "STL Grizzlies" }.count == 1)
+        #expect(games.allSatisfy { !$0.isImported })
+    }
+
+    @Test func importsWithUpcomingGamesAreNotFinished() {
+        let now = Date.now
+        var info = ScheduleImportInfo(id: UUID(), teamId: UUID(), sourceUrl: "", title: "League", sheetTeamKey: "x", sheetTeamName: "X", lastImportedAt: now)
+        info.events = [.init(startsAt: now.addingTimeInterval(-86_400)), .init(startsAt: now.addingTimeInterval(86_400))]
+        #expect(!info.isFinished(now: now))
+        info.events = [.init(startsAt: now.addingTimeInterval(-86_400)), .init(startsAt: now.addingTimeInterval(86_400), cancelledAt: now)]
+        #expect(info.isFinished(now: now), "a cancelled game left doesn't keep it active")
+        info.events = []
+        #expect(!info.isFinished(now: now), "no games yet: keep it visible")
+    }
 }
