@@ -145,9 +145,11 @@ struct ScheduleView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.title).font(.subheadline.weight(.semibold))
-                Text("As \(info.sheetTeamName) · updated \(info.lastImportedAt.formatted(.relative(presentation: .named)))")
+                Text("As \(info.sheetTeamName)")
                     .font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1)
+                Text("Updated \(info.lastImportedAt.formatted(.relative(presentation: .named)))")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
             if refreshingImportID == info.id {
