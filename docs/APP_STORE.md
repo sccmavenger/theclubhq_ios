@@ -87,6 +87,10 @@ Intelligence groundwork, D-039). Builds 1–15 are expired; only 16 (never distr
 It's in internal testing and waiting for Beta App Review for the external "Beta Families" group. It is not
 attached to any App Store version. 1.0 (build 17) is still waiting for review and was not touched.
 
+**2026-10-28: 1.0.1 build 19 to TestFlight** (internal testing only, for the owner) from branch `schedule-import`:
+tournament schedule import (D-042) plus the admin-portal app changes (D-041). It is **not** attached to the 1.0.1
+version in review; build 18 stays in review.
+
 **2026-10-25: the first release is now 1.0.1 (build 18, the HQ-arrow rebrand)**, at the owner's
 request. 1.0 was never approved, so its submission was cancelled and the same App Store version
 was renamed 1.0.1 (`--version-string`). The screenshots were replaced with the six captioned 6.9"
