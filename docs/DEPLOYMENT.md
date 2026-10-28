@@ -102,3 +102,8 @@ In `ClubHQ/Core/AppConfig.swift` set `supabaseURL` and `supabasePublishableKey` 
 - Add an admin: Settings → Admins in the portal (owner), or `insert into platform_admins (email, role) values (...)`.
 - Due account deletions run from the portal's Overview banner (no cron job yet; `pg_cron` isn't enabled).
 - Live checks: `node supabase/tests/d041_live_check.mjs` and `supabase/tests/admin_portal_ui_check.mjs` (see file headers).
+
+## 10. Schedule import (D-042)
+- Migration `20261028120000_schedule_imports.sql` (applied 2026-10-28): `schedule_imports`, `events.import_id` / `external_key`, `schedule_team_aliases`, `schedule_import_reports`.
+- `mobile-api` actions `import-preview`, `import-commit`, `import-undo`, `import-notify`, `import-report` (deployed 2026-10-28). The reader is `_shared/sheetImport.ts`. It fetches only docs.google.com and needs no secrets.
+- Tests: `npx deno test --allow-read supabase/tests/sheetImport_test.ts` (offline, saved CNR sheet) and `node supabase/tests/d042_live_check.mjs` (live, throwaway accounts).

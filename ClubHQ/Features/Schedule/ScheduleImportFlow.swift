@@ -60,6 +60,13 @@ final class ScheduleImportFlow {
     /// Importing the same team from the same link again updates its games.
     var isReimport: Bool { preview?.previousImport?.teamKey == chosenKey && chosenKey != nil }
     var selectedCount: Int { importableGames.filter { selectedGameKeys.contains($0.key) }.count }
+    /// Some checked games are still to be played, so families can be told after importing.
+    var hasUpcomingSelection: Bool {
+        importableGames.contains { selectedGameKeys.contains($0.key) && ($0.startsAt ?? .distantPast) > .now }
+    }
+    /// Undo removes everything the import added, so it's only offered the first time; after that,
+    /// "Remove Games" on the Schedule screen is the deliberate way out.
+    private(set) var canUndo = false
 
     private var firstDayParam: String? { needsFirstDay ? JSONCoding.formatDateOnly(firstDay) : nil }
 
@@ -135,6 +142,7 @@ final class ScheduleImportFlow {
         guard let chosenKey else { return }
         errorMessage = nil
         let keys = importableGames.map(\.key).filter(selectedGameKeys.contains)
+        let firstImport = preview?.previousImport == nil
         do {
             result = try await backend.importCommit(
                 teamID: team.id, url: url.trimmingCharacters(in: .whitespacesAndNewlines), teamKey: chosenKey, alias: alias,
@@ -142,6 +150,7 @@ final class ScheduleImportFlow {
             )
             isUndone = false
             familiesNotified = false
+            canUndo = firstImport
             onChange()
             path = [.done]
         } catch {

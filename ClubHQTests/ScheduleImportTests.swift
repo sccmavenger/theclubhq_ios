@@ -94,6 +94,8 @@ struct ScheduleImportTests {
         #expect(flow.path == [.done])
         #expect(flow.result?.added == 3)
         #expect(flow.result?.upcoming == 0)
+        #expect(flow.canUndo)
+        #expect(!flow.hasUpcomingSelection)
         let imported = try await backend.events(teamIDs: [team.id], from: .distantPast, to: nil).filter(\.isImported)
         #expect(imported.count == 3)
         #expect(changes == 1)
@@ -154,6 +156,11 @@ struct ScheduleImportTests {
         await again.read()
         #expect(again.preview?.match.teamKeys == ["8b-drexler:mavericks-2031-blue-8th-boys"])
         #expect(again.preview?.previousImport?.eventCount == first.result?.added)
+        again.choose("8b-drexler:mavericks-2031-blue-8th-boys")
+        #expect(again.isReimport)
+        await again.commit()
+        // Undo would remove the games from the first import too, so it isn't offered.
+        #expect(!again.canUndo)
         #expect(try await backend.scheduleImports(teamID: team.id).count == 1)
     }
 }

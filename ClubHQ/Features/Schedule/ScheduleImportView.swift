@@ -326,7 +326,9 @@ private struct ImportPreviewStep: View {
                     }
                     .buttonStyle(BrandCTAButtonStyle())
                     .disabled(flow.selectedCount == 0)
-                    Text("Families aren't notified. You can tell them on the next screen.")
+                    Text(flow.hasUpcomingSelection
+                         ? "Families aren't notified. You can tell them on the next screen."
+                         : "These games already happened, so families won't be notified.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding()
@@ -501,7 +503,7 @@ private struct ImportDoneStep: View {
                     }
                     Button("Done") { flow.close() }
                         .buttonStyle(BrandCTAButtonStyle())
-                    if !flow.isUndone {
+                    if !flow.isUndone && flow.canUndo {
                         AsyncButton(role: .destructive) { await flow.undo() } label: { Text("Undo Import") }
                             .padding(.vertical, 6)
                     }
