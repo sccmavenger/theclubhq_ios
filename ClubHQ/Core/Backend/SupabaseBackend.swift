@@ -342,9 +342,9 @@ final class SupabaseBackend: ClubHQBackend {
 
     // MARK: - Schedule import (D-042)
 
-    func importPreview(teamID: UUID, url: String, firstDay: String?) async throws -> ImportPreview {
+    func importPreview(teamID: UUID, url: String, firstDay: String?, teamKey: String?) async throws -> ImportPreview {
         try await client.invoke("import-preview", [
-            "team_id": .uuid(teamID), "url": .string(url), "first_day": .optional(firstDay),
+            "team_id": .uuid(teamID), "url": .string(url), "first_day": .optional(firstDay), "team_key": .optional(teamKey),
             "time_zone": .string(TimeZone.current.identifier),
         ])
     }

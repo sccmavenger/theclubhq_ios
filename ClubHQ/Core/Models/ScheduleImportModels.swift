@@ -7,6 +7,8 @@ import Foundation
 struct ImportPreview: Codable, Sendable {
     struct Source: Codable, Hashable, Sendable {
         var url: String
+        /// "google_sheet" or "cnr_league" (D-043). Older servers don't send it.
+        var kind: String?
         var title: String
         var sheetTitle: String?
         /// Zone the tournament's times are in (from the venue addresses), e.g. "America/Chicago".
@@ -48,6 +50,22 @@ struct ImportPreview: Codable, Sendable {
     var existingEvents: [ImportExistingEvent]
 
     var timeZone: TimeZone { TimeZone(identifier: source.timeZone) ?? .current }
+
+    /// League sites list every team but load one team's games at a time.
+    var isLeague: Bool { source.kind == "cnr_league" }
+    /// The league site and organizers who say "team on the right is home" (D-042, D-043).
+    var homeIsRight: Bool { isLeague || source.homeNote != nil }
+
+    /// Adds games loaded for another team (league sources), keeping what we already have.
+    mutating func merge(_ other: ImportPreview) {
+        let known = Set(games.map(\.key))
+        games += other.games.filter { !known.contains($0.key) }
+        for team in other.teams where team.gameCount != nil {
+            if let i = teams.firstIndex(where: { $0.key == team.key }) { teams[i].gameCount = team.gameCount }
+        }
+        let existing = Set(existingEvents.map(\.id))
+        existingEvents += other.existingEvents.filter { !existing.contains($0.id) }
+    }
 
     func team(_ key: String) -> ImportTeam? { teams.first { $0.key == key } }
     func bracket(for team: ImportTeam) -> ImportBracket? { brackets.first { $0.name == team.bracket } }
@@ -97,7 +115,8 @@ struct ImportTeam: Codable, Identifiable, Hashable, Sendable {
     var coach: String?
     var bracket: String?
     var bracketTitle: String?
-    var gameCount: Int
+    /// Nil when the games haven't been loaded yet (league teams load when picked).
+    var gameCount: Int?
 
     var id: String { key }
 
@@ -110,7 +129,10 @@ struct ImportTeam: Codable, Identifiable, Hashable, Sendable {
         return parts.joined(separator: " · ")
     }
 
-    var gameCountLabel: String { gameCount == 1 ? "1 game" : "\(gameCount) games" }
+    var gameCountLabel: String? {
+        guard let gameCount else { return nil }
+        return gameCount == 1 ? "1 game" : "\(gameCount) games"
+    }
 }
 
 struct ImportBracket: Codable, Hashable, Sendable {
@@ -156,9 +178,11 @@ struct ImportGame: Codable, Identifiable, Hashable, Sendable {
         return court.map { "\(venueName) · Court \($0)" } ?? venueName
     }
 
-    func opponentLabel(teamKey: String, alias: String?) -> String {
-        let them = ourSide(teamKey: teamKey, alias: alias).them
-        return them.placeholder ? "Opponent TBD (\(them.name))" : "vs \(them.name)"
+    /// "vs X", or "@ X" when we're the away team (`homeIsRight`: the source puts the home team on the right).
+    func opponentLabel(teamKey: String, alias: String?, homeIsRight: Bool = false) -> String {
+        let (us, them) = ourSide(teamKey: teamKey, alias: alias)
+        if them.placeholder { return "Opponent TBD (\(them.name))" }
+        return homeIsRight && us == left ? "@ \(them.name)" : "vs \(them.name)"
     }
 
     /// "W 50–24" from our side, when both scores are in.
@@ -264,5 +288,12 @@ enum ScheduleImportText {
     static func looksLikeSheetLink(_ text: String) -> Bool {
         guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
         return url.host() == "docs.google.com" && url.path().contains("/spreadsheets/")
+    }
+
+    /// True for CNR league links (cnr….stlbasketball.com pages and webcal feeds).
+    static func looksLikeLeagueLink(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "webcal://", with: "https://")
+        guard let host = URL(string: trimmed)?.host()?.lowercased() else { return false }
+        return host.hasPrefix("cnr") && host.hasSuffix(".stlbasketball.com")
     }
 }

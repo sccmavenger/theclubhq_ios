@@ -63,7 +63,7 @@ private struct ImportLinkStep: View {
             } header: {
                 Text("Tournament schedule link")
             } footer: {
-                Text("Paste the Google Sheets link the organizer shared. We'll find your team and show its games before anything is added.")
+                Text("Paste the Google Sheets link the organizer shared, or a CNR league link. We'll find your team and show its games before anything is added.")
             }
 
             if flow.needsFirstDay {
@@ -78,7 +78,7 @@ private struct ImportLinkStep: View {
                 Section {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                    if flow.errorCode == "no_games" || flow.errorCode == "unreadable" {
+                    if flow.errorCode == "no_games" || flow.errorCode == "unreadable" || flow.errorCode == "not_a_sheet" {
                         Button("Report this sheet") { flow.path.append(.report(flow.errorCode == "no_games" ? .gamesWrong : .unreadable)) }
                     }
                 }
@@ -121,10 +121,12 @@ private struct ImportTeamRow: View {
             HStack(spacing: 6) {
                 if showBracket, let bracket = team.bracketTitle ?? team.bracket {
                     Text(bracket).lineLimit(1)
-                    Text("·")
+                    if team.gameCountLabel != nil { Text("·") }
                 }
-                Text(team.gameCountLabel)
-                    .foregroundStyle(team.gameCount == 0 ? .orange : .secondary)
+                if let count = team.gameCountLabel {
+                    Text(count)
+                        .foregroundStyle(team.gameCount == 0 ? .orange : .secondary)
+                }
             }
             .font(.caption).foregroundStyle(.secondary)
         }
@@ -142,11 +144,14 @@ private struct ImportConfirmStep: View {
                 VStack(alignment: .leading, spacing: 20) {
                     TournamentHeader(source: preview.source)
                     Text("Is this your team?").font(.title2.bold())
+                    if let error = flow.errorMessage {
+                        Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.subheadline)
+                    }
                     VStack(alignment: .leading, spacing: 10) {
                         ImportTeamRow(team: team)
                         if let first = preview.games(for: key, alias: flow.alias).first {
                             Divider()
-                            GameLine(game: first, teamKey: key, alias: flow.alias, timeZone: preview.timeZone)
+                            GameLine(game: first, teamKey: key, alias: flow.alias, timeZone: preview.timeZone, homeIsRight: preview.homeIsRight)
                         }
                     }
                     .padding()
@@ -162,7 +167,7 @@ private struct ImportConfirmStep: View {
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 10) {
-                    Button("Yes, That's Us") { flow.choose(key) }
+                    AsyncButton { await flow.choose(key) } label: { Text("Yes, That's Us") }
                         .buttonStyle(BrandCTAButtonStyle())
                     Button("Not My Team") { flow.path.append(.list(noGuess: false)) }
                         .font(.headline)
@@ -190,7 +195,7 @@ private struct ImportChoicesStep: View {
                 }
                 Section {
                     ForEach(preview.match.teamKeys.compactMap(preview.team), id: \.key) { team in
-                        Button { flow.choose(team.key) } label: { ImportTeamRow(team: team) }
+                        Button { Task { await flow.choose(team.key) } } label: { ImportTeamRow(team: team) }
                             .tint(.primary)
                     }
                 } header: {
@@ -201,7 +206,11 @@ private struct ImportChoicesStep: View {
                 Section {
                     Button("None of these — show all teams") { flow.path.append(.list(noGuess: false)) }
                 }
+                if let error = flow.errorMessage {
+                    Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
+                }
             }
+            .overlay { if flow.isLoadingTeam { LoadingTeamOverlay() } }
             .navigationTitle("Your Team")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -235,7 +244,7 @@ private struct ImportTeamListStep: View {
                 ForEach(groups, id: \.title) { group in
                     Section(group.title) {
                         ForEach(group.teams) { team in
-                            Button { flow.choose(team.key) } label: { ImportTeamRow(team: team, showBracket: false) }
+                            Button { Task { await flow.choose(team.key) } } label: { ImportTeamRow(team: team, showBracket: false) }
                                 .tint(.primary)
                         }
                     }
@@ -243,11 +252,15 @@ private struct ImportTeamListStep: View {
                 if groups.isEmpty {
                     ContentUnavailableView.search(text: search)
                 }
+                if let error = flow.errorMessage {
+                    Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
+                }
                 Section {
                     Button("My team isn't listed") { flow.path.append(.report(.teamMissing)) }
                 }
             }
-            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "Team, coach, or bracket")
+            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: preview.isLeague ? "Team or division" : "Team, coach, or bracket")
+            .overlay { if flow.isLoadingTeam { LoadingTeamOverlay() } }
             .navigationTitle("All Teams")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -304,7 +317,7 @@ private struct ImportPreviewStep: View {
                 Section {
                     ForEach(flow.chosenGames) { game in
                         ImportGameRow(
-                            game: game, teamKey: key, alias: flow.alias, timeZone: preview.timeZone,
+                            game: game, teamKey: key, alias: flow.alias, timeZone: preview.timeZone, homeIsRight: preview.homeIsRight,
                             isSelected: flow.selectedGameKeys.contains(game.key),
                             clashes: preview.clashes(with: game)
                         ) { flow.toggle(game) }
@@ -373,6 +386,7 @@ private struct ImportGameRow: View {
     let teamKey: String
     let alias: String?
     let timeZone: TimeZone
+    let homeIsRight: Bool
     let isSelected: Bool
     let clashes: [ImportExistingEvent]
     let toggle: () -> Void
@@ -384,7 +398,7 @@ private struct ImportGameRow: View {
                     .font(.title3)
                     .foregroundStyle(isSelected ? Color.accentColor : .secondary)
                 VStack(alignment: .leading, spacing: 4) {
-                    GameLine(game: game, teamKey: teamKey, alias: alias, timeZone: timeZone)
+                    GameLine(game: game, teamKey: teamKey, alias: alias, timeZone: timeZone, homeIsRight: homeIsRight)
                     if let address = game.address {
                         Text(address).font(.caption).foregroundStyle(.secondary)
                     }
@@ -411,6 +425,7 @@ private struct GameLine: View {
     let teamKey: String
     let alias: String?
     let timeZone: TimeZone
+    var homeIsRight = false
 
     private var whenLabel: String {
         guard let start = game.startsAt else { return [game.dayLabel, game.timeLabel].filter { !$0.isEmpty }.joined(separator: " ") }
@@ -430,7 +445,7 @@ private struct GameLine: View {
                     TagLabel(text: score, tint: score.hasPrefix("W") ? .green : .secondary)
                 }
             }
-            Text(game.opponentLabel(teamKey: teamKey, alias: alias)).font(.headline)
+            Text(game.opponentLabel(teamKey: teamKey, alias: alias, homeIsRight: homeIsRight)).font(.headline)
             Text([game.round, game.placeLabel].compactMap { $0 }.joined(separator: " · "))
                 .font(.subheadline).foregroundStyle(.secondary)
         }
@@ -444,8 +459,18 @@ private struct TournamentHeader: View {
         VStack(alignment: .leading, spacing: 2) {
             Label(source.title, systemImage: "trophy.fill")
                 .font(.headline)
-            Text("Read from Google Sheets").font(.caption).foregroundStyle(.secondary)
+            Text(source.kind == "cnr_league" ? "Read from the CNR league site" : "Read from Google Sheets")
+                .font(.caption).foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Shown while a league team's games load after it's picked.
+private struct LoadingTeamOverlay: View {
+    var body: some View {
+        ProgressView("Loading games…")
+            .padding()
+            .background(.regularMaterial, in: .rect(cornerRadius: 12))
     }
 }
 

@@ -33,6 +33,8 @@ final class ScheduleImportFlow {
     var firstDay = Calendar.current.startOfDay(for: .now)
 
     private(set) var preview: ImportPreview?
+    /// Loading a league team's games after the coach picks it.
+    private(set) var isLoadingTeam = false
     private(set) var chosenKey: String?
     private(set) var alias: String?
     var selectedGameKeys: Set<String> = []
@@ -78,7 +80,7 @@ final class ScheduleImportFlow {
         errorCode = nil
         let link = url.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
-            let preview = try await backend.importPreview(teamID: team.id, url: link, firstDay: firstDayParam)
+            let preview = try await backend.importPreview(teamID: team.id, url: link, firstDay: firstDayParam, teamKey: nil)
             if preview.source.needsDates && !needsFirstDay {
                 needsFirstDay = true
                 errorMessage = "This sheet only lists days of the week. Pick the tournament's first day, then try again."
@@ -107,7 +109,23 @@ final class ScheduleImportFlow {
     }
 
     /// The coach picked a team: preview its games, or ask which bracket name is theirs.
-    func choose(_ key: String) {
+    /// League teams' games load on demand (D-043).
+    func choose(_ key: String) async {
+        guard !isLoadingTeam else { return }
+        if preview?.isLeague == true, preview?.team(key)?.gameCount == nil {
+            isLoadingTeam = true
+            defer { isLoadingTeam = false }
+            errorMessage = nil
+            do {
+                let more = try await backend.importPreview(
+                    teamID: team.id, url: url.trimmingCharacters(in: .whitespacesAndNewlines), firstDay: nil, teamKey: key
+                )
+                preview?.merge(more)
+            } catch {
+                errorMessage = error.localizedDescription
+                return
+            }
+        }
         if key != chosenKey { alias = preview?.previousImport?.teamKey == key ? preview?.previousImport?.alias : nil }
         chosenKey = key
         if chosenGames.isEmpty {

@@ -73,7 +73,8 @@ protocol ClubHQBackend: AnyObject {
     // MARK: Schedule import (D-042)
     /// Reads a tournament's Google Sheet and guesses which team is ours. Saves nothing.
     /// `firstDay` ("yyyy-MM-dd") is only needed when the sheet doesn't say when it starts.
-    func importPreview(teamID: UUID, url: String, firstDay: String?) async throws -> ImportPreview
+    /// `teamKey` loads that team's games from a league site (D-043), whose games load per team.
+    func importPreview(teamID: UUID, url: String, firstDay: String?, teamKey: String?) async throws -> ImportPreview
     /// Saves the chosen team's games (all of them when `gameKeys` is nil). Importing the same link
     /// again updates those games; a different team swaps them. Sends no notifications.
     func importCommit(teamID: UUID, url: String, teamKey: String, alias: String?, gameKeys: [String]?, firstDay: String?) async throws -> ImportResult

@@ -85,7 +85,7 @@ struct ScheduleImportTests {
         #expect(flow.errorMessage == nil)
         #expect(flow.path == [.confirm])
 
-        flow.choose(me)
+        await flow.choose(me)
         #expect(flow.path == [.confirm, .preview])
         #expect(flow.selectedCount == 3)
         #expect(flow.levelWarning == nil)
@@ -111,7 +111,7 @@ struct ScheduleImportTests {
         let flow = ScheduleImportFlow(team: try await coachTeam(backend), backend: backend)
         flow.url = cnr
         await flow.read()
-        flow.choose(me)
+        await flow.choose(me)
         flow.toggle(try #require(flow.chosenGames.last))
         #expect(flow.selectedCount == 2)
         await flow.commit()
@@ -124,7 +124,7 @@ struct ScheduleImportTests {
         flow.url = cnr
         await flow.read()
         flow.path.append(.list(noGuess: false))
-        flow.choose("7b-miller:arch-city-select-gold-7th-boys")
+        await flow.choose("7b-miller:arch-city-select-gold-7th-boys")
         #expect(flow.path.last == .preview)
         #expect(flow.levelWarning?.contains("6th grade, but this team is 7th") == true)
         flow.changeTeam()
@@ -148,7 +148,7 @@ struct ScheduleImportTests {
         first.url = cnr
         await first.read()
         first.path.append(.list(noGuess: false))
-        first.choose("8b-drexler:mavericks-2031-blue-8th-boys")
+        await first.choose("8b-drexler:mavericks-2031-blue-8th-boys")
         await first.commit()
 
         let again = ScheduleImportFlow(team: team, backend: backend)
@@ -156,11 +156,44 @@ struct ScheduleImportTests {
         await again.read()
         #expect(again.preview?.match.teamKeys == ["8b-drexler:mavericks-2031-blue-8th-boys"])
         #expect(again.preview?.previousImport?.eventCount == first.result?.added)
-        again.choose("8b-drexler:mavericks-2031-blue-8th-boys")
+        await again.choose("8b-drexler:mavericks-2031-blue-8th-boys")
         #expect(again.isReimport)
         await again.commit()
         // Undo would remove the games from the first import too, so it isn't offered.
         #expect(!again.canUndo)
         #expect(try await backend.scheduleImports(teamID: team.id).count == 1)
+    }
+
+    // MARK: - CNR league (D-043)
+
+    @Test func leagueGamesMergeAndAwayGamesShowAt() throws {
+        var preview = try DemoBackend.sampleImportPreview()
+        preview.source.kind = "cnr_league"
+        #expect(preview.isLeague && preview.homeIsRight)
+        let games = preview.games(for: me)
+        let key = try #require(preview.teams.first { $0.key == me }?.key)
+
+        // A league preview only carries the guessed teams' games; picking another loads more.
+        var partial = preview
+        partial.games = []
+        if let i = partial.teams.firstIndex(where: { $0.key == key }) { partial.teams[i].gameCount = nil }
+        #expect(partial.team(key)?.gameCountLabel == nil)
+        partial.merge(preview)
+        #expect(partial.games(for: me).count == games.count)
+        #expect(partial.team(key)?.gameCount == 3)
+        partial.merge(preview)
+        #expect(partial.games.count == preview.games.count, "merging twice adds nothing")
+
+        // We're on the right (home) in every CNR October game; flip one to see "@".
+        var away = try #require(games.first)
+        swap(&away.left, &away.right)
+        #expect(away.opponentLabel(teamKey: me, alias: nil, homeIsRight: true) == "@ STL Grizzlies")
+        #expect(games[0].opponentLabel(teamKey: me, alias: nil, homeIsRight: true) == "vs STL Grizzlies")
+    }
+
+    @Test func leagueLinksAreRecognized() {
+        #expect(ScheduleImportText.looksLikeLeagueLink("https://cnrschedule.stlbasketball.com/"))
+        #expect(ScheduleImportText.looksLikeLeagueLink("webcal://cnrnovdec2026schedules.stlbasketball.com/3d-nation-2033-6th-boys.ics"))
+        #expect(!ScheduleImportText.looksLikeLeagueLink("https://stlbasketball.com.example.com/"))
     }
 }

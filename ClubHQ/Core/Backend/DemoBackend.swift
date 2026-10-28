@@ -389,7 +389,7 @@ final class DemoBackend: ClubHQBackend {
         return try JSONCoding.decoder.decode(ImportPreview.self, from: Data(contentsOf: url))
     }
 
-    func importPreview(teamID: UUID, url: String, firstDay: String?) async throws -> ImportPreview {
+    func importPreview(teamID: UUID, url: String, firstDay: String?, teamKey: String?) async throws -> ImportPreview {
         await pause()
         guard ScheduleImportText.looksLikeSheetLink(url) else {
             throw BackendError.server(status: 422, code: "not_a_sheet", message: "That isn't a Google Sheets link. Paste the link the organizer shared (it starts with docs.google.com/spreadsheets).")

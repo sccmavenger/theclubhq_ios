@@ -131,9 +131,9 @@ struct ScheduleView: View {
                         ProgressView().accessibilityLabel("Updating from the sheet")
                     } else {
                         Menu {
-                            Button { Task { await refresh(info) } } label: { Label("Update from Sheet", systemImage: "arrow.triangle.2.circlepath") }
+                            Button { Task { await refresh(info) } } label: { Label("Check for Changes", systemImage: "arrow.triangle.2.circlepath") }
                             if let url = URL(string: info.sourceUrl) {
-                                Link(destination: url) { Label("Open Sheet", systemImage: "safari") }
+                                Link(destination: url) { Label("Open Schedule", systemImage: "safari") }
                             }
                             Button(role: .destructive) { importToRemove = info } label: { Label("Remove Games", systemImage: "trash") }
                         } label: {
