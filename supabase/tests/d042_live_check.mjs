@@ -113,9 +113,11 @@ try {
   check("league: a calendar link picks the team directly", ltp.body.match?.outcome === "clear" && ltp.body.match.team_keys[0] === "3d-nation-2033-6th-boys", JSON.stringify(ltp.body.match ?? ltp.body));
   const kings = await api("coach", "import-preview", { team_id: team.team_id, url: LEAGUE, team_key: "kings-gold-6th-boys", ...tz });
   check("league: picking another team loads its games", kings.body.games?.some((g) => g.left.team_key === "kings-gold-6th-boys" || g.right.team_key === "kings-gold-6th-boys"), "");
+  const shared = (body) => body.games?.find((g) => [g.left.team_key, g.right.team_key].sort().join() === "3d-nation-2033-6th-boys,kings-gold-6th-boys")?.key;
+  check("league: the same game has the same key from either team's page", shared(lp.body) && shared(lp.body) === shared(kings.body), `${shared(lp.body)} vs ${shared(kings.body)}`);
   const lc = await api("coach", "import-commit", { team_id: team.team_id, url: LEAGUE, team_key: "3d-nation-2033-6th-boys", ...tz });
-  const lrows = await sql(`select opponent, home_away, location, location_address, starts_at, external_key from events where import_id='${lc.body.import_id}' order by starts_at`);
-  check("league: commit adds the upcoming games", lc.status === 200 && lc.body.added === lmine.length && lc.body.upcoming === lmine.length && lrows.every((r) => r.external_key.startsWith("uid:")), JSON.stringify(lc.body).slice(0, 200));
+  const lrows = await sql(`select opponent, home_away, location, location_address, starts_at, external_key, home_score from events where import_id='${lc.body.import_id}' order by starts_at`);
+  check("league: commit adds the upcoming games", lc.status === 200 && lc.body.added === lmine.length && lc.body.upcoming === lmine.length && lrows.every((r) => /~.*\|\d+$/.test(r.external_key)) && lrows.every((r) => r.home_score === null), JSON.stringify(lc.body).slice(0, 200));
   check("league: home/away and gym addresses", lrows.some((r) => r.home_away === "home") && lrows.some((r) => r.home_away === "away") && lrows.some((r) => r.location_address?.includes("MO")), JSON.stringify(lrows[0]));
   const lsaved = (await sql(`select source_url, source_kind from schedule_imports where id='${lc.body.import_id}'`))[0];
   const lagain = await api("coach", "import-commit", { team_id: team.team_id, url: lsaved.source_url, team_key: "3d-nation-2033-6th-boys", ...tz });

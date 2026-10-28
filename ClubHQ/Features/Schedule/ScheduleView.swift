@@ -128,7 +128,7 @@ struct ScheduleView: View {
                     }
                     Spacer()
                     if refreshingImportID == info.id {
-                        ProgressView().accessibilityLabel("Updating from the sheet")
+                        ProgressView().accessibilityLabel("Checking for changes")
                     } else {
                         Menu {
                             Button { Task { await refresh(info) } } label: { Label("Check for Changes", systemImage: "arrow.triangle.2.circlepath") }

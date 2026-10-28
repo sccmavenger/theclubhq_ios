@@ -9,9 +9,7 @@ import {
   fetchTeamGames,
   leagueSlug,
   leagueTournament,
-  parseCalendarURL,
   parseFacilityAddress,
-  parseFeedUIDs,
   parseLeagueURL,
   parseTeamGames,
 } from "../functions/_shared/cnrLeague.ts";
@@ -43,7 +41,6 @@ const fakeFetch = ((input: string | URL) => {
   const pages: Record<string, string> = {
     "cnrschedule.stlbasketball.com/": "current-home.html",
     [`cnrschedule.stlbasketball.com/teams/${ME}`]: "current-team.html",
-    [`cnrnovdec2026schedules.stlbasketball.com/${ME}.ics`]: "current-team.ics",
     "cnrschedule.stlbasketball.com/facilities/beal-center-gym-8": "facility-beal-gym-8.html",
   };
   const file = pages[url.hostname + url.pathname];
@@ -78,28 +75,32 @@ Deno.test("the owner's team is a clear match with no coach column", () => {
   assertEquals(scoreTeams(current.teams, { teamName: "My Team", coachNames: [], aliases: ["3d nation 2033"] }).teamKeys, [ME]);
 });
 
-Deno.test("team page, calendar feed and facility page", () => {
+Deno.test("team page and facility page", () => {
   const games = parseTeamGames(read("current-team.html"));
   assertEquals(games.length, 7);
   assertEquals(games[0], {
     date: "2026-11-07", time: "1:00 PM", facility: "Orchard Farm High School Gym 1", home: "Rise & Reign 6th Boys",
     away: "3D Nation 2033 6th Boys", division: "6th Boys", homeScore: null, awayScore: null, homeRank: "4", awayRank: "7",
   });
-  assertEquals(parseCalendarURL(read("current-team.html")), `https://cnrnovdec2026schedules.stlbasketball.com/${ME}.ics`);
-  const uids = parseFeedUIDs(read("current-team.ics"));
-  assertEquals(uids.size, 7);
-  assertEquals(uids.get("2026-11-14|3d nation 2033 6th boys|knights klotz 6th boys"), "_JuB8FpQfV0mNHRrVknqX");
   assertEquals(parseFacilityAddress(read("facility-beal-gym-8.html")), "150 N. Eatherton Rd, Chesterfield, MO 63005");
+  assertEquals(parseFacilityAddress("<p>Gym 1</p><p>1251 Sycamore Dr, O&#x27;Fallon, MO  63366</p>"), "1251 Sycamore Dr, O'Fallon, MO 63366");
+  // Unplayed games send "" as well as "-1"; neither is a score.
+  const blank = parseTeamGames('{"date":"2026-11-08","time":"8:00 AM","facility":"X Gym 2","home_team":"A","away_team":"B","division":"6th Boys","home_score":"","away_score":"","home_ranking":"6","away_ranking":"7"}');
+  assertEquals([blank[0].homeScore, blank[0].awayScore], [null, null]);
+  assert(games.every((g) => g.homeScore === null && g.awayScore === null), "no fake 0-0 for unplayed games");
 });
 
-Deno.test("current season: seven upcoming games with stable ids, home/away and addresses", async () => {
+Deno.test("current season: seven upcoming games with home/away and addresses", async () => {
   const games = await fetchTeamGames(current, ME, fakeFetch);
   const t = leagueTournament(current, games);
   assertEquals(t.title, "CNR League 11/7/26 - 12/20/26");
   assertEquals(t.timeZone, "America/Chicago");
   const mine = gamesForTeam(t, ME);
   assertEquals(mine.length, 7);
-  assert(mine.every((g) => g.key.startsWith("uid:")), "feed ids");
+  // Keys name both teams, so the same game from the other team's page has the same key.
+  assertEquals(mine.find((g) => g.localStart === "2026-11-08T08:00")!.key, "3d-nation-2033-6th-boys~kings-gold-6th-boys|1");
+  const fromKings = buildGames(current, "kings-gold-6th-boys", [{ date: "2026-11-08", time: "8:00 AM", facility: "Parkway West Middle Gym 2", home: "Kings Gold 6th Boys", away: "3D Nation 2033 6th Boys", division: "6th Boys", homeScore: null, awayScore: null, homeRank: "6", awayRank: "7" }], new Map());
+  assertEquals(fromKings[0].key, "3d-nation-2033-6th-boys~kings-gold-6th-boys|1");
   assertEquals(mine.map((g) => [g.localStart, ourSide(g, ME) === "right" ? "home" : "away", ourSide(g, ME) === "right" ? g.left.name : g.right.name]).slice(0, 3), [
     ["2026-11-07T13:00", "away", "Rise & Reign 6th Boys"],
     ["2026-11-08T08:00", "away", "Kings Gold 6th Boys"],
@@ -114,12 +115,12 @@ Deno.test("current season: seven upcoming games with stable ids, home/away and a
   assertEquals(localToISO(beal.localStart!, "America/Chicago"), "2026-11-14T16:00:00.000Z");
 });
 
-Deno.test("past season: finished games with scores, keyed by date and teams", () => {
-  const games = buildGames(summer, ME, parseTeamGames(read("summer-team.html")), new Map(), new Map());
+Deno.test("past season: finished games with scores", () => {
+  const games = buildGames(summer, ME, parseTeamGames(read("summer-team.html")), new Map());
   assertEquals(games.length, 7);
   const first = games[0];
   assertEquals([first.key, first.right.name, first.right.score, first.left.name, first.left.score], [
-    "2026-06-01|greyhounds-orange-6th-boys~3d-nation-2033-6th-boys|1", "3D Nation 2033 6th Boys", 52, "Greyhounds Orange 6th Boys", 14,
+    "greyhounds-orange-6th-boys~3d-nation-2033-6th-boys|1", "3D Nation 2033 6th Boys", 52, "Greyhounds Orange 6th Boys", 14,
   ]);
   assert(games.every((g) => g.left.score !== null && g.right.score !== null), "every game has a final score");
 });

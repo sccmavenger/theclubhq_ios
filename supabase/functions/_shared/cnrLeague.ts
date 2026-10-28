@@ -2,9 +2,10 @@
 //
 // The site is a Next.js app; each page carries its data in the page payload:
 //   - the home page: the season ("11/7/26 - 12/20/26") and every team with its division,
-//   - a team page (/teams/<slug>): that team's games with scores and, for the current season,
-//     its calendar feed (webcal://…/<slug>.ics), whose event UIDs are stable game ids,
+//   - a team page (/teams/<slug>): that team's games with scores,
 //   - a facility page (/facilities/<slug>): the gym's street address.
+// A game's key is its two teams plus which meeting it is ("away~home|1"), so it's the same from
+// either team's page and survives a reschedule. (Calendar-feed UIDs differ per team's feed.)
 // The output is the same `Tournament` shape the Google Sheets reader produces, so import-preview,
 // import-commit, update and undo work unchanged. Parsing is pure and tested against saved pages
 // in supabase/tests/cnrLeague_test.ts; only the `fetch*` functions do I/O.
@@ -119,7 +120,9 @@ export interface LeagueGame {
 
 /** A team page's games. Unplayed games show a score of -1. */
 export function parseTeamGames(html: string): LeagueGame[] {
+  // Unplayed games send "" or "-1".
   const score = (v: unknown) => {
+    if (typeof v !== "number" && (typeof v !== "string" || v.trim() === "")) return null;
     const n = Number(v);
     return Number.isInteger(n) && n >= 0 ? n : null;
   };
@@ -143,32 +146,14 @@ export function parseTeamGames(html: string): LeagueGame[] {
   return games;
 }
 
-/** The team's calendar feed (current season only), as an https URL. */
-export function parseCalendarURL(html: string): string | null {
-  const m = payload(html).match(/"calendarUrl":"(webcal:\/\/[^"]+\.ics)"/);
-  return m ? m[1].replace(/^webcal:/, "https:") : null;
-}
-
 /** A facility page's street address, e.g. "150 N. Eatherton Rd, Chesterfield, MO 63005". */
 export function parseFacilityAddress(html: string): string | null {
-  const text = html.replace(/<[^>]+>/g, "\n");
+  const text = html.replace(/<[^>]+>/g, "\n")
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
   const m = text.match(/\b\d+[ \t]+[^\n,]+,[ \t]*[^\n,]+,[ \t]*[A-Z]{2}[ \t]+\d{5}(-\d{4})?/);
   return m ? m[0].replace(/\s+/g, " ").trim() : null;
-}
-
-/** UIDs from a calendar feed, keyed by "date|home|away" (the DESCRIPTION names the home team). */
-export function parseFeedUIDs(ics: string): Map<string, string> {
-  const unfolded = ics.replace(/\r?\n[ \t]/g, "");
-  const out = new Map<string, string>();
-  for (const block of unfolded.split("BEGIN:VEVENT").slice(1)) {
-    const uid = block.match(/^UID:(.+)$/m)?.[1]?.trim();
-    const start = block.match(/^DTSTART[^:]*:(\d{4})(\d{2})(\d{2})T/m);
-    const desc = block.match(/^DESCRIPTION:(.+)$/m)?.[1] ?? "";
-    const teams = desc.match(/HOME TEAM:\s*(.+?)\s+vs\s+AWAY TEAM:\s*(.+?)(\\n|$)/);
-    if (!uid || !start || !teams) continue;
-    out.set(`${start[1]}-${start[2]}-${start[3]}|${teams[1].trim().toLowerCase()}|${teams[2].trim().toLowerCase()}`, uid);
-  }
-  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,23 +182,23 @@ export function buildIndex(host: string, homeHTML: string): LeagueIndex | null {
 }
 
 /** One team's games as shared `Game`s: away team on the left, home on the right. */
-export function buildGames(index: LeagueIndex, teamKey: string, games: LeagueGame[], uids: Map<string, string>, addresses: Map<string, string>): Game[] {
+export function buildGames(index: LeagueIndex, teamKey: string, games: LeagueGame[], addresses: Map<string, string>): Game[] {
   const keyFor = (name: string) => {
     const slug = leagueSlug(name);
     return index.teams.some((t) => t.key === slug) ? slug : null;
   };
+  // The nth meeting of the same two teams, in date order.
   const counts = new Map<string, number>();
-  return games.map((g) => {
+  const sorted = [...games].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  return sorted.map((g) => {
     const t = parseTime(g.time)!;
-    const uid = uids.get(`${g.date}|${g.home.toLowerCase()}|${g.away.toLowerCase()}`);
-    // Without a feed (past seasons), date + teams is stable enough for history.
-    const base = uid ? `uid:${uid}` : `${g.date}|${leagueSlug(g.away)}~${leagueSlug(g.home)}`;
-    const n = (counts.get(base) ?? 0) + 1;
-    counts.set(base, n);
+    const pair = `${leagueSlug(g.away)}~${leagueSlug(g.home)}`;
+    const n = (counts.get(pair) ?? 0) + 1;
+    counts.set(pair, n);
     const address = addresses.get(g.facility) ?? null;
     const venue: Venue | null = g.facility ? { name: g.facility, code: g.facility, address: address ?? "" } : null;
     return {
-      key: uid ? base : `${base}|${n}`,
+      key: `${pair}|${n}`,
       bracket: g.division || (index.teams.find((x) => x.key === teamKey)?.bracket ?? "League"),
       bracketTitle: g.division ? `${g.division} · CNR League` : "CNR League",
       round: null,
@@ -272,20 +257,18 @@ export async function fetchLeagueIndex(source: LeagueSource, fetcher: typeof fet
   return index;
 }
 
-/** One team's games, with calendar-feed ids and gym addresses. */
+/** One team's games, with gym addresses. */
 export async function fetchTeamGames(index: LeagueIndex, teamKey: string, fetcher: typeof fetch = fetch): Promise<Game[]> {
   const html = await get(`https://${index.host}/teams/${teamKey}`, fetcher);
   if (html === null) throw new LeagueError("team_not_found", "That team's page isn't on the CNR site anymore.");
   const games = parseTeamGames(html);
-  const feed = parseCalendarURL(html);
   const facilities = [...new Set(games.map((g) => g.facility).filter((f) => f))];
-  const [ics, ...addresses] = await Promise.all([
-    feed && new URL(feed).hostname.match(FEED_HOST_RE) ? get(feed, fetcher).catch(() => null) : Promise.resolve(null),
-    ...facilities.map((f) => get(`https://${index.host}/facilities/${leagueSlug(f)}`, fetcher).then((h) => (h ? parseFacilityAddress(h) : null)).catch(() => null)),
-  ]);
+  const addresses = await Promise.all(
+    facilities.map((f) => get(`https://${index.host}/facilities/${leagueSlug(f)}`, fetcher).then((h) => (h ? parseFacilityAddress(h) : null)).catch(() => null)),
+  );
   const addressMap = new Map<string, string>();
   facilities.forEach((f, i) => {
     if (addresses[i]) addressMap.set(f, addresses[i]!);
   });
-  return buildGames(index, teamKey, games, ics ? parseFeedUIDs(ics) : new Map(), addressMap);
+  return buildGames(index, teamKey, games, addressMap);
 }

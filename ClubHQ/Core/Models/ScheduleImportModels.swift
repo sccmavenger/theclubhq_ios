@@ -92,6 +92,8 @@ struct ImportPreview: Codable, Sendable {
             if groups[title] == nil { order.append(title) }
             groups[title, default: []].append(team)
         }
+        // League divisions read best in grade order ("2nd Boys" … "8th Girls"); sheets keep their tab order.
+        if isLeague { order.sort { $0.localizedStandardCompare($1) == .orderedAscending } }
         return order.map { ($0, groups[$0]!.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) }
     }
 

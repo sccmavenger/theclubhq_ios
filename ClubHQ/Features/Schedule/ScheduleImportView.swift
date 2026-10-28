@@ -37,6 +37,8 @@ struct ScheduleImportView: View {
                 }
         }
         .onAppear { flow.close = { dismiss() } }
+        // Past the first screen, a stray swipe shouldn't throw away the coach's choices.
+        .interactiveDismissDisabled(!flow.path.isEmpty)
     }
 }
 
@@ -119,7 +121,8 @@ private struct ImportTeamRow: View {
                 Text(team.detailLine).font(.subheadline).foregroundStyle(.secondary)
             }
             HStack(spacing: 6) {
-                if showBracket, let bracket = team.bracketTitle ?? team.bracket {
+                // League divisions ("6th Boys") already appear in the detail line.
+                if showBracket, let bracket = team.bracketTitle ?? team.bracket, !team.detailLine.hasPrefix(bracket) {
                     Text(bracket).lineLimit(1)
                     if team.gameCountLabel != nil { Text("·") }
                 }
