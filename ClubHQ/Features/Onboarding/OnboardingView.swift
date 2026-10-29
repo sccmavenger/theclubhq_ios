@@ -26,6 +26,8 @@ struct JoinOrCreateList: View {
     /// A code pasted on this screen; used for this one trip to the join form, never saved.
     @State private var pastedToken: String?
     @State private var clipboardMayHaveInvite = false
+    @State private var showStartClub = false
+    @State private var showJoinClub = false
 
     /// A real team's invite never gets used up inside a demo.
     private var realInviteToken: String? { model.isDemo ? nil : model.pendingInviteToken }
@@ -79,7 +81,22 @@ struct JoinOrCreateList: View {
                               detail: "Enter the code your parent or coach gave you.")
                 }
             }
+            // Clubs (D-044): directors don't need a team of their own.
+            Section("Clubs") {
+                Button { showStartClub = true } label: {
+                    OptionRow(symbol: "building.2.fill", title: "I run a club",
+                              detail: "Set up your club, add its teams and invite coaches.")
+                }
+                .tint(.primary)
+                Button { showJoinClub = true } label: {
+                    OptionRow(symbol: "person.badge.key.fill", title: "I coach in a club",
+                              detail: "Enter the club or coach code from your director.")
+                }
+                .tint(.primary)
+            }
         }
+        .sheet(isPresented: $showStartClub) { StartClubView() }
+        .sheet(isPresented: $showJoinClub) { JoinClubView() }
         .navigationDestination(isPresented: $showJoin) {
             JoinTeamView(initialToken: pastedToken ?? realInviteToken ?? "")
                 .onDisappear {

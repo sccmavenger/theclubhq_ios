@@ -123,7 +123,8 @@ final class AppModel {
             if selectedTeamID == nil || !context.teams.contains(where: { $0.id == selectedTeamID }) {
                 selectedTeamID = context.teams.first?.id
             }
-            phase = context.teams.isEmpty ? .onboarding : .ready
+            // A director with a club but no team of their own goes straight in (D-044).
+            phase = context.teams.isEmpty && (context.clubs ?? []).isEmpty ? .onboarding : .ready
             refreshToken += 1
             // Someone already on a team who opened an invite before signing in: open it now.
             if phase == .ready, !backend.isDemo, let token = pendingInviteToken {

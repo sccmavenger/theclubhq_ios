@@ -57,7 +57,9 @@ struct ClubTeamDetailView: View {
             .navigationTitle(team.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .primaryAction) { Button("Edit") { editing = true } } }
-            .sheet(isPresented: $showAssign, onDismiss: { Task { await reload() } }) { AssignCoachView(team: team) }
+            .sheet(isPresented: $showAssign, onDismiss: { Task { await reload() } }) {
+                AssignCoachView(team: team) { await reload() }
+            }
             .sheet(isPresented: $editing, onDismiss: { Task { await reload() } }) { EditClubTeamView(team: team) }
             .confirmationDialog("Remove \(coachToRemove?.name ?? "coach")?", isPresented: Binding(get: { coachToRemove != nil }, set: { if !$0 { coachToRemove = nil } }),
                                 titleVisibility: .visible, presenting: coachToRemove) { coach in
@@ -95,6 +97,8 @@ struct AssignCoachView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let team: ClubTeam
+    /// Refreshes the club right after the coach is added, before the sheet closes.
+    var onAssigned: () async -> Void = {}
     @State private var email = ""
     @State private var role: TeamRole = .headCoach
     @State private var result: (CoachAssignment, String?)?
@@ -145,6 +149,7 @@ struct AssignCoachView: View {
         do {
             result = try await model.backend.clubAssignCoach(teamID: team.id, email: email.trimmingCharacters(in: .whitespaces), role: role)
             errorText = nil
+            await onAssigned()
         } catch { errorText = error.localizedDescription }
     }
 }
@@ -269,7 +274,7 @@ struct AddClubTeamsView: View {
                         } header: {
                             Text("One team per line")
                         } footer: {
-                            Text("Name, grade, gender, level, season, coach email: everything after the name is optional. Paste from a spreadsheet works too.\nExample: 3D Nation 6th Boys, 6, Boys, Elite, Fall 2026, coach@email.com")
+                            Text(verbatim: "Name, grade, gender, level, season, coach email: everything after the name is optional. Paste from a spreadsheet works too.\nExample: 3D Nation 6th Boys, 6, Boys, Elite, Fall 2026, coach@email.com")
                         }
                         if !parsed.isEmpty {
                             Section("\(parsed.count) team\(parsed.count == 1 ? "" : "s") to add") {
@@ -339,7 +344,7 @@ struct ClubComposerView: View {
             Form {
                 if let sent {
                     Section {
-                        Label("Sent to \(sent.teamCount) teams · \(sent.peopleCount) people", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        Label("Sent to \(ClubText.teams(sent.teamCount)) · \(ClubText.people(sent.peopleCount))", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                     } footer: {
                         Text(mode == .announcement ? "It shows in each team's announcements as from \(overview.club.name)." : "It's on each team's schedule. Cancel it from the Club tab to cancel it everywhere.")
                     }
@@ -392,11 +397,8 @@ struct ClubComposerView: View {
         } header: {
             Text("Send to")
         } footer: {
-            if let audience {
-                Text("\(filter.isEmpty ? "Every team" : "Matching teams"): \(audience.teamCount) teams · \(audience.peopleCount) people. Families with kids on two teams get it once.")
-            } else {
-                Text("\(matching.count) teams")
-            }
+            // Same shape while counting, so the fields below don't jump.
+            Text("\(filter.isEmpty ? "Every team" : "Matching teams"): \(ClubText.teams(audience?.teamCount ?? matching.count)) · \(audience.map { ClubText.people($0.peopleCount) } ?? "counting people…"). Families with kids on two teams get it once.")
         }
     }
 
@@ -436,4 +438,10 @@ struct ClubComposerView: View {
             errorText = nil
         } catch { errorText = error.localizedDescription }
     }
+}
+
+/// "1 team", "3 teams", "1 person", "4 people".
+enum ClubText {
+    static func teams(_ n: Int) -> String { n == 1 ? "1 team" : "\(n) teams" }
+    static func people(_ n: Int) -> String { n == 1 ? "1 person" : "\(n) people" }
 }

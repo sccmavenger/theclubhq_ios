@@ -32,24 +32,26 @@ struct MainTabView: View {
             Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: TabID.messages) {
                 MessagesView()
             }
-            // Directors only (D-044). Parents never see the club.
+            // Directors only (D-044); parents never see the club. iPhone shows five tabs, so for
+            // directors Club takes More's place and More opens from the Club tab's toolbar.
             if let club = model.clubs.first {
                 Tab("Club", systemImage: "building.2.fill", value: TabID.club) {
-                    ClubView(club: club) { teamID in
+                    ClubView(club: club, openTeam: { teamID in
                         model.selectedTeamID = teamID
                         selection = .team
-                    }
+                    }, showsAccountButton: true)
                 }
-            }
-            Tab("More", systemImage: "ellipsis.circle.fill", value: TabID.more) {
-                AccountView()
+            } else {
+                Tab("More", systemImage: "ellipsis.circle.fill", value: TabID.more) {
+                    AccountView()
+                }
             }
         }
         // A different signed-in user (account or demo persona) gets fresh navigation
         // stacks in every tab, so nobody lands on the previous user's screens.
         .id(model.context?.userId)
         .tint(model.selectedTeam?.tint ?? .accentColor)
-        .onChange(of: model.showClubTab) { _, show in
+        .onChange(of: model.showClubTab, initial: true) { _, show in
             if show {
                 selection = .club
                 model.showClubTab = false

@@ -8,6 +8,9 @@ struct ClubView: View {
     let club: ClubSummary
     /// Opens a team in the rest of the app (switches the selected team and the tab).
     var openTeam: (UUID) -> Void = { _ in }
+    /// More (account, settings, sign out) opens from here when Club takes its tab.
+    var showsAccountButton = false
+    @State private var showAccount = false
 
     @State private var overview: ClubOverview?
     @State private var errorText: String?
@@ -77,6 +80,11 @@ struct ClubView: View {
                 ClubTeamDetailView(teamID: team.id, overview: $overview, openTeam: openTeam, reload: { await load() })
             }
             .toolbar {
+                if showsAccountButton {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { showAccount = true } label: { Label("More", systemImage: "person.crop.circle") }
+                    }
+                }
                 ToolbarItem(placement: .topBarLeading) { filterMenu }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -93,6 +101,7 @@ struct ClubView: View {
             .refreshable { await load() }
             .task(id: model.refreshToken) { await load() }
             .overlay { if overview == nil && errorText == nil { ProgressView() } }
+            .sheet(isPresented: $showAccount) { AccountView() }
             .sheet(item: $sheet, onDismiss: { Task { await load() } }) { which in
                 if let overview {
                     switch which {
@@ -102,12 +111,6 @@ struct ClubView: View {
                     case .share: ClubCodeView(club: overview.club) { await resetCode() }
                     }
                 }
-            }
-            .confirmationDialog("Cancel this club event?", isPresented: Binding(get: { eventToCancel != nil }, set: { if !$0 { eventToCancel = nil } }),
-                                titleVisibility: .visible, presenting: eventToCancel) { event in
-                Button("Cancel on \(event.teamCount) Teams", role: .destructive) { Task { await cancel(event) } }
-            } message: { event in
-                Text("\(event.title) is cancelled on every team and families are told.")
             }
             .alert("Club", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
                 Button("OK", role: .cancel) {}
@@ -160,6 +163,13 @@ struct ClubView: View {
                 }
                 .swipeActions {
                     Button("Cancel Event", role: .destructive) { eventToCancel = event }
+                }
+                .confirmationDialog("Cancel this club event?", isPresented: Binding(get: { eventToCancel?.id == event.id }, set: { if !$0 { eventToCancel = nil } }),
+                                    titleVisibility: .visible) {
+                    Button("Cancel on \(event.teamCount) Teams", role: .destructive) { Task { await cancel(event) } }
+                    Button("Keep Event", role: .cancel) {}
+                } message: {
+                    Text("\(event.title) is cancelled on every team and families are told.")
                 }
             }
         }

@@ -31,6 +31,7 @@ struct JoinClubView: View {
                         TextField("Club or coach code", text: $code)
                             .textInputAutocapitalization(.characters).autocorrectionDisabled()
                             .font(.title3.monospaced())
+                            .onChange(of: code) { errorText = nil }
                     } footer: {
                         Text("Your club director can give you a club code, or a coach code for a specific team.")
                     }
