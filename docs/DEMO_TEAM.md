@@ -8,7 +8,13 @@ Demo emails are `info+…@teamclubhq.com`, which has no inbox (OQ-16), so sign i
 **Reset before a demo:** `node scripts/seed-demo.mjs --wipe` from a folder with the `postgres` npm
 package installed (it reads `.env.local`). It wipes all app data and every account except
 dguilloryjr@msn.com and dguilloryjr@gmail.com, then rebuilds the same world with fresh dates.
-**Take a backup first.**
+**Take a backup first.** Logins and team codes are the same on every run (codes come from each
+team's key), so the App Review notes stay valid. The schedule covers about four weeks ahead, so
+re-seed on the day you submit for review.
+
+**App Review accounts:** the reviewer signs in as the Arch City Aces coach. Sam Taylor
+(info+appreview-spare@teamclubhq.com) is on no team, for trying join, create and delete
+(`docs/APP_STORE.md`).
 
 ## Your account (dguilloryjr@msn.com)
 Head coach of **St. Louis Mavericks 14U** and director of **Gateway Rise Basketball Club**, with a

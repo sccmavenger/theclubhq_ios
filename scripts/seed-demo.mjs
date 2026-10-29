@@ -44,7 +44,15 @@ const pick = (a) => a[Math.floor(rand() * a.length)];
 const shuffle = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-const code = (n = 10) => Array.from({ length: n }, () => CODE_ALPHABET[Math.floor(rand() * CODE_ALPHABET.length)]).join("");
+/** Team/club code derived from a fixed key, so re-seeding on another day keeps the same codes
+ *  (the App Review notes quote one). */
+function stableCode(key, n = 10) {
+  let h = 2166136261;
+  for (const ch of `clubhq-demo:${key}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  let out = "";
+  for (let i = 0; i < n; i++) { h = Math.imul(h ^ (h >>> 13), 0x5bd1e995) ^ i; out += CODE_ALPHABET[(h >>> 0) % CODE_ALPHABET.length]; }
+  return out;
+}
 
 function tzOffset(ms) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit",
@@ -233,6 +241,9 @@ const clubTeams = clubTeamDefs.map(([grade, gender, level], i) => {
   };
 });
 const director2 = account("rise-director-angela-price", "Angela Price");
+// App Review: an account on no team, for trying Join, Create Team, Delete Team and Delete Account
+// without touching the demo teams (docs/APP_STORE.md).
+const reviewSpare = account("appreview-spare", "Sam Taylor");
 
 // One family with kids on two club teams (one push, one calendar) and one across a club team and Avengers.
 const twoTeamFamily = { team1: "rise-7b-elite", team2: "rise-5g-elite", parent: account("rise-parent-taylor.morgan", "Taylor Morgan") };
@@ -538,7 +549,7 @@ async function seedTeam(tx, t, org, ctx) {
   if (nextGames[0]) await note("event_reminder", `${weekday(nextGames[0].day)}: ${nextGames[0].title}`, "Arrive 30 minutes early.", nextGames[0].id, `/event/${nextGames[0].id}`, 3, parentIds.slice(0, 4));
 
   // Team code (365 days, like the app's).
-  const teamCode = code(10);
+  const teamCode = stableCode(t.key);
   await tx`insert into public.team_invites (team_id, token, created_by, expires_at) values (${T}, ${teamCode}, ${coach}, now() + interval '365 days')`;
   t.code = teamCode;
   t.counts = { players: players.length, events: events.length, rsvps: rsvps.length, messages: msgs.length };
@@ -578,7 +589,7 @@ await sql.begin(async (tx) => {
     values (${CLUB.name}, 'club', ${owner.id}, ${CLUB.color}, ${TZ}) returning id`;
   await tx`insert into public.user_roles ${tx([owner.id, director2.id].map(u => ({ user_id: u, role: "program_director", team_id: null, org_id: club.id })))}`;
   await tx`insert into public.pro_grants (org_id, reason, created_by) values (${club.id}, 'Demo club (2.0 demo world)', ${owner.id})`;
-  const clubCode = code(10);
+  const clubCode = stableCode("club");
   await tx`insert into public.club_invites (org_id, kind, token, created_by) values (${club.id}, 'club_code', ${clubCode}, ${owner.id})`;
   for (const t of clubTeams) {
     await seedTeam(tx, t, club.id, ctx);
@@ -623,6 +634,7 @@ await sql.begin(async (tx) => {
     if (t.playerAccount) logins.push([t.name, `Player login (13+): ${t.playerAccount.fullName}`, t.playerAccount.email]);
     logins.push([t.name, `Team code`, t.code]);
   }
+  logins.push(["App Review", `Spare account on no team: ${reviewSpare.fullName}`, reviewSpare.email]);
   logins.push([CLUB.name, `Second director: ${director2.fullName}`, director2.email]);
   logins.push([CLUB.name, `Club code (coaches bring a team in)`, clubCode]);
   logins.push([CLUB.name, `Parent with kids on two club teams: Taylor Morgan`, twoTeamFamily.parent.email]);

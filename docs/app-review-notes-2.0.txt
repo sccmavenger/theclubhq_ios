@@ -1,0 +1,25 @@
+ClubHQ Team is a youth sports team app for coaches, parents, and players.
+
+DEMO ACCOUNTS (every login below uses the same password as the demo account above)
+• Head coach (the demo account above): team "Arch City Aces 14U Volleyball" with past results, upcoming practices and games, a tournament weekend, RSVPs, attendance, team and parents-only chat, announcements, and dues.
+• Parent on the same team: info+aces-parent-courtney.hudson@teamclubhq.com
+• Player, age 14, on the same team: info+aces-player-maya.ford@teamclubhq.com
+• Club director (Club tab with 16 teams): info+rise-director-angela-price@teamclubhq.com
+• Spare account on no team: info+appreview-spare@teamclubhq.com. Please use it to try joining a team (team code USEETF5FCK), creating a team, Delete Team (Team → Team Settings) and Delete Account, so the other logins keep working.
+
+NEW IN 2.0
+• Clubs: a director sees every team in the Club tab, posts club-wide announcements, and adds club events (for example, picture day) to many teams at once. More → Start a Club or Join a Club.
+• Schedule import: Schedule → + → Import Schedule or Calendar. Paste a published Google Sheets tournament schedule, a league link, or a team calendar link; the coach reviews every game before anything is saved, and can undo. Sample link to try: webcal://teamclubhq.com/samples/team-calendar.ics. Our server reads only the link the coach pastes (no crawling, no sign-in to other services).
+• Reminders: push reminders the day before and 2 hours before each event, and RSVP reminders for families who haven't answered. Notifications are only about the user's own teams, never marketing. Switches: More → Notifications.
+
+NEW ACCOUNTS verify email with a 6-digit code sent from info@teamclubhq.com. Sign-up includes a neutral birth-year age screen; people under 13 cannot create accounts (parents manage children's profiles, per COPPA). Families add their own children when they join with the coach's team link or code.
+
+CHILD SAFETY & MODERATION: players (13+) can only post in team-wide chat visible to coaches and parents; adults cannot message players privately. Teams are invite-only. In any chat, tap ••• → Report a Concern, or long-press a message to Report it or Block its author (hides their messages). Reports go straight to our moderation queue (with an email fallback to info@teamclubhq.com); we respond within 24 hours. Coaches can delete any message. Announcements can be reported with a long-press. Chat photos have the same Delete, Report and Block menu as text, and are resized with location metadata removed before upload.
+
+PAYMENTS: this version has no in-app purchases. Dues are tracking only: coaches create payment requests and mark cash, Venmo, or Cash App payments as paid. A head coach can add the team's Venmo username or $Cashtag (Team → Team Settings → Payments); parents then see "Pay with Venmo" / "Pay with Cash App" buttons that open those apps with the amount filled in. These pay the coach directly for real-world team costs (guideline 3.1.3(e)); ClubHQ takes no fee.
+
+CALENDAR SYNC: Schedule → Calendar Sync gives each user a private subscription link for Apple or Google Calendar; it contains no player names, RSVPs or contacts, and can be reset.
+
+ACCOUNT DELETION: More → Delete Account (immediate).
+
+There is also a demo mode on the sign-in screen ("Just looking?" → Coach, Parent, or Player) that requires no account.

@@ -1,0 +1,171 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//ClubHQ//Sample Team Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Sample Hawks 12U
+X-WR-TIMEZONE:America/Chicago
+BEGIN:VEVENT
+UID:sample-practice@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20261103T180000
+DTEND;TZID=America/Chicago:20261103T193000
+RRULE:FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20270630T235959Z
+SUMMARY:Practice
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Bring both jerseys and a water bottle.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2026-11-07@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20261107T100000
+DTEND;TZID=America/Chicago:20261107T110000
+SUMMARY:Hawks 12U vs. Lions
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2026-11-21@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20261121T100000
+DTEND;TZID=America/Chicago:20261121T110000
+SUMMARY:Hawks 12U @ Tigers
+LOCATION:Chesterfield Athletic Center\, 16365 Lydia Hill Dr\, Chesterfield\, MO 63017
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2026-12-05@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20261205T100000
+DTEND;TZID=America/Chicago:20261205T110000
+SUMMARY:Hawks 12U vs. Bears
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2026-12-19@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20261219T100000
+DTEND;TZID=America/Chicago:20261219T110000
+SUMMARY:Hawks 12U @ Falcons
+LOCATION:Chesterfield Athletic Center\, 16365 Lydia Hill Dr\, Chesterfield\, MO 63017
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-01-02@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270102T100000
+DTEND;TZID=America/Chicago:20270102T110000
+SUMMARY:Hawks 12U vs. Wolves
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-01-16@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270116T100000
+DTEND;TZID=America/Chicago:20270116T110000
+SUMMARY:Hawks 12U @ Panthers
+LOCATION:Chesterfield Athletic Center\, 16365 Lydia Hill Dr\, Chesterfield\, MO 63017
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-01-30@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270130T100000
+DTEND;TZID=America/Chicago:20270130T110000
+SUMMARY:Hawks 12U vs. Eagles
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-02-13@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270213T100000
+DTEND;TZID=America/Chicago:20270213T110000
+SUMMARY:Hawks 12U @ Sharks
+LOCATION:Chesterfield Athletic Center\, 16365 Lydia Hill Dr\, Chesterfield\, MO 63017
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-02-27@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270227T100000
+DTEND;TZID=America/Chicago:20270227T110000
+SUMMARY:Hawks 12U vs. Lions
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-03-13@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270313T100000
+DTEND;TZID=America/Chicago:20270313T110000
+SUMMARY:Hawks 12U @ Tigers
+LOCATION:Chesterfield Athletic Center\, 16365 Lydia Hill Dr\, Chesterfield\, MO 63017
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-03-27@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270327T100000
+DTEND;TZID=America/Chicago:20270327T110000
+SUMMARY:Hawks 12U vs. Bears
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-04-10@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270410T100000
+DTEND;TZID=America/Chicago:20270410T110000
+SUMMARY:Hawks 12U @ Falcons
+LOCATION:Chesterfield Athletic Center\, 16365 Lydia Hill Dr\, Chesterfield\, MO 63017
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-04-24@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270424T100000
+DTEND;TZID=America/Chicago:20270424T110000
+SUMMARY:Hawks 12U vs. Wolves
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-05-08@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270508T100000
+DTEND;TZID=America/Chicago:20270508T110000
+SUMMARY:Hawks 12U @ Panthers
+LOCATION:Chesterfield Athletic Center\, 16365 Lydia Hill Dr\, Chesterfield\, MO 63017
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-05-22@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270522T100000
+DTEND;TZID=America/Chicago:20270522T110000
+SUMMARY:Hawks 12U vs. Eagles
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-06-05@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270605T100000
+DTEND;TZID=America/Chicago:20270605T110000
+SUMMARY:Hawks 12U @ Sharks
+LOCATION:Chesterfield Athletic Center\, 16365 Lydia Hill Dr\, Chesterfield\, MO 63017
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-game-2027-06-19@teamclubhq.com
+DTSTAMP:20261029T000000Z
+DTSTART;TZID=America/Chicago:20270619T100000
+DTEND;TZID=America/Chicago:20270619T110000
+SUMMARY:Hawks 12U vs. Lions
+LOCATION:Rec-Plex North\, 425 Spencer Rd\, St. Peters\, MO 63376
+DESCRIPTION:Arrive 30 minutes early.
+END:VEVENT
+END:VCALENDAR

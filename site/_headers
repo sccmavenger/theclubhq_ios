@@ -35,3 +35,8 @@
   X-Robots-Tag: noindex, nofollow
 /adminportal/manifest.webmanifest
   Content-Type: application/manifest+json
+
+# Sample team calendar for App Review and demos (Schedule → + → Import Schedule or Calendar).
+/samples/*.ics
+  Content-Type: text/calendar; charset=utf-8
+  Cache-Control: public, max-age=3600
