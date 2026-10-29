@@ -84,13 +84,21 @@ struct JoinOrCreateList: View {
             // Clubs (D-044): directors don't need a team of their own.
             Section("Clubs") {
                 Button { showStartClub = true } label: {
-                    OptionRow(symbol: "building.2.fill", title: "I run a club",
-                              detail: "Set up your club, add its teams and invite coaches.")
+                    HStack {
+                        OptionRow(symbol: "building.2.fill", title: "I run a club",
+                                  detail: "Set up your club, add its teams and invite coaches.")
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    }
                 }
                 .tint(.primary)
                 Button { showJoinClub = true } label: {
-                    OptionRow(symbol: "person.badge.key.fill", title: "I coach in a club",
-                              detail: "Enter the club or coach code from your director.")
+                    HStack {
+                        OptionRow(symbol: "person.badge.key.fill", title: "I coach in a club",
+                                  detail: "Enter the club or coach code from your director.")
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    }
                 }
                 .tint(.primary)
             }

@@ -112,6 +112,13 @@ struct ClubView: View {
                     }
                 }
             }
+            .alert("Cancel \(eventToCancel?.title ?? "this event")?", isPresented: Binding(get: { eventToCancel != nil }, set: { if !$0 { eventToCancel = nil } }),
+                   presenting: eventToCancel) { event in
+                Button("Cancel on \(event.teamCount) Teams", role: .destructive) { Task { await cancel(event) } }
+                Button("Keep Event", role: .cancel) {}
+            } message: { event in
+                Text("\(event.title) is cancelled on every team and families are told.")
+            }
             .alert("Club", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: { Text(message ?? "") }
@@ -161,15 +168,9 @@ struct ClubView: View {
                     }
                     Spacer()
                 }
+                // Not `role: .destructive`: that animates the row away before the coach confirms.
                 .swipeActions {
-                    Button("Cancel Event", role: .destructive) { eventToCancel = event }
-                }
-                .confirmationDialog("Cancel this club event?", isPresented: Binding(get: { eventToCancel?.id == event.id }, set: { if !$0 { eventToCancel = nil } }),
-                                    titleVisibility: .visible) {
-                    Button("Cancel on \(event.teamCount) Teams", role: .destructive) { Task { await cancel(event) } }
-                    Button("Keep Event", role: .cancel) {}
-                } message: {
-                    Text("\(event.title) is cancelled on every team and families are told.")
+                    Button("Cancel Event") { eventToCancel = event }.tint(.red)
                 }
             }
         }

@@ -218,7 +218,7 @@ final class AppModel {
     /// Queues the tour for the selected team's persona the first time this user sees it.
     /// Demo mode skips it — the demo is already a guided look around.
     func showWelcomeTourIfNeeded() {
-        guard phase == .ready, !isDemo, welcomeTour == nil,
+        guard phase == .ready, !isDemo, welcomeTour == nil, selectedTeam?.isClubDirectorOnly != true,
               let userId = context?.userId, let persona = selectedTeam?.primaryPersona,
               !WelcomeTour.hasSeen(user: userId, persona: persona) else { return }
         welcomeTour = persona

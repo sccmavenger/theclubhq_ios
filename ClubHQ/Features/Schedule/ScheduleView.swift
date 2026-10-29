@@ -63,7 +63,9 @@ struct ScheduleView: View {
                     ContentUnavailableView {
                         Label(scope == .upcoming ? "No upcoming events" : "No past events", systemImage: "calendar")
                     } description: {
-                        Text(team?.canManageSchedule == true ? "Tap + to schedule a practice or game." : "Your coach hasn't scheduled anything yet.")
+                        Text(team == nil && !model.clubs.isEmpty
+                             ? "Open a team from the Club tab to see its schedule."
+                             : team?.canManageSchedule == true ? "Tap + to schedule a practice or game." : "Your coach hasn't scheduled anything yet.")
                     }
                     .listRowBackground(Color.clear)
                 }

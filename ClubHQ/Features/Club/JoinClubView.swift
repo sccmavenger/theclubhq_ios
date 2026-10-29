@@ -30,6 +30,7 @@ struct JoinClubView: View {
                     Section {
                         TextField("Club or coach code", text: $code)
                             .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                            .keyboardType(.asciiCapable)
                             .font(.title3.monospaced())
                             .onChange(of: code) { errorText = nil }
                     } footer: {

@@ -45,10 +45,20 @@ struct HomeView: View {
                 if let errorText {
                     Section { Label(errorText, systemImage: "wifi.exclamationmark").foregroundStyle(.secondary) }
                 }
-                switch persona {
-                case .coach: coachSections
-                case .parent: familySections
-                case .player: playerSections
+                if team == nil && !model.clubs.isEmpty {
+                    // A director with no team of their own (D-044).
+                    ContentUnavailableView {
+                        Label("Your club's teams are in the Club tab", systemImage: "building.2")
+                    } description: {
+                        Text("Open any team from the Club tab to see its schedule, roster and chat here.")
+                    }
+                    .listRowBackground(Color.clear)
+                } else {
+                    switch persona {
+                    case .coach: coachSections
+                    case .parent: familySections
+                    case .player: playerSections
+                    }
                 }
                 if let sponsor { sponsorSection(sponsor) }
             }
@@ -283,7 +293,10 @@ struct HomeView: View {
     }
 
     private func load() async {
-        guard let team else { return }
+        guard let team else {
+            isLoading = false
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         let backend = model.backend

@@ -377,7 +377,10 @@ struct ClubComposerView: View {
                     ToolbarItem(placement: .confirmationAction) { AsyncButton("Send") { await send() }.disabled(!canSend) }
                 }
             }
-            .task(id: filter) { await refreshAudience() }
+            .task(id: filter) {
+                audience = nil
+                await refreshAudience()
+            }
         }
     }
 
@@ -398,7 +401,7 @@ struct ClubComposerView: View {
             Text("Send to")
         } footer: {
             // Same shape while counting, so the fields below don't jump.
-            Text("\(filter.isEmpty ? "Every team" : "Matching teams"): \(ClubText.teams(audience?.teamCount ?? matching.count)) · \(audience.map { ClubText.people($0.peopleCount) } ?? "counting people…"). Families with kids on two teams get it once.")
+            Text("\(filter.isEmpty ? "Every team" : "Matching teams"): \(ClubText.teams(audience?.teamCount ?? matching.count)) · \(audience.map { ClubText.people($0.peopleCount) + "." } ?? "counting people…") Families with kids on two teams get it once.")
         }
     }
 
