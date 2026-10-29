@@ -14,6 +14,8 @@ Deno.serve(async (req) => {
     const admin = adminClient();
     const reminders = await runReminders(admin);
     const pushed = await dispatchPendingPushes(admin);
+    // Housekeeping: the sheet cache only needs the last few minutes.
+    await admin.from("sheet_fetch_cache").delete().lt("fetched_at", new Date(Date.now() - 3600_000).toISOString());
     return json({ reminders, pushed });
   } catch (e) {
     return errorResponse(e);

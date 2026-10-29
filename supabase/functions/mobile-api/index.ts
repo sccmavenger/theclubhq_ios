@@ -36,6 +36,7 @@ import {
   parseTournament,
   scoreTeams,
   SheetImportError,
+  type SheetSource,
   type Tournament,
 } from "../_shared/sheetImport.ts";
 import {
@@ -422,7 +423,7 @@ async function loadSource(p: Params): Promise<LoadedSource> {
         tournament: leagueTournament(index, []), league: { index, teamSlug: leagueSource.teamSlug },
       };
     }
-    const sheet = await fetchSheet(sheetSource!);
+    const sheet = await cachedSheet(sheetSource!);
     const tournament = parseTournament(sheet, { fallbackYear: new Date().getUTCFullYear(), firstDay });
     if (tournament.games.length === 0) {
       throw new ApiError("no_games", "We opened this sheet but didn't find any games in it. If it's a tournament schedule, tap Report so we can add support for it.", 422);
@@ -439,6 +440,24 @@ function importError(e: unknown): unknown {
     return new ApiError("unreadable", "The schedule site took too long to answer. Try again in a minute.", 504);
   }
   return e;
+}
+
+/**
+ * Sheets fetched in the last 2 minutes are reused, so preview → import (and a coach going back
+ * and forth) reads Google once. Google throttles repeated bursts from cloud servers.
+ */
+async function cachedSheet(source: SheetSource): Promise<{ title: string | null; tabs: { name: string; gid: string; csv: string }[] }> {
+  const admin = adminClient();
+  const { data: hit } = await admin
+    .from("sheet_fetch_cache")
+    .select("payload")
+    .eq("url", source.url)
+    .gte("fetched_at", new Date(Date.now() - 120_000).toISOString())
+    .maybeSingle();
+  if (hit?.payload) return hit.payload as { title: string | null; tabs: { name: string; gid: string; csv: string }[] };
+  const sheet = await fetchSheet(source);
+  await admin.from("sheet_fetch_cache").upsert({ url: source.url, fetched_at: new Date().toISOString(), payload: sheet }, { onConflict: "url" });
+  return sheet;
 }
 
 /** League sources: load these teams' games (each team has its own page). Sheets already have every game. */
