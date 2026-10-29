@@ -20,6 +20,8 @@ final class AppModel {
     }
     /// A deep link waiting for the main UI to consume (push tap, inbox row, URL).
     var pendingDeepLink: DeepLink?
+    /// Set after starting a club so the tab bar jumps to the new Club tab (D-044).
+    var showClubTab = false
     /// An invite token captured before sign-in, consumed by onboarding. Saved on the device so it
     /// survives the app being closed while a new parent confirms their email.
     var pendingInviteToken: String? {
@@ -64,6 +66,16 @@ final class AppModel {
 
     func updateBlockedUsers(_ ids: [UUID]) {
         context?.blockedUserIds = ids
+    }
+
+    /// Clubs this person directs (D-044). Non-empty shows the Club tab.
+    var clubs: [ClubSummary] { context?.clubs ?? [] }
+
+    /// Reminder switches as last loaded or saved (D-045).
+    var notificationPrefs: NotificationPrefs { context?.notificationPrefs ?? NotificationPrefs() }
+
+    func updateNotificationPrefs(_ prefs: NotificationPrefs) {
+        context?.notificationPrefs = prefs
     }
 
     // MARK: - Derived state
@@ -111,7 +123,8 @@ final class AppModel {
             if selectedTeamID == nil || !context.teams.contains(where: { $0.id == selectedTeamID }) {
                 selectedTeamID = context.teams.first?.id
             }
-            phase = context.teams.isEmpty ? .onboarding : .ready
+            // A director with a club but no team of their own goes straight in (D-044).
+            phase = context.teams.isEmpty && (context.clubs ?? []).isEmpty ? .onboarding : .ready
             refreshToken += 1
             // Someone already on a team who opened an invite before signing in: open it now.
             if phase == .ready, !backend.isDemo, let token = pendingInviteToken {
@@ -205,7 +218,7 @@ final class AppModel {
     /// Queues the tour for the selected team's persona the first time this user sees it.
     /// Demo mode skips it — the demo is already a guided look around.
     func showWelcomeTourIfNeeded() {
-        guard phase == .ready, !isDemo, welcomeTour == nil,
+        guard phase == .ready, !isDemo, welcomeTour == nil, selectedTeam?.isClubDirectorOnly != true,
               let userId = context?.userId, let persona = selectedTeam?.primaryPersona,
               !WelcomeTour.hasSeen(user: userId, persona: persona) else { return }
         welcomeTour = persona

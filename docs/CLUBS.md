@@ -32,6 +32,12 @@ Roadmap #10. The admin portal (D-041) already treats clubs as first-class (`orga
 - Team limits are per coach (1 free, 3 with Coach Pro, D-011), which doesn't fit club teams.
 - **Privacy bug to fix first:** `private.can_access_team` grants access to every team in an org for **any** role row whose `org_id` matches, including head and assistant coaches, whose rows carry `org_id`. Harmless while each team is its own org; with a real club, every coach could read every team's roster. Org-wide access must come only from org-level rows (`team_id IS NULL`), the same rule `mobile-api` `rolesOnTeam` already uses.
 
+## Status (2026-10-29)
+- **Phase 0 shipped:** club-wide access only from club-level roles (`20261029130000_club_access.sql`). The live check proved the leak first (coach B read team A's roster, the director read a private thread), then passed 10/10 (`supabase/tests/d044_phase0_check.mjs`).
+- **Phase 1 built (TestFlight build 22, branch `clubs`):** server (`20261029140000_clubs.sql`, `20261029160000_club_chat_and_lookup.sql`, club actions in `mobile-api`, live check 27/27 `d044_phase1_check.mjs`) and app (Club tab for directors, setup, composer, Join/Start a Club).
+  - Directors' tab bar is Home, Schedule, Team, Messages, **Club**; More opens from the Club tab's person button (iPhone shows five tabs).
+  - Not yet: season rollover, web dashboard, club billing, editing a club event (cancel works), club branding in the app.
+
 ## Plan
 
 ### Phase 0 — Safety (before any multi-team club exists)

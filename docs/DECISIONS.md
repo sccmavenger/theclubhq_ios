@@ -9,6 +9,30 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-046 — Deleting a team (owner-approved 2026-10-29) — Accepted
+- **Context:** A coach had no way to delete a disbanded team. Only the admin portal could archive one, or deleting the coach's own account.
+- **Decision:**
+  - **Who:** an independent team's **head coach** (not assistants or managers). For a club team, **only the club's directors**; the team's coach is told "Only your club's director can delete this team". There is no "release to coach".
+  - **Where:** Team Settings → Delete Team, and Club tab → team → Delete Team.
+  - **Confirming:** type the team's name. "Tell families" is on by default and sends one notice ("X was closed").
+  - **Blocked** while a card payment is processing.
+  - **Effect:** the team is gone for every member at once. It's hidden in the app, and the database rules (`can_access_team`, `parent_can_read_team`, `can_manage_team`, and the player and emergency-contact read rules) refuse deleted teams. Reminders and calendar feeds stop, and the coach's team slot frees up.
+  - **No undo in the app.** Only a platform admin can restore it, from the admin portal, within 30 days. After that, `scheduled-jobs` permanently deletes it with everything on it (roster, guardian links, events, RSVPs, attendance, chats and their photos, announcements, dues, imports), plus an empty independent organization.
+  - **What's kept:** moderation reports and usage stats keep their rows with the team pointer cleared. Audit entries `team.deleted` and `team.purged` record it.
+- **Why:** Disbanded teams shouldn't keep pinging families or hold a coach's slot. Children's data shouldn't be kept indefinitely. A short admin-only window covers a mistaken deletion without a confusing in-app undo.
+- **Consequences:** migrations `20261029170000_team_deletion.sql` and `20261029180000_deleted_team_access.sql`; `mobile-api` `delete-team`; the `admin-api` restore check; the 30-day purge in `_shared/teamPurge.ts`. Live check `supabase/tests/d046_live_check.mjs` (21/21).
+
+## D-045 — Event reminders and RSVP nudges (2026-10-29) — Accepted
+- **Context:** Roadmap #1. Push went live on 2026-10-28 (OQ-04), but nothing created reminders. The `event_reminder` and `rsvp_reminder` kinds existed unused.
+- **Decision:** The `scheduled-jobs` Edge Function runs every 5 minutes through pg_cron, using the dispatch secret from Vault. `_shared/reminders.ts`:
+  - **Day before:** 18–30 h before the start, sent only 7 AM–9 PM team time. "Tomorrow: Game @ Rage", with time and place.
+  - **2 hours before:** 1.5–2.5 h before, any hour. "In 2 hours: Practice".
+  - **RSVP nudge:** the cutoff (or start − 4 h) is 1–24 h away, sent 8 AM–8 PM. One per family, naming only the children without an RSVP.
+  - **Recipients:** guardians, staff and player accounts. `event_reminder_log` claims each (event, kind) before sending, so runs never double-send. Cancelled events and archived teams are skipped.
+  - **Switches:** Account → Notifications has "Event reminders" and "RSVP reminders" (`profiles.notification_prefs`, default on, `set-notification-prefs`).
+- **Why:** "Practice tomorrow 6 PM, tap to RSVP" is the retention loop (roadmap #1). Windows plus a log are simpler and safer than per-event scheduled jobs. Quiet hours avoid 3 AM pings for the day-before reminder.
+- **Consequences:** Reminders follow the team's `time_zone` (default America/Chicago). Tests: `supabase/tests/reminders_test.ts` (timing and wording) and `d045_live_check.mjs` (10/10 live).
+
 ## D-044 — Clubs: directors over many teams, invisible to parents (owner-approved 2026-10-28) — Accepted
 - **Context:** Roadmap #10. The pilot is 3D Basketball Academy (20+ teams, one or two directors). Today every new team creates its own organization, directors can only look, and `can_access_team` would let any coach in a shared club read every team.
 - **Decision:** The plan and the 15 owner decisions are in [`CLUBS.md`](CLUBS.md).
@@ -17,7 +41,7 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
   - Teams join by director setup (one, or a pasted list) or a club code. The club owns teams when coaches leave. Seasons copy forward.
   - The pilot is free through a club Pro grant. The app comes first.
 - **Why:** One director signs up 20+ teams at once (the GameChanger clubs threat, roadmap note). Keeping parents' experience unchanged avoids confusion and keeps the family app simple.
-- **Consequences:** Phase 0 fixes org-wide access in the RLS helpers before any club has two teams. Club billing waits for OQ-18.
+- **Consequences:** Phase 0 fixes org-wide access in the RLS helpers before any club has two teams (shipped 2026-10-29). Club billing waits for OQ-18. Directors act as head coach through `private.can_manage_team` (29 policies) and `requireHeadCoach`. Club teams a director assigns don't count against a coach's own team limit; teams a coach creates still do. Status and test results are in [`CLUBS.md`](CLUBS.md).
 
 ## D-043 — CNR league schedules from cnrschedule.stlbasketball.com (owner-approved 2026-10-28) — Accepted
 - **Context:** CNR posts its league season (e.g. 11/7/26 – 12/20/26, 818 teams) on a Next.js site, cnrschedule.stlbasketball.com, with past seasons on their own sites (cnrsummer2026.stlbasketball.com and others). Each team has a page and, in the current season, a calendar feed. There's no public API.

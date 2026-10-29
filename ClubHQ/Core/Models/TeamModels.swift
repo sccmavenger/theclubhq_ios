@@ -107,10 +107,17 @@ struct TeamMembership: Codable, Identifiable, Hashable, Sendable {
     var linkedPlayers: [PlayerSummary]
     var playerSelf: PlayerSummary?
     var isPro: Bool
+    /// The team belongs to a club (D-044). Older servers don't send it.
+    var isClubTeam: Bool? = nil
 
     // MARK: Capabilities (DECISIONS D-007) — screens ask these, not role names.
 
-    var isHeadCoach: Bool { roles.contains(.headCoach) || roles.contains(.superAdmin) }
+    /// Club directors act as head coach on every club team (D-044).
+    var isHeadCoach: Bool { roles.contains(.headCoach) || roles.contains(.superAdmin) || roles.contains(.programDirector) }
+    /// Seen through a club the user directs, not as the team's own coach.
+    var isClubDirectorOnly: Bool { roles.contains(.programDirector) && !roles.contains(.headCoach) }
+    /// D-046: an independent team's head coach, or only the club's directors for a club team.
+    var canDeleteTeam: Bool { isClubTeam == true ? roles.contains(.programDirector) : roles.contains(.headCoach) }
     var isStaff: Bool { roles.contains(where: \.isStaff) }
     var isGuardian: Bool { !linkedPlayers.isEmpty || roles.contains(.parent) }
     var isPlayer: Bool { playerSelf != nil || roles.contains(.player) }
@@ -154,6 +161,10 @@ struct UserContext: Codable, Sendable {
     var teams: [TeamMembership]
     /// People this user blocked, kept on the server so blocks follow them to every device (D-041).
     var blockedUserIds: [UUID]? = nil
+    /// Reminder switches (D-045); missing from older servers means both on.
+    var notificationPrefs: NotificationPrefs? = nil
+    /// Clubs this person directs (D-044).
+    var clubs: [ClubSummary]? = nil
 
     var headCoachTeamCount: Int { teams.filter(\.isHeadCoach).count }
     var displayName: String {
@@ -360,4 +371,12 @@ enum AgePolicy {
         guard let age = age(birthdate: birthdate, on: date) else { return false }
         return age >= minimumPlayerAccountAge
     }
+}
+
+/// Which automatic reminders this person gets (D-045). Both default to on.
+struct NotificationPrefs: Codable, Hashable, Sendable {
+    /// The day before and 2 hours before each event.
+    var eventReminders = true
+    /// A nudge before the RSVP cutoff when a child hasn't responded.
+    var rsvpReminders = true
 }

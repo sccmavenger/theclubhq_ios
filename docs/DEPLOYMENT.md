@@ -110,3 +110,13 @@ In `ClubHQ/Core/AppConfig.swift` set `supabaseURL` and `supabasePublishableKey` 
 - `mobile-api` actions `import-preview`, `import-commit`, `import-undo`, `import-notify`, `import-report` (deployed 2026-10-28). The reader is `_shared/sheetImport.ts`. It fetches only docs.google.com and needs no secrets.
 - Tests: `npx deno test --allow-read supabase/tests/sheetImport_test.ts` (offline, saved CNR sheet) and `node supabase/tests/d042_live_check.mjs` (live, throwaway accounts).
 - CNR league (D-043): migration `20261028160000_schedule_import_league.sql` (applied 2026-10-28) allows `source_kind = 'cnr_league'`. The reader is `_shared/cnrLeague.ts` and only fetches `cnr*.stlbasketball.com`. Offline tests: `npx deno test --allow-read supabase/tests/cnrLeague_test.ts`.
+
+## 11. Reminders (D-045)
+- Migration `20261029120000_reminders.sql` (applied 2026-10-29): `event_reminder_log`, `profiles.notification_prefs`.
+- Function `scheduled-jobs` (JWT off; bearer = `APNS_DISPATCH_SECRET`), cron job `clubhq-scheduled-jobs` every 5 minutes.
+- Tests: `npx deno test supabase/tests/reminders_test.ts`; live `node supabase/tests/d045_live_check.mjs`.
+
+## 12. Clubs (D-044)
+- Migrations (applied 2026-10-29): `20261029130000_club_access.sql` (Phase 0 access fix), `20261029140000_clubs.sql` (grouping columns, `club_invites`, `announcements.from_club`, `events.club_event_id`, `private.can_manage_team` across 29 policies), `20261029150000_sheet_fetch_cache.sql`, `20261029160000_club_chat_and_lookup.sql`.
+- `mobile-api` club actions: `create-club`, `club-overview`, `club-reset-code`, `club-create-teams`, `club-update-team`, `club-assign-coach`, `club-remove-coach`, `lookup-club-invite`, `claim-club-invite`, `club-audience`, `club-announcement`, `club-event`, `club-event-cancel`.
+- Live checks: `node supabase/tests/d044_phase0_check.mjs` (10/10), `node supabase/tests/d044_phase1_check.mjs` (27/27).

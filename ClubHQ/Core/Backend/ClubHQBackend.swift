@@ -32,6 +32,8 @@ protocol ClubHQBackend: AnyObject {
     // MARK: Context & teams
     func loadContext() async throws -> UserContext
     func updateProfile(fullName: String) async throws
+    /// Saves the reminder switches and returns what the server stored (D-045).
+    func setNotificationPrefs(_ prefs: NotificationPrefs) async throws -> NotificationPrefs
     func createTeam(_ request: NewTeamRequest) async throws -> UUID
     func updateTeamColor(teamID: UUID, hex: String?) async throws
     /// Saves the team's Venmo username / $Cashtag (nil clears). Returns the normalized values.
@@ -87,6 +89,27 @@ protocol ClubHQBackend: AnyObject {
     func importReport(teamID: UUID?, url: String, reason: ImportReportReason, note: String?) async throws
     /// Links this team imported from, newest first.
     func scheduleImports(teamID: UUID) async throws -> [ScheduleImportInfo]
+
+    /// Deletes the team for everyone (D-046). `confirmName` must match the team's name.
+    func deleteTeam(teamID: UUID, confirmName: String, notifyFamilies: Bool) async throws
+
+    // MARK: Clubs (D-044)
+    /// Starts a club with the caller as director. Returns the club's id.
+    func createClub(name: String) async throws -> UUID
+    func clubOverview(orgID: UUID) async throws -> ClubOverview
+    func clubResetCode(orgID: UUID) async throws -> String
+    func clubCreateTeams(orgID: UUID, teams: [NewClubTeam]) async throws -> [CreatedClubTeam]
+    func clubUpdateTeam(teamID: UUID, name: String?, grade: String?, gender: String?, level: String?, season: String?) async throws
+    func clubAssignCoach(teamID: UUID, email: String, role: TeamRole) async throws -> (CoachAssignment, inviteText: String?)
+    /// Removes a coach (by account) or a pending invite (by email). The team stays.
+    func clubRemoveCoach(teamID: UUID, userID: UUID?, email: String?) async throws
+    func lookupClubInvite(code: String) async throws -> ClubInvitePreview
+    /// Coach code → coach of that team. Club code → bring `teamID` in, or start `newTeam`.
+    func claimClubInvite(code: String, teamID: UUID?, newTeam: NewClubTeam?) async throws -> UUID
+    func clubAudience(orgID: UUID, filter: ClubFilter) async throws -> ClubAudience
+    func clubAnnouncement(orgID: UUID, filter: ClubFilter, title: String, body: String) async throws -> ClubAudience
+    func clubEvent(orgID: UUID, filter: ClubFilter, draft: EventDraft) async throws -> ClubAudience
+    func clubEventCancel(clubEventID: UUID) async throws -> Int
 
     // MARK: Messaging
     func threads(teamID: UUID) async throws -> [MessageThread]

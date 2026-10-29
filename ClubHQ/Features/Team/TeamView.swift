@@ -317,6 +317,7 @@ struct AnnouncementsView: View {
             }
             ForEach(announcements) { announcement in
                 VStack(alignment: .leading, spacing: 6) {
+                    if let club = announcement.fromClub { Text("From \(club)").font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
                     Text(announcement.title).font(.headline)
                     Text(announcement.body).font(.subheadline)
                     Text(announcement.createdAt.formatted(date: .abbreviated, time: .shortened))
@@ -423,6 +424,7 @@ struct AnnouncementComposer: View {
 struct TeamSettingsView: View {
     let team: TeamMembership
     @Environment(AppModel.self) private var model
+    @State private var showDelete = false
     @State private var color: Color = .accentColor
     @State private var errorText: String?
 
@@ -475,7 +477,20 @@ struct TeamSettingsView: View {
                 Text("Families see Pay with Venmo and Pay with Cash App buttons on their dues.")
             }
             if let errorText { Text(errorText).foregroundStyle(.red) }
+            // D-046: only the head coach (independent) or the club's directors (club team).
+            if team.canDeleteTeam {
+                Section {
+                    Button("Delete Team", systemImage: "trash", role: .destructive) { showDelete = true }
+                } footer: {
+                    Text("For a team that has disbanded. It's removed for everyone.")
+                }
+            } else if team.isClubTeam == true && team.isHeadCoach {
+                Section {
+                    Text("Only your club's director can delete this team.").foregroundStyle(.secondary)
+                }
+            }
         }
+        .sheet(isPresented: $showDelete) { DeleteTeamView(teamID: team.id, teamName: team.name) }
         .navigationTitle("Team Settings")
     }
 

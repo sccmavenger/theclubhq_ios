@@ -91,6 +91,14 @@ final class SupabaseBackend: ClubHQBackend {
         let _: OK = try await client.invoke("update-profile", ["full_name": .string(fullName)])
     }
 
+    func setNotificationPrefs(_ prefs: NotificationPrefs) async throws -> NotificationPrefs {
+        struct Saved: Decodable { let notificationPrefs: NotificationPrefs }
+        let saved: Saved = try await client.invoke("set-notification-prefs", [
+            "event_reminders": .bool(prefs.eventReminders), "rsvp_reminders": .bool(prefs.rsvpReminders),
+        ])
+        return saved.notificationPrefs
+    }
+
     func createTeam(_ request: NewTeamRequest) async throws -> UUID {
         struct Created: Decodable { let teamId: UUID }
         let created: Created = try await client.invoke("create-team", [
@@ -338,6 +346,118 @@ final class SupabaseBackend: ClubHQBackend {
             "away_score": .int(awayScore),
             "result": result,
         ])
+    }
+
+    func deleteTeam(teamID: UUID, confirmName: String, notifyFamilies: Bool) async throws {
+        let _: OK = try await client.invoke("delete-team", [
+            "team_id": .uuid(teamID), "confirm_name": .string(confirmName), "notify_families": .bool(notifyFamilies),
+        ])
+    }
+
+    // MARK: - Clubs (D-044)
+
+    private func filterJSON(_ filter: ClubFilter) -> JSONValue {
+        .object([
+            "grades": .array(filter.grades.map(JSONValue.string)),
+            "genders": .array(filter.genders.map(JSONValue.string)),
+            "levels": .array(filter.levels.map(JSONValue.string)),
+            "seasons": .array(filter.seasons.map(JSONValue.string)),
+            "team_ids": .array(filter.teamIds.map { .string($0.uuidString.lowercased()) }),
+        ])
+    }
+
+    func createClub(name: String) async throws -> UUID {
+        struct Created: Decodable { let orgId: UUID }
+        let created: Created = try await client.invoke("create-club", ["name": .string(name), "time_zone": .string(TimeZone.current.identifier)])
+        return created.orgId
+    }
+
+    func clubOverview(orgID: UUID) async throws -> ClubOverview {
+        try await client.invoke("club-overview", ["org_id": .uuid(orgID)])
+    }
+
+    func clubResetCode(orgID: UUID) async throws -> String {
+        struct Code: Decodable { let code: String }
+        let response: Code = try await client.invoke("club-reset-code", ["org_id": .uuid(orgID)])
+        return response.code
+    }
+
+    func clubCreateTeams(orgID: UUID, teams: [NewClubTeam]) async throws -> [CreatedClubTeam] {
+        struct Created: Decodable { let teams: [CreatedClubTeam] }
+        let rows: [JSONValue] = teams.map { team in
+            .object([
+                "name": .string(team.name), "grade": .optional(team.grade), "gender": .optional(team.gender),
+                "level": .optional(team.level), "season": .optional(team.season), "coach_email": .optional(team.coachEmail),
+            ])
+        }
+        let created: Created = try await client.invoke("club-create-teams", ["org_id": .uuid(orgID), "teams": .array(rows)])
+        return created.teams
+    }
+
+    func clubUpdateTeam(teamID: UUID, name: String?, grade: String?, gender: String?, level: String?, season: String?) async throws {
+        var params: [String: JSONValue] = ["team_id": .uuid(teamID)]
+        if let name { params["name"] = .string(name) }
+        // "" clears a field on the server.
+        params["grade"] = .string(grade ?? "")
+        params["gender"] = .string(gender ?? "")
+        params["level"] = .string(level ?? "")
+        params["season"] = .string(season ?? "")
+        let _: OK = try await client.invoke("club-update-team", params)
+    }
+
+    func clubAssignCoach(teamID: UUID, email: String, role: TeamRole) async throws -> (CoachAssignment, inviteText: String?) {
+        struct Assigned: Decodable { let status: CoachAssignment.Status; let email: String; let code: String?; let inviteText: String? }
+        let r: Assigned = try await client.invoke("club-assign-coach", ["team_id": .uuid(teamID), "email": .string(email), "role": .string(role.rawValue)])
+        return (CoachAssignment(status: r.status, email: r.email, code: r.code), r.inviteText)
+    }
+
+    func clubRemoveCoach(teamID: UUID, userID: UUID?, email: String?) async throws {
+        var params: [String: JSONValue] = ["team_id": .uuid(teamID)]
+        if let userID { params["user_id"] = .uuid(userID) }
+        if let email { params["email"] = .string(email) }
+        let _: OK = try await client.invoke("club-remove-coach", params)
+    }
+
+    func lookupClubInvite(code: String) async throws -> ClubInvitePreview {
+        try await client.invoke("lookup-club-invite", ["token": .string(code)])
+    }
+
+    func claimClubInvite(code: String, teamID: UUID?, newTeam: NewClubTeam?) async throws -> UUID {
+        struct Claimed: Decodable { let teamId: UUID }
+        var params: [String: JSONValue] = ["token": .string(code)]
+        if let teamID { params["team_id"] = .uuid(teamID) }
+        if let newTeam {
+            params["team_name"] = .string(newTeam.name)
+            params["grade"] = .optional(newTeam.grade)
+            params["gender"] = .optional(newTeam.gender)
+            params["level"] = .optional(newTeam.level)
+            params["season"] = .optional(newTeam.season)
+        }
+        let claimed: Claimed = try await client.invoke("claim-club-invite", params)
+        return claimed.teamId
+    }
+
+    func clubAudience(orgID: UUID, filter: ClubFilter) async throws -> ClubAudience {
+        try await client.invoke("club-audience", ["org_id": .uuid(orgID), "filter": filterJSON(filter)])
+    }
+
+    func clubAnnouncement(orgID: UUID, filter: ClubFilter, title: String, body: String) async throws -> ClubAudience {
+        try await client.invoke("club-announcement", ["org_id": .uuid(orgID), "filter": filterJSON(filter), "title": .string(title), "body": .string(body)])
+    }
+
+    func clubEvent(orgID: UUID, filter: ClubFilter, draft: EventDraft) async throws -> ClubAudience {
+        try await client.invoke("club-event", [
+            "org_id": .uuid(orgID), "filter": filterJSON(filter), "title": .string(draft.resolvedTitle),
+            "event_type": .string(draft.eventType.rawValue), "starts_at": .date(draft.startsAt), "ends_at": .date(draft.endsAt),
+            "location": .optional(draft.location), "location_address": .optional(draft.locationAddress), "notes": .optional(draft.notes),
+            "time_zone": .string(TimeZone.current.identifier),
+        ])
+    }
+
+    func clubEventCancel(clubEventID: UUID) async throws -> Int {
+        struct Cancelled: Decodable { let cancelled: Int }
+        let r: Cancelled = try await client.invoke("club-event-cancel", ["club_event_id": .uuid(clubEventID)])
+        return r.cancelled
     }
 
     // MARK: - Schedule import (D-042)

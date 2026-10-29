@@ -150,9 +150,34 @@ const MAX_TABS = 40;
 const FETCH_TIMEOUT_MS = 10_000;
 
 /** Downloads every tab as CSV. Only ever fetches docs.google.com. */
+/** Runs `fn` over `items` with at most `limit` in flight (Google throttles bursts from servers). */
+export async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  }));
+  return out;
+}
+
 export async function fetchSheet(source: SheetSource, fetcher: typeof fetch = fetch): Promise<{ title: string | null; tabs: SheetTab[] }> {
+  // One retry after a timeout or a 429/5xx: Google slows down bursts from cloud servers.
+  const once = (url: string) => fetcher(url, { redirect: "follow", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  const fetchWithRetry = async (url: string) => {
+    try {
+      const res = await once(url);
+      if (res.status !== 429 && res.status < 500) return res;
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === "TimeoutError")) throw e;
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+    return await once(url);
+  };
   const get = async (url: string) => {
-    const res = await fetcher(url, { redirect: "follow", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    const res = await fetchWithRetry(url);
     // Private sheets bounce to the Google sign-in page.
     if (res.status === 401 || res.status === 403 || new URL(res.url || url).hostname === "accounts.google.com") {
       throw new SheetImportError("not_published", "This sheet isn't shared publicly. Ask the organizer for the \"Publish to web\" link.");
@@ -170,7 +195,7 @@ export async function fetchSheet(source: SheetSource, fetcher: typeof fetch = fe
   const csvURL = (gid: string) => source.kind === "published"
     ? `https://docs.google.com/spreadsheets/d/e/${source.id}/pub?output=csv&gid=${gid}`
     : `https://docs.google.com/spreadsheets/d/${source.id}/export?format=csv&gid=${gid}`;
-  const csvs = await Promise.all(tabs.slice(0, MAX_TABS).map(async (t) => ({ ...t, csv: await get(csvURL(t.gid)) })));
+  const csvs = await mapLimited(tabs.slice(0, MAX_TABS), 5, async (t) => ({ ...t, csv: await get(csvURL(t.gid)) }));
   return { title: sheetTitle(html), tabs: csvs };
 }
 

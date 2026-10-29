@@ -84,6 +84,8 @@ struct Announcement: Codable, Identifiable, Hashable, Sendable {
     var body: String
     var createdAt: Date
     var createdBy: UUID
+    /// Set when a club director sent it to many teams: "3D Basketball Academy" (D-044).
+    var fromClub: String? = nil
 }
 
 enum NotificationKind: String, Codable, Sendable {

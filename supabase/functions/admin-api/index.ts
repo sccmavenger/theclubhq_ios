@@ -168,7 +168,13 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const archived = p.archived === true;
     const team = await getTeam(ctx, teamId);
     const archivedAt = archived ? new Date().toISOString() : null;
-    const { error } = await ctx.admin.from("teams").update({ archived_at: archivedAt }).eq("id", teamId);
+    // A team its coach or club deleted (D-046) can only come back within 30 days.
+    const { data: del } = await ctx.admin.from("teams").select("deleted_at").eq("id", teamId).single();
+    if (!archived && del?.deleted_at && Date.now() - new Date(del.deleted_at).getTime() > 30 * 24 * 3600_000) {
+      throw new ApiError("expired", "This team was deleted more than 30 days ago and can't be restored.", 410);
+    }
+    const update = archived ? { archived_at: archivedAt } : { archived_at: null, deleted_at: null, deleted_by: null };
+    const { error } = await ctx.admin.from("teams").update(update).eq("id", teamId);
     if (error) throw new ApiError("internal", error.message, 500);
     await audit(ctx, archived ? "team.archive" : "team.restore", { table: "teams", id: teamId, teamId },
       { before: { archived_at: team.archived_at }, after: { archived_at: archivedAt }, note: str(p, "note", { max: 500, optional: true }) || null });
