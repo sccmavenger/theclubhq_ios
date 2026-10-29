@@ -26,6 +26,14 @@ Plan and status: [`ADMIN_PORTAL.md`](ADMIN_PORTAL.md).
 | 4 | **Tournament import: paste a link** | The St. Louis wedge: CNR's Google Sheets first, then Exposure and Tourney Machine. Adds a tournament-weekend view with every game, venue, court and bracket placeholder, refreshed through the weekend. **v1 built 2026-10-28 (D-042):** any Google Sheets schedule, team matching, review, update in place, undo. **CNR league site added the same day (D-043).** Next: timed re-checks with change alerts, other platforms. | M–L | — (alerts need #1) |
 | 5 | **Roster import and bulk invite** (CSV / TeamSnap export) | Shortens coach setup to under 10 minutes, timed for the TeamSnap ONE migration pain. | S | — |
 
+## Planned after Club Support: guided platform migration (2026-10-29)
+
+**Status: design/handoff ready; not implemented.** Build a **Team Settings / Club Settings → Migrating from another platform** wizard. Coaches choose GroupMe, TeamSnap, BAND, GameChanger or CSV/Excel, then get the best supported authorized connection/export/import path. **GroupMe is the first connected provider:** OAuth, select accessible groups, map to ClubHQ teams, review unverified members, and send explicitly approved individual invitations. GroupMe does not expose other members' email addresses through its documented group-member API; parents complete their own registration and athlete relationship verification.
+
+**Sequencing:** preserve existing #5 roster CSV/bulk invite as the foundation; complete the Club Support Phase 0 RLS safety fix and pilot-ready club setup (#10 / [CLUBS.md](CLUBS.md)) before multi-team director migrations. GroupMe single-team pilot can follow the import foundation. No historical message copy, auto-created athlete accounts, or bidirectional sync in v1. Validate GroupMe DM support and provider terms with one consenting test before bulk sending.
+
+**Claude Code artifacts:** [Platform Migration handoff](features/platform-migration/README.md) · [Detailed roadmap](features/platform-migration/ROADMAP.md) · [GroupMe spec](features/platform-migration/groupme/GROUPME-MIGRATION-SPEC.md) · [Implementation checklist](features/platform-migration/implementation/ACCEPTANCE-CHECKLIST.md).
+
 ## Next: revenue and game day (about 1–3 months out)
 
 | # | Build | Why it matters | Size | Blocked by |
