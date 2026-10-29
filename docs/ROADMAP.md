@@ -6,40 +6,45 @@
 Written 2026-10-23. Strategy and positioning: [`PRODUCT_STRATEGY.md`](PRODUCT_STRATEGY.md).
 Owner blockers: [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md). Integration research behind items 3, 4, 8 and 9 is in the appendix.
 
-**Where we are:** 1.0 (build 9) is in App Review. Build 11 is on TestFlight with the welcome tour,
-the coach setup checklist, and co-parent invites (D-035). Coach Pro can be purchased (D-034). Card
-payments are off; families pay dues through Venmo and Cash App buttons (D-033).
+**Where we are (updated 2026-10-29):** 1.0.1 (build 18, the rebrand) has been in App Review since
+2026-10-25. TestFlight has build 22 (reminders and clubs) and build 23 (Delete Team, D-046). Push
+notifications are live (OQ-04), and so are event reminders and RSVP nudges (D-045). Clubs Phase 0+1
+(D-044) is built for the 3D Basketball Academy pilot. All of it is merged to main. Coach Pro can be
+purchased (D-034). Card payments are off; families pay dues through Venmo and Cash App buttons (D-033).
+
+**Status key for the tables below:** ✅ done · 🔨 in progress · ⬜ not started.
 
 Sizes are rough: **S** ≈ days, **M** ≈ 1–2 weeks, **L** ≈ several weeks.
 
 **Launch gate (added 2026-10-24, D-041):** the public launch waits for Phase 1 of the internal admin
 portal and its app-side changes (reports and blocks on the server, usage events, acquisition source).
-Plan and status: [`ADMIN_PORTAL.md`](ADMIN_PORTAL.md).
+Plan and status: [`ADMIN_PORTAL.md`](ADMIN_PORTAL.md). **✅ Phase 1 shipped 2026-10-25** at
+teamclubhq.com/adminportal and was merged to main 2026-10-28. The ASC label step is still open.
 
 ## Now: deliver on the core promise (next 4–6 weeks)
 
-| # | Build | Why it matters | Size | Blocked by |
-|---|---|---|---|---|
-| 1 | **Push notifications, event reminders and RSVP nudges** | Retention starts here: "Practice tomorrow 6pm, tap to RSVP," and coaches get nudges for families who haven't replied. The push code is written but not running (D-012, D-021). It needs the APNs key and a scheduled reminder job. | M | APNs key (OQ-04) |
-| 2 | **Calendar subscribe feed** (one feed per family, covering all kids) | "Calendar sync is free" is a headline promise. The ICS feed went away with the old web app and was never rebuilt as an Edge Function (D-024 item 2). The `calendar_tokens` table already exists. | S | — |
-| 3 | **Import any team calendar** (iCal subscription) | Pulls in GameChanger, TeamSnap, SportsEngine, LeagueApps, PlayMetrics and Exposure, so "one family calendar for every kid" becomes real. A server job checks for changes every 15–30 minutes and pushes **"time changed"** alerts, which beats those apps' own calendar sync (up to a 24-hour lag). | M | — (alerts need #1) |
-| 4 | **Tournament import: paste a link** | The St. Louis wedge: CNR's Google Sheets first, then Exposure and Tourney Machine. Adds a tournament-weekend view with every game, venue, court and bracket placeholder, refreshed through the weekend. **v1 built 2026-10-28 (D-042):** any Google Sheets schedule, team matching, review, update in place, undo. **CNR league site added the same day (D-043).** Next: timed re-checks with change alerts, other platforms. | M–L | — (alerts need #1) |
-| 5 | **Roster import and bulk invite** (CSV / TeamSnap export) | Shortens coach setup to under 10 minutes, timed for the TeamSnap ONE migration pain. | S | — |
+| # | Build | Why it matters | Size | Blocked by | Status |
+|---|---|---|---|---|---|
+| 1 | **Push notifications, event reminders and RSVP nudges** | Retention starts here: "Practice tomorrow 6pm, tap to RSVP," and coaches get nudges for families who haven't replied. **Push live 2026-10-28** (APNs key set, every-minute `apns-dispatch` cron). **Reminders and nudges (D-045) live 2026-10-29** through `scheduled-jobs`. | M | — | ✅ 2026-10-29 |
+| 2 | **Calendar subscribe feed** (one feed per family, covering all kids) | "Calendar sync is free" is a headline promise. **Built under D-036:** the `calendar-feed` Edge Function serves one secret, revocable feed per user covering every team. Schedule → Calendar sync has Subscribe, Copy Link and Reset Link. | S | — | ✅ 2026-10-23 |
+| 3 | **Import any team calendar** (iCal subscription) | Pulls in GameChanger, TeamSnap, SportsEngine, LeagueApps, PlayMetrics and Exposure, so "one family calendar for every kid" becomes real. A server job checks for changes every 15–30 minutes and pushes **"time changed"** alerts, which beats those apps' own calendar sync (up to a 24-hour lag). The re-check job can be shared with #4's timed re-checks. | M | — | ⬜ **Next up** |
+| 4 | **Tournament import: paste a link** | The St. Louis wedge: CNR's Google Sheets first, then Exposure and Tourney Machine. Adds a tournament-weekend view with every game, venue, court and bracket placeholder, refreshed through the weekend. **v1 built 2026-10-28 (D-042):** any Google Sheets schedule, team matching, review, update in place, undo. **CNR league site added the same day (D-043).** Next: timed re-checks with change alerts, other platforms. | M–L | — | 🔨 v1 shipped |
+| 5 | **Roster import and bulk invite** (CSV / TeamSnap export) | Shortens coach setup to under 10 minutes, timed for the TeamSnap ONE migration pain. | S | — | ⬜ |
 
 ## Next: revenue and game day (about 1–3 months out)
 
-| # | Build | Why it matters | Size | Blocked by |
-|---|---|---|---|---|
-| 6 | **Card payments live** (Stripe Connect and Apple Pay), payment plans, auto-reminders for unpaid dues | Revenue line #1 in the strategy. The schema and Edge Functions are built; `AppConfig.cardPaymentsEnabled` is off. | M | Stripe account with Connect (OQ-08) |
-| 7 | **Game-day mode:** widgets, Live Activity, directions, carpool | "Court 3, 9:40, arrive by 9:10" on the Lock Screen. It's a visible native advantage that web-first competitors can't match. | M | — |
-| 8 | **Schedule from a screenshot, PDF or text**, parsed on the device | Covers everything else: flyers, Facebook posts, emailed PDFs. Apple's on-device Foundation Models plus the Vision OCR tool return structured events for the coach to review before saving. It's private and costs nothing per use. | M | — |
-| 9 | **Results, stats and video links** | A "Watch on GameChanger" link on teams and events, a GameChanger stats CSV upload (Coach Pro), and player season pages. This lays the groundwork for Family+ (v2.0) without building a video pipeline yet. | M | — |
+| # | Build | Why it matters | Size | Blocked by | Status |
+|---|---|---|---|---|---|
+| 6 | **Card payments live** (Stripe Connect and Apple Pay), payment plans, auto-reminders for unpaid dues | Revenue line #1 in the strategy. The schema and Edge Functions are built; `AppConfig.cardPaymentsEnabled` is off. | M | Stripe account with Connect (OQ-08) | ⬜ Blocked |
+| 7 | **Game-day mode:** widgets, Live Activity, directions, carpool | "Court 3, 9:40, arrive by 9:10" on the Lock Screen. It's a visible native advantage that web-first competitors can't match. | M | — | ⬜ |
+| 8 | **Schedule from a screenshot, PDF or text**, parsed on the device | Covers everything else: flyers, Facebook posts, emailed PDFs. Apple's on-device Foundation Models plus the Vision OCR tool return structured events for the coach to review before saving. It's private and costs nothing per use. AI Phase 0 groundwork is done. | M | — | ⬜ |
+| 9 | **Results, stats and video links** | A "Watch on GameChanger" link on teams and events, a GameChanger stats CSV upload (Coach Pro), and player season pages. This lays the groundwork for Family+ (v2.0) without building a video pipeline yet. | M | — | ⬜ |
 
 ## Later: grow from teams to clubs
 
-| # | Build | Why it matters | Size | Blocked by |
-|---|---|---|---|---|
-| 10 | **Club layer** (plan: [CLUBS.md](CLUBS.md), D-044, pilot 3D Basketball Academy)**:** a director view across teams, club-wide announcements, registration forms and waivers | GameChanger started recruiting basketball clubs in Oct 2026. Signing a club brings every team at once and leads to Club SaaS revenue. The iPhone app is the only client, so this starts as an in-app, iPad-friendly view. | L | — |
+| # | Build | Why it matters | Size | Blocked by | Status |
+|---|---|---|---|---|---|
+| 10 | **Club layer** (plan: [CLUBS.md](CLUBS.md), D-044, pilot 3D Basketball Academy)**:** a director view across teams, club-wide announcements, registration forms and waivers | GameChanger started recruiting basketball clubs in Oct 2026. Signing a club brings every team at once and leads to Club SaaS revenue. The iPhone app is the only client, so this starts as an in-app, iPad-friendly view. **Phase 0+1 built (build 22):** Club tab for directors, club announcements and events, Join/Start a Club; Delete Team (D-046) in build 23. Not yet: season rollover, editing a club event, club branding, billing, web dashboard. | L | — | 🔨 Pilot-ready |
 
 **On deck but not in the top 10:** Spanish localization, Android, the daily RSVP digest, local sponsorship cards, fundraising (pending legal review).
 
@@ -49,7 +54,7 @@ Added 2026-10-23. Guardrails: [D-039](DECISIONS.md). AI is a quiet helper inside
 never a chatbot. Every feature saves a coach or parent taps, shows a review step before anything is saved
 or sent, and keeps a manual path for phones without Apple Intelligence (many parents' phones aren't eligible).
 
-**Status key:** ✅ done · 🔨 in progress · ⬜ not started. Update this table as items ship.
+Update this table as items ship.
 
 | Phase | Item | Ships with | Size | Status |
 |---|---|---|---|---|
@@ -73,16 +78,17 @@ or sent, and keeps a manual path for phones without Apple Intelligence (many par
 
 ## Unblockers (owner tasks, not features)
 
-| Task | Unblocks | Ref |
-|---|---|---|
-| Create the APNs .p8 key and store it as Edge Function secrets | #1, and the alerts in #3 and #4 | OQ-04 |
-| Create a Stripe account with Connect enabled, and pick the business entity | #6 | OQ-08 |
-| Set up a support@ inbox (teamclubhq.com has no MX record, so replies bounce) | Support, App Review contact | OQ-16 |
-| Check the Resend plan before launch volume | Invite and code emails at scale | OQ-17 |
-| Run a trademark check on "ClubHQ" | Marketing spend | OQ-11 |
-| Rotate the credentials that were shared in chat | Security hygiene | OQ-13 |
+| Task | Unblocks | Ref | Status |
+|---|---|---|---|
+| Create the APNs .p8 key and store it as Edge Function secrets | #1, and the alerts in #3 and #4 | OQ-04 | ✅ 2026-10-28 |
+| Create a Stripe account with Connect enabled, and pick the business entity | #6 | OQ-08 | ⬜ |
+| Set up a support@ inbox (teamclubhq.com has no MX record, so replies bounce) | Support, App Review contact | OQ-16 | ⬜ |
+| Check the Resend plan before launch volume | Invite and code emails at scale | OQ-17 | ⬜ |
+| Run a trademark check on "ClubHQ" | Marketing spend | OQ-11 | ⬜ |
+| Rotate the credentials that were shared in chat | Security hygiene | OQ-13 | ⬜ |
+| Collect 20–30 real flyers, CNR sheets, PDFs and GroupMe posts | AI Phase 0 fixtures, #8 | — | ⬜ |
 
-Items **2, 3 and 5** have no blockers and can start immediately.
+Items **3, 5, 7, 8 and 9** have no blockers. **#3 is next**, because its re-check job also powers #4's change alerts.
 
 ---
 
