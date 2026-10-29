@@ -91,6 +91,14 @@ final class SupabaseBackend: ClubHQBackend {
         let _: OK = try await client.invoke("update-profile", ["full_name": .string(fullName)])
     }
 
+    func setNotificationPrefs(_ prefs: NotificationPrefs) async throws -> NotificationPrefs {
+        struct Saved: Decodable { let notificationPrefs: NotificationPrefs }
+        let saved: Saved = try await client.invoke("set-notification-prefs", [
+            "event_reminders": .bool(prefs.eventReminders), "rsvp_reminders": .bool(prefs.rsvpReminders),
+        ])
+        return saved.notificationPrefs
+    }
+
     func createTeam(_ request: NewTeamRequest) async throws -> UUID {
         struct Created: Decodable { let teamId: UUID }
         let created: Created = try await client.invoke("create-team", [

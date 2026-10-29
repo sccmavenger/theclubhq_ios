@@ -9,6 +9,17 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-045 — Event reminders and RSVP nudges (2026-10-29) — Accepted
+- **Context:** Roadmap #1. Push went live on 2026-10-28 (OQ-04), but nothing created reminders. The `event_reminder` and `rsvp_reminder` kinds existed unused.
+- **Decision:** The `scheduled-jobs` Edge Function runs every 5 minutes through pg_cron, using the dispatch secret from Vault. `_shared/reminders.ts`:
+  - **Day before:** 18–30 h before the start, sent only 7 AM–9 PM team time. "Tomorrow: Game @ Rage", with time and place.
+  - **2 hours before:** 1.5–2.5 h before, any hour. "In 2 hours: Practice".
+  - **RSVP nudge:** the cutoff (or start − 4 h) is 1–24 h away, sent 8 AM–8 PM. One per family, naming only the children without an RSVP.
+  - **Recipients:** guardians, staff and player accounts. `event_reminder_log` claims each (event, kind) before sending, so runs never double-send. Cancelled events and archived teams are skipped.
+  - **Switches:** Account → Notifications has "Event reminders" and "RSVP reminders" (`profiles.notification_prefs`, default on, `set-notification-prefs`).
+- **Why:** "Practice tomorrow 6 PM, tap to RSVP" is the retention loop (roadmap #1). Windows plus a log are simpler and safer than per-event scheduled jobs. Quiet hours avoid 3 AM pings for the day-before reminder.
+- **Consequences:** Reminders follow the team's `time_zone` (default America/Chicago). Tests: `supabase/tests/reminders_test.ts` (timing and wording) and `d045_live_check.mjs` (10/10 live).
+
 ## D-044 — Clubs: directors over many teams, invisible to parents (owner-approved 2026-10-28) — Accepted
 - **Context:** Roadmap #10. The pilot is 3D Basketball Academy (20+ teams, one or two directors). Today every new team creates its own organization, directors can only look, and `can_access_team` would let any coach in a shared club read every team.
 - **Decision:** The plan and the 15 owner decisions are in [`CLUBS.md`](CLUBS.md).

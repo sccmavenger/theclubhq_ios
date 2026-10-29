@@ -262,7 +262,7 @@ const SERVER_TRACKED_ACTIONS = new Set([
   "create-team", "update-team", "create-invite", "reset-invite", "claim-invite", "create-guardian-invite",
   "create-player-invite", "claim-player-invite", "set-player-birthdate", "create-thread", "post-message",
   "delete-message", "calendar-feed", "reset-calendar-feed", "set-mute", "create-announcement", "save-event",
-  "cancel-event", "set-rsvp", "import-preview", "import-commit", "import-undo", "import-detach", "import-notify", "import-report", "register-device", "sync-subscription", "create-dues", "set-dues-status",
+  "cancel-event", "set-rsvp", "import-preview", "import-commit", "import-undo", "import-detach", "import-notify", "import-report", "set-notification-prefs", "register-device", "sync-subscription", "create-dues", "set-dues-status",
   "remind-unpaid", "connect-payments", "checkout", "report-content", "block-user", "delete-account",
 ]);
 
@@ -558,7 +558,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
         .select("id, team_id, first_name, last_name, jersey_number, birthdate, position, user_id, archived_at")
         .eq("user_id", ctx.uid)
         .is("archived_at", null),
-      ctx.admin.from("profiles").select("full_name").eq("id", ctx.uid).maybeSingle(),
+      ctx.admin.from("profiles").select("full_name, notification_prefs").eq("id", ctx.uid).maybeSingle(),
     ]);
 
     const orgIds = (roles ?? []).filter((r) => !r.team_id && r.org_id).map((r) => r.org_id as string);
@@ -602,10 +602,24 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       user_id: ctx.uid,
       email: ctx.email,
       full_name: profile?.full_name ?? null,
+      notification_prefs: { event_reminders: profile?.notification_prefs?.event_reminders !== false, rsvp_reminders: profile?.notification_prefs?.rsvp_reminders !== false },
       is_coach_pro: await isCoachPro(ctx),
       teams: result,
       blocked_user_ids: await blockedAuthorIds(ctx),
     };
+  },
+
+  /** Reminder switches (D-045). Both default to on. */
+  async "set-notification-prefs"(ctx, p) {
+    const prefs: Record<string, boolean> = {};
+    for (const key of ["event_reminders", "rsvp_reminders"]) {
+      if (typeof p[key] === "boolean") prefs[key] = p[key] as boolean;
+    }
+    const { data: current } = await ctx.admin.from("profiles").select("notification_prefs").eq("id", ctx.uid).maybeSingle();
+    const merged = { ...(current?.notification_prefs ?? {}), ...prefs };
+    const { error } = await ctx.admin.from("profiles").update({ notification_prefs: merged }).eq("id", ctx.uid);
+    if (error) throw new ApiError("internal", error.message, 500);
+    return { notification_prefs: { event_reminders: merged.event_reminders !== false, rsvp_reminders: merged.rsvp_reminders !== false } };
   },
 
   async "update-profile"(ctx, p) {

@@ -15,6 +15,7 @@ final class DemoBackend: ClubHQBackend {
     private var world: DemoWorld
     private var blockedUserIDs: Set<UUID> = []
     private var scheduleImportRecords: [ScheduleImportInfo] = []
+    private var notificationPrefs = NotificationPrefs()
 
     init(persona: Persona? = nil, latency: Duration = .milliseconds(120), now: Date = .now) {
         self.persona = persona
@@ -376,6 +377,14 @@ final class DemoBackend: ClubHQBackend {
     func teamAttendance(teamID: UUID) async throws -> [AttendanceRecord] {
         let eventIDs = Set(world.events.filter { $0.teamId == teamID }.map(\.id))
         return world.attendance.filter { eventIDs.contains($0.eventId) }
+    }
+
+    // MARK: - Notification preferences (D-045)
+
+    func setNotificationPrefs(_ prefs: NotificationPrefs) async throws -> NotificationPrefs {
+        await pause()
+        notificationPrefs = prefs
+        return prefs
     }
 
     // MARK: - Schedule import (D-042)

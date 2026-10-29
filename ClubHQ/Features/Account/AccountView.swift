@@ -52,12 +52,32 @@ struct AccountView: View {
 
                 planSection
 
-                Section("Notifications") {
+                Section {
+                    Toggle(isOn: reminderBinding(\.eventReminders)) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Event reminders")
+                                Text("The day before and 2 hours before").font(.caption).foregroundStyle(.secondary)
+                            }
+                        } icon: { Image(systemName: "calendar.badge.clock") }
+                    }
+                    Toggle(isOn: reminderBinding(\.rsvpReminders)) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("RSVP reminders")
+                                Text("When your child hasn't responded yet").font(.caption).foregroundStyle(.secondary)
+                            }
+                        } icon: { Image(systemName: "hand.raised") }
+                    }
                     Button("Notification Settings", systemImage: "bell.badge") {
                         if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                             UIApplication.shared.open(url)
                         }
                     }
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    Text("Announcements, schedule changes and messages always come through. Use Notification Settings to change sounds or banners.")
                 }
 
                 Section {
@@ -111,6 +131,26 @@ struct AccountView: View {
             // on a team the user is already on, which leaves the team count unchanged.
             .onChange(of: model.teams.count + model.teams.reduce(0) { $0 + $1.linkedPlayers.count }) { old, new in
                 if new > old { showAddTeam = false }
+            }
+        }
+    }
+
+    /// Saves a reminder switch right away; puts it back if the server says no.
+    private func reminderBinding(_ key: WritableKeyPath<NotificationPrefs, Bool>) -> Binding<Bool> {
+        Binding {
+            model.notificationPrefs[keyPath: key]
+        } set: { newValue in
+            let previous = model.notificationPrefs
+            var prefs = previous
+            prefs[keyPath: key] = newValue
+            model.updateNotificationPrefs(prefs)
+            Task {
+                do {
+                    model.updateNotificationPrefs(try await model.backend.setNotificationPrefs(prefs))
+                } catch {
+                    model.updateNotificationPrefs(previous)
+                    errorText = error.localizedDescription
+                }
             }
         }
     }

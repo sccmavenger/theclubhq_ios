@@ -154,6 +154,8 @@ struct UserContext: Codable, Sendable {
     var teams: [TeamMembership]
     /// People this user blocked, kept on the server so blocks follow them to every device (D-041).
     var blockedUserIds: [UUID]? = nil
+    /// Reminder switches (D-045); missing from older servers means both on.
+    var notificationPrefs: NotificationPrefs? = nil
 
     var headCoachTeamCount: Int { teams.filter(\.isHeadCoach).count }
     var displayName: String {
@@ -360,4 +362,12 @@ enum AgePolicy {
         guard let age = age(birthdate: birthdate, on: date) else { return false }
         return age >= minimumPlayerAccountAge
     }
+}
+
+/// Which automatic reminders this person gets (D-045). Both default to on.
+struct NotificationPrefs: Codable, Hashable, Sendable {
+    /// The day before and 2 hours before each event.
+    var eventReminders = true
+    /// A nudge before the RSVP cutoff when a child hasn't responded.
+    var rsvpReminders = true
 }

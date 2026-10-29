@@ -32,6 +32,8 @@ protocol ClubHQBackend: AnyObject {
     // MARK: Context & teams
     func loadContext() async throws -> UserContext
     func updateProfile(fullName: String) async throws
+    /// Saves the reminder switches and returns what the server stored (D-045).
+    func setNotificationPrefs(_ prefs: NotificationPrefs) async throws -> NotificationPrefs
     func createTeam(_ request: NewTeamRequest) async throws -> UUID
     func updateTeamColor(teamID: UUID, hex: String?) async throws
     /// Saves the team's Venmo username / $Cashtag (nil clears). Returns the normalized values.

@@ -66,6 +66,13 @@ final class AppModel {
         context?.blockedUserIds = ids
     }
 
+    /// Reminder switches as last loaded or saved (D-045).
+    var notificationPrefs: NotificationPrefs { context?.notificationPrefs ?? NotificationPrefs() }
+
+    func updateNotificationPrefs(_ prefs: NotificationPrefs) {
+        context?.notificationPrefs = prefs
+    }
+
     // MARK: - Derived state
 
     var teams: [TeamMembership] { context?.teams ?? [] }
