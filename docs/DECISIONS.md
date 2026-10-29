@@ -28,7 +28,7 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
   - Teams join by director setup (one, or a pasted list) or a club code. The club owns teams when coaches leave. Seasons copy forward.
   - The pilot is free through a club Pro grant. The app comes first.
 - **Why:** One director signs up 20+ teams at once (the GameChanger clubs threat, roadmap note). Keeping parents' experience unchanged avoids confusion and keeps the family app simple.
-- **Consequences:** Phase 0 fixes org-wide access in the RLS helpers before any club has two teams. Club billing waits for OQ-18.
+- **Consequences:** Phase 0 fixes org-wide access in the RLS helpers before any club has two teams (shipped 2026-10-29). Club billing waits for OQ-18. Directors act as head coach through `private.can_manage_team` (29 policies) and `requireHeadCoach`. Club teams a director assigns don't count against a coach's own team limit; teams a coach creates still do. Status and test results are in [`CLUBS.md`](CLUBS.md).
 
 ## D-043 — CNR league schedules from cnrschedule.stlbasketball.com (owner-approved 2026-10-28) — Accepted
 - **Context:** CNR posts its league season (e.g. 11/7/26 – 12/20/26, 818 teams) on a Next.js site, cnrschedule.stlbasketball.com, with past seasons on their own sites (cnrsummer2026.stlbasketball.com and others). Each team has a page and, in the current season, a calendar feed. There's no public API.

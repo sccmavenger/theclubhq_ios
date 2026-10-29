@@ -19,6 +19,8 @@ struct ClubView: View {
     @State private var sheet: ClubSheet?
     @State private var eventToCancel: ClubOverview.ClubEvent?
     @State private var message: String?
+    /// Reset after "Open Team" so the Club tab comes back to the team list, not a detail page.
+    @State private var path: [ClubTeam] = []
 
     enum ClubSheet: Identifiable {
         case addTeams, announcement, event, share
@@ -45,7 +47,7 @@ struct ClubView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if let overview {
                     header(overview)
@@ -77,7 +79,10 @@ struct ClubView: View {
             .navigationTitle(overview?.club.name ?? club.name)
             .searchable(text: $search, prompt: "Team or coach")
             .navigationDestination(for: ClubTeam.self) { team in
-                ClubTeamDetailView(teamID: team.id, overview: $overview, openTeam: openTeam, reload: { await load() })
+                ClubTeamDetailView(teamID: team.id, overview: $overview, openTeam: { id in
+                    path = []
+                    openTeam(id)
+                }, reload: { await load() })
             }
             .toolbar {
                 if showsAccountButton {
