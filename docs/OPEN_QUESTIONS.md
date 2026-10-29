@@ -13,7 +13,7 @@ Answering one may change the linked decision.
 | OQ-13 | **Rotate the credentials shared in chat:** reset the TeamClubHQ database password and delete the `ClubHQ setup` access token, then update `.env.local` | Pending owner | Security hygiene |
 | OQ-14 | Delete the unused Free-plan project `vdrlbktsdgegqbpsicno`? | Leave it for now | Nothing |
 | OQ-03 | Approve pricing: Coach Pro **$9.99/mo or $69.99/yr** (14-day trial, up to 3 teams); dues fee **2.9% + $0.79** per checkout paid by families | Approved provisionally (D-011) | App Store Connect products |
-| OQ-04 | Apple Developer **Team ID** and an **APNs .p8 key**? | Not available yet; push is coded but dormant | Push notifications |
+| OQ-04 | ✅ **Answered 2026-10-28:** APNs key "ClubHQ Push" (Key ID `32TXHR58JG`, Team `CB4AAVWWUD`, sandbox + production) is in the gitignored `.secrets/` folder and set as Supabase secrets. Push verified on the owner's iPhone | — | — |
 | OQ-05 | Final **bundle ID** (currently an Xcode placeholder) and permission to enable Sign in with Apple + Push capabilities on it | e.g. `app.clubhq.ios` | Signing, push, SIWA, TestFlight |
 | OQ-06 | Legal review of the COPPA approach (no logins under 13; guardian-issued codes for 13+) and Texas SB 2420 / Declared Age Range API timing | Approach in D-008; Age Range API next release | App Store submission |
 | OQ-07 | ✅ **Answered 2026-10-20:** minimum iOS lowered to **26.0** (from build 7) | — | — |

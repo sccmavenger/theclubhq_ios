@@ -16,3 +16,4 @@ supabase/.branches/
 
 # macOS
 .DS_Store
+.secrets/

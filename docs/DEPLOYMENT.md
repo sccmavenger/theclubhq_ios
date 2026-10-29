@@ -53,14 +53,16 @@ Each feature degrades gracefully until its secrets are set. For example, push is
 
 | Secret | Needed for | Where it comes from |
 |---|---|---|
-| `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (.p8 contents), `APNS_BUNDLE_ID` | Push | Apple Developer → Keys |
-| `APNS_DISPATCH_SECRET` | Cron → `apns-dispatch` | Any long random string |
+| `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (.p8 contents), `APNS_BUNDLE_ID` | Push. **Set 2026-10-28:** key `32TXHR58JG` (file in `.secrets/`), team `CB4AAVWWUD`, bundle `com.teamclubhq.app` | Apple Developer → Keys |
+| `APNS_DISPATCH_SECRET` | Cron → `apns-dispatch`. **Set 2026-10-28** (copy in `.secrets/apns-dispatch-secret` and Vault `apns_dispatch_secret`) | Any long random string |
 | `APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`, `APPSTORE_PRIVATE_KEY`, `APPSTORE_BUNDLE_ID` | Coach Pro verification | App Store Connect → Users and Access → Integrations → In-App Purchase key |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Dues | Stripe Dashboard (Connect enabled) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (PKCS#8 PEM), `VAPID_SUBJECT` | Admin-portal web-push alerts (D-041). Set 2026-10-25 | Generated P-256 key pair (no vendor) |
 | `PAYMENTS_RETURN_URL` | After Stripe onboarding/checkout | A page on the web app, e.g. `https://<domain>/payments/return` |
 
 ## 4. Schedules 🤖 (after `APNS_DISPATCH_SECRET` is stored in Vault)
+**Done 2026-10-28:** `pg_cron` and `pg_net` enabled, job `clubhq-apns-dispatch` runs every minute (check `cron.job_run_details` / `net._http_response`). The dispatcher only sends items from the last 6 hours, so turning it on didn't push old notifications.
+
 ```sql
 select vault.create_secret('<APNS_DISPATCH_SECRET>', 'apns_dispatch_secret');
 select cron.schedule('clubhq-apns-dispatch', '* * * * *', $$
