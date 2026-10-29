@@ -14,6 +14,7 @@ final class DemoBackend: ClubHQBackend {
 
     private var world: DemoWorld
     private var blockedUserIDs: Set<UUID> = []
+    private var scheduleImportRecords: [ScheduleImportInfo] = []
 
     init(persona: Persona? = nil, latency: Duration = .milliseconds(120), now: Date = .now) {
         self.persona = persona
@@ -375,6 +376,98 @@ final class DemoBackend: ClubHQBackend {
     func teamAttendance(teamID: UUID) async throws -> [AttendanceRecord] {
         let eventIDs = Set(world.events.filter { $0.teamId == teamID }.map(\.id))
         return world.attendance.filter { eventIDs.contains($0.eventId) }
+    }
+
+    // MARK: - Schedule import (D-042)
+
+    /// A real `import-preview` response for the 2026 CNR tournament sheet, bundled for Demo Mode
+    /// and previews. Any Google Sheets link returns it.
+    static func sampleImportPreview() throws -> ImportPreview {
+        guard let url = Bundle.main.url(forResource: "DemoScheduleImport", withExtension: "json") else {
+            throw BackendError.server(status: 500, code: "internal", message: "The demo tournament is missing.")
+        }
+        return try JSONCoding.decoder.decode(ImportPreview.self, from: Data(contentsOf: url))
+    }
+
+    func importPreview(teamID: UUID, url: String, firstDay: String?, teamKey: String?) async throws -> ImportPreview {
+        await pause()
+        guard ScheduleImportText.looksLikeSheetLink(url) else {
+            throw BackendError.server(status: 422, code: "not_a_sheet", message: "That isn't a Google Sheets link. Paste the link the organizer shared (it starts with docs.google.com/spreadsheets).")
+        }
+        var preview = try Self.sampleImportPreview()
+        if let previous = scheduleImportRecords.first(where: { $0.teamId == teamID }) {
+            let count = world.events.filter { $0.importId == previous.id }.count
+            preview.previousImport = .init(id: previous.id, teamKey: previous.sheetTeamKey, alias: previous.sheetAlias, eventCount: count)
+            preview.match = .init(outcome: .clear, teamKeys: [previous.sheetTeamKey])
+        }
+        return preview
+    }
+
+    func importCommit(teamID: UUID, url: String, teamKey: String, alias: String?, gameKeys: [String]?, firstDay: String?) async throws -> ImportResult {
+        await pause()
+        let preview = try Self.sampleImportPreview()
+        guard let team = preview.team(teamKey) else { throw notFound("That team") }
+        let games = preview.games(for: teamKey, alias: alias).filter { $0.startsAt != nil && (gameKeys?.contains($0.key) ?? true) }
+        let importID = scheduleImportRecords.first(where: { $0.teamId == teamID })?.id ?? UUID()
+        let removed = world.events.filter { $0.importId == importID }.count
+        world.events.removeAll { $0.importId == importID }
+        scheduleImportRecords.removeAll { $0.id == importID }
+        scheduleImportRecords.insert(ScheduleImportInfo(
+            id: importID, teamId: teamID, sourceUrl: preview.source.url, title: preview.source.title,
+            sheetTeamKey: teamKey, sheetTeamName: team.name, sheetAlias: alias, lastImportedAt: .now
+        ), at: 0)
+        let created = games.map { game -> TeamEvent in
+            let (us, them) = game.ourSide(teamKey: teamKey, alias: alias)
+            let start = game.startsAt!
+            return TeamEvent(
+                id: UUID(), teamId: teamID, title: "\(game.round ?? "Game") · \(preview.source.title)", eventType: .game,
+                startsAt: start, endsAt: start.addingTimeInterval(3600), location: game.placeLabel, locationAddress: game.address,
+                notes: "Imported from \(preview.source.title).", opponent: them.placeholder ? "TBD (\(them.name))" : them.name,
+                homeAway: "home", homeScore: us.score, awayScore: them.score, result: nil, cancelledAt: nil, rsvpCutoffAt: nil,
+                importId: importID
+            )
+        }
+        world.events.append(contentsOf: created)
+        return ImportResult(
+            importId: importID, added: created.count, updated: 0, removed: removed, cancelled: 0, skipped: 0,
+            upcoming: created.filter { $0.startsAt > .now }.count, eventIds: created.map(\.id)
+        )
+    }
+
+    func importUndo(importID: UUID) async throws -> Int {
+        await pause()
+        let removed = world.events.filter { $0.importId == importID }.count
+        world.events.removeAll { $0.importId == importID }
+        scheduleImportRecords.removeAll { $0.id == importID }
+        return removed
+    }
+
+    func importDetach(importID: UUID) async throws -> Int {
+        await pause()
+        var kept = 0
+        for i in world.events.indices where world.events[i].importId == importID {
+            world.events[i].importId = nil
+            kept += 1
+        }
+        scheduleImportRecords.removeAll { $0.id == importID }
+        return kept
+    }
+
+    func importNotify(importID: UUID) async throws -> Bool {
+        await pause()
+        return world.events.contains { $0.importId == importID && $0.startsAt > .now }
+    }
+
+    func importReport(teamID: UUID?, url: String, reason: ImportReportReason, note: String?) async throws {
+        await pause()
+    }
+
+    func scheduleImports(teamID: UUID) async throws -> [ScheduleImportInfo] {
+        scheduleImportRecords.filter { $0.teamId == teamID }.map { record in
+            var info = record
+            info.events = world.events.filter { $0.importId == record.id }.map { .init(startsAt: $0.startsAt, cancelledAt: $0.cancelledAt) }
+            return info
+        }
     }
 
     // MARK: - Messaging

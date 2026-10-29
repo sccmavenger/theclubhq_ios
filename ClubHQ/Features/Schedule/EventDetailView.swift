@@ -46,6 +46,7 @@ struct EventDetailView: View {
                         TagLabel(text: event.eventType.displayName, tint: team.tint, systemImage: event.eventType.symbolName)
                         if event.isCancelled { TagLabel(text: "Cancelled", tint: .red) }
                         if let score = event.scoreLine { TagLabel(text: score, tint: score.hasPrefix("W") ? .green : .secondary) }
+                        if event.isImported { TagLabel(text: "Imported", tint: .secondary, systemImage: "tablecells") }
                     }
                     Text(event.displayTitle).font(.title2.bold())
                     Text(team.name).font(.subheadline).foregroundStyle(.secondary)

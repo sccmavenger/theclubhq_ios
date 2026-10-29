@@ -340,6 +340,57 @@ final class SupabaseBackend: ClubHQBackend {
         ])
     }
 
+    // MARK: - Schedule import (D-042)
+
+    func importPreview(teamID: UUID, url: String, firstDay: String?, teamKey: String?) async throws -> ImportPreview {
+        try await client.invoke("import-preview", [
+            "team_id": .uuid(teamID), "url": .string(url), "first_day": .optional(firstDay), "team_key": .optional(teamKey),
+            "time_zone": .string(TimeZone.current.identifier),
+        ])
+    }
+
+    func importCommit(teamID: UUID, url: String, teamKey: String, alias: String?, gameKeys: [String]?, firstDay: String?) async throws -> ImportResult {
+        var params: [String: JSONValue] = [
+            "team_id": .uuid(teamID), "url": .string(url), "team_key": .string(teamKey),
+            "alias": .optional(alias), "first_day": .optional(firstDay),
+            "time_zone": .string(TimeZone.current.identifier),
+        ]
+        if let gameKeys { params["game_keys"] = .array(gameKeys.map(JSONValue.string)) }
+        return try await client.invoke("import-commit", params)
+    }
+
+    func importUndo(importID: UUID) async throws -> Int {
+        struct Removed: Decodable { let removed: Int }
+        let response: Removed = try await client.invoke("import-undo", ["import_id": .uuid(importID)])
+        return response.removed
+    }
+
+    func importDetach(importID: UUID) async throws -> Int {
+        struct Kept: Decodable { let kept: Int }
+        let response: Kept = try await client.invoke("import-detach", ["import_id": .uuid(importID)])
+        return response.kept
+    }
+
+    func importNotify(importID: UUID) async throws -> Bool {
+        struct Sent: Decodable { let sent: Bool }
+        let response: Sent = try await client.invoke("import-notify", ["import_id": .uuid(importID)])
+        return response.sent
+    }
+
+    func importReport(teamID: UUID?, url: String, reason: ImportReportReason, note: String?) async throws {
+        var params: [String: JSONValue] = ["url": .string(String(url.prefix(500))), "reason": .string(reason.rawValue), "note": .optional(note)]
+        if let teamID { params["team_id"] = .uuid(teamID) }
+        let _: OK = try await client.invoke("import-report", params)
+    }
+
+    func scheduleImports(teamID: UUID) async throws -> [ScheduleImportInfo] {
+        try await client.rest("schedule_imports", query: [
+            ("team_id", eq(teamID)),
+            ("select", "id,team_id,source_url,title,sheet_team_key,sheet_team_name,sheet_alias,last_imported_at,events(starts_at,cancelled_at)"),
+            ("order", "last_imported_at.desc"),
+        ])
+    }
+
     func teamAttendance(teamID: UUID) async throws -> [AttendanceRecord] {
         try await client.rest("attendance", query: [
             ("select", "id,event_id,player_id,status,events!inner(team_id)"),
