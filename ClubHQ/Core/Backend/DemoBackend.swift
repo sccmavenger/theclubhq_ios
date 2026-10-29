@@ -16,6 +16,7 @@ final class DemoBackend: ClubHQBackend {
     private var blockedUserIDs: Set<UUID> = []
     private var scheduleImportRecords: [ScheduleImportInfo] = []
     private var notificationPrefs = NotificationPrefs()
+    private var demoClub: ClubOverview?
 
     init(persona: Persona? = nil, latency: Duration = .milliseconds(120), now: Date = .now) {
         self.persona = persona
@@ -377,6 +378,140 @@ final class DemoBackend: ClubHQBackend {
     func teamAttendance(teamID: UUID) async throws -> [AttendanceRecord] {
         let eventIDs = Set(world.events.filter { $0.teamId == teamID }.map(\.id))
         return world.attendance.filter { eventIDs.contains($0.eventId) }
+    }
+
+    // MARK: - Clubs (D-044)
+
+    /// A sample club for previews and tests: eight teams across grades, genders and levels.
+    static func sampleClubOverview(now: Date = .now) -> ClubOverview {
+        func team(_ name: String, _ grade: String, _ gender: String, _ level: String?, coach: String?, roster: Int, families: Int, next: Int?) -> ClubTeam {
+            ClubTeam(
+                id: UUID(), name: name, grade: grade, gender: gender, level: level, season: "Fall 2026", sport: .basketball,
+                coaches: coach.map { [.init(userId: UUID(), name: $0, role: .headCoach)] } ?? [],
+                pendingCoaches: [], rosterCount: roster, familyCount: families,
+                nextEvent: next.map { .init(id: UUID(), title: "Practice", eventType: .practice, opponent: nil, homeAway: nil,
+                                            startsAt: now.addingTimeInterval(Double($0) * 86_400), rsvpCount: max(0, roster - 3)) }
+            )
+        }
+        return ClubOverview(
+            club: .init(id: UUID(), name: "3D Basketball Academy", brandColor: nil, timeZone: "America/Chicago", code: "3DBA2026FA", familyCount: 64),
+            directors: [.init(userId: UUID(), name: "Danny Guillory")],
+            teams: [
+                team("3D Nation 2033 6th Boys", "6", "boys", "Elite", coach: "Danny Guillory", roster: 10, families: 9, next: 1),
+                team("3D Nation 6th Boys Gold", "6", "boys", "Gold", coach: "Marcus Hill", roster: 9, families: 8, next: 2),
+                team("3D Nation 6th Girls", "6", "girls", "Elite", coach: "Tara Wells", roster: 8, families: 8, next: 1),
+                team("3D Nation 7th Boys", "7", "boys", "Elite", coach: "Chris Lane", roster: 11, families: 10, next: 3),
+                team("3D Nation 7th Girls", "7", "girls", "Gold", coach: nil, roster: 7, families: 4, next: nil),
+                team("3D Nation 8th Boys", "8", "boys", "Elite", coach: "Andre Moss", roster: 12, families: 11, next: 2),
+                team("3D Nation 8th Girls", "8", "girls", "Elite", coach: "Kim Ortiz", roster: 9, families: 9, next: 4),
+                team("3D Nation 5th Boys", "5", "boys", "Gold", coach: "Ray Diaz", roster: 10, families: 5, next: 1),
+            ],
+            clubEvents: [.init(clubEventId: UUID(), title: "Picture Day", eventType: .other, startsAt: now.addingTimeInterval(6 * 86_400), teamCount: 8)]
+        )
+    }
+
+    private func club() throws -> ClubOverview {
+        if demoClub == nil { demoClub = Self.sampleClubOverview() }
+        return demoClub!
+    }
+
+    private func audience(_ filter: ClubFilter) throws -> ClubAudience {
+        let teams = try club().teams.filter(filter.matches)
+        return ClubAudience(teamCount: teams.count, peopleCount: teams.reduce(0) { $0 + $1.familyCount + $1.coaches.count })
+    }
+
+    func createClub(name: String) async throws -> UUID {
+        await pause()
+        let id = UUID()
+        demoClub = ClubOverview(club: .init(id: id, name: name, brandColor: nil, timeZone: TimeZone.current.identifier, code: "DEMOCLUB01", familyCount: 0),
+                                directors: [], teams: [], clubEvents: [])
+        return id
+    }
+
+    func clubOverview(orgID: UUID) async throws -> ClubOverview {
+        await pause()
+        return try club()
+    }
+
+    func clubResetCode(orgID: UUID) async throws -> String {
+        await pause()
+        let code = String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(10))
+        demoClub?.club.code = code
+        return code
+    }
+
+    func clubCreateTeams(orgID: UUID, teams: [NewClubTeam]) async throws -> [CreatedClubTeam] {
+        await pause()
+        _ = try club()
+        return teams.map { new in
+            let id = UUID()
+            let invite = new.coachEmail.map { CoachAssignment(status: .invited, email: $0, code: "COACH\(Int.random(in: 10000...99999))") }
+            demoClub?.teams.append(ClubTeam(
+                id: id, name: new.name, grade: new.grade, gender: new.gender, level: new.level, season: new.season, sport: .basketball,
+                coaches: [], pendingCoaches: invite.map { [.init(email: $0.email, code: $0.code!, role: .headCoach)] } ?? [],
+                rosterCount: 0, familyCount: 0, nextEvent: nil
+            ))
+            return CreatedClubTeam(teamId: id, name: new.name, coach: invite,
+                                   inviteText: invite.map { "Join \(demoClub?.club.name ?? "the club") on ClubHQ with code \($0.code!)." })
+        }
+    }
+
+    func clubUpdateTeam(teamID: UUID, name: String?, grade: String?, gender: String?, level: String?, season: String?) async throws {
+        await pause()
+        guard let i = demoClub?.teams.firstIndex(where: { $0.id == teamID }) else { throw notFound("That team") }
+        if let name { demoClub?.teams[i].name = name }
+        demoClub?.teams[i].grade = grade
+        demoClub?.teams[i].gender = gender
+        demoClub?.teams[i].level = level
+        demoClub?.teams[i].season = season
+    }
+
+    func clubAssignCoach(teamID: UUID, email: String, role: TeamRole) async throws -> (CoachAssignment, inviteText: String?) {
+        await pause()
+        guard let i = demoClub?.teams.firstIndex(where: { $0.id == teamID }) else { throw notFound("That team") }
+        let assignment = CoachAssignment(status: .invited, email: email, code: "COACH12345")
+        demoClub?.teams[i].pendingCoaches.append(.init(email: email, code: "COACH12345", role: role))
+        return (assignment, "Join on ClubHQ with code COACH12345.")
+    }
+
+    func clubRemoveCoach(teamID: UUID, userID: UUID?, email: String?) async throws {
+        await pause()
+        guard let i = demoClub?.teams.firstIndex(where: { $0.id == teamID }) else { throw notFound("That team") }
+        if let userID { demoClub?.teams[i].coaches.removeAll { $0.userId == userID } }
+        if let email { demoClub?.teams[i].pendingCoaches.removeAll { $0.email == email } }
+    }
+
+    func lookupClubInvite(code: String) async throws -> ClubInvitePreview {
+        await pause()
+        throw BackendError.server(status: 410, code: "expired", message: "Club codes work with a real account, not in Demo Mode.")
+    }
+
+    func claimClubInvite(code: String, teamID: UUID?, newTeam: NewClubTeam?) async throws -> UUID {
+        await pause()
+        throw BackendError.server(status: 410, code: "expired", message: "Club codes work with a real account, not in Demo Mode.")
+    }
+
+    func clubAudience(orgID: UUID, filter: ClubFilter) async throws -> ClubAudience {
+        try audience(filter)
+    }
+
+    func clubAnnouncement(orgID: UUID, filter: ClubFilter, title: String, body: String) async throws -> ClubAudience {
+        await pause()
+        return try audience(filter)
+    }
+
+    func clubEvent(orgID: UUID, filter: ClubFilter, draft: EventDraft) async throws -> ClubAudience {
+        await pause()
+        let result = try audience(filter)
+        demoClub?.clubEvents.append(.init(clubEventId: UUID(), title: draft.resolvedTitle, eventType: draft.eventType, startsAt: draft.startsAt, teamCount: result.teamCount))
+        return result
+    }
+
+    func clubEventCancel(clubEventID: UUID) async throws -> Int {
+        await pause()
+        let count = demoClub?.clubEvents.first { $0.clubEventId == clubEventID }?.teamCount ?? 0
+        demoClub?.clubEvents.removeAll { $0.clubEventId == clubEventID }
+        return count
     }
 
     // MARK: - Notification preferences (D-045)

@@ -4,7 +4,7 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(AppModel.self) private var model
 
-    enum TabID: String, Hashable { case home, schedule, team, messages, more }
+    enum TabID: String, Hashable { case home, schedule, team, messages, club, more }
     @State private var selection: TabID = Self.initialTab
 
     private static var initialTab: TabID {
@@ -32,6 +32,15 @@ struct MainTabView: View {
             Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: TabID.messages) {
                 MessagesView()
             }
+            // Directors only (D-044). Parents never see the club.
+            if let club = model.clubs.first {
+                Tab("Club", systemImage: "building.2.fill", value: TabID.club) {
+                    ClubView(club: club) { teamID in
+                        model.selectedTeamID = teamID
+                        selection = .team
+                    }
+                }
+            }
             Tab("More", systemImage: "ellipsis.circle.fill", value: TabID.more) {
                 AccountView()
             }
@@ -40,6 +49,12 @@ struct MainTabView: View {
         // stacks in every tab, so nobody lands on the previous user's screens.
         .id(model.context?.userId)
         .tint(model.selectedTeam?.tint ?? .accentColor)
+        .onChange(of: model.showClubTab) { _, show in
+            if show {
+                selection = .club
+                model.showClubTab = false
+            }
+        }
         .onChange(of: model.pendingDeepLink, initial: true) { _, link in
             guard let link else { return }
             model.pendingDeepLink = nil

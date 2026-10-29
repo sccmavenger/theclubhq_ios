@@ -317,6 +317,7 @@ struct AnnouncementsView: View {
             }
             ForEach(announcements) { announcement in
                 VStack(alignment: .leading, spacing: 6) {
+                    if let club = announcement.fromClub { Text("From \(club)").font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
                     Text(announcement.title).font(.headline)
                     Text(announcement.body).font(.subheadline)
                     Text(announcement.createdAt.formatted(date: .abbreviated, time: .shortened))

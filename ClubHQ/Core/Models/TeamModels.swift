@@ -110,7 +110,10 @@ struct TeamMembership: Codable, Identifiable, Hashable, Sendable {
 
     // MARK: Capabilities (DECISIONS D-007) — screens ask these, not role names.
 
-    var isHeadCoach: Bool { roles.contains(.headCoach) || roles.contains(.superAdmin) }
+    /// Club directors act as head coach on every club team (D-044).
+    var isHeadCoach: Bool { roles.contains(.headCoach) || roles.contains(.superAdmin) || roles.contains(.programDirector) }
+    /// Seen through a club the user directs, not as the team's own coach.
+    var isClubDirectorOnly: Bool { roles.contains(.programDirector) && !roles.contains(.headCoach) }
     var isStaff: Bool { roles.contains(where: \.isStaff) }
     var isGuardian: Bool { !linkedPlayers.isEmpty || roles.contains(.parent) }
     var isPlayer: Bool { playerSelf != nil || roles.contains(.player) }
@@ -156,6 +159,8 @@ struct UserContext: Codable, Sendable {
     var blockedUserIds: [UUID]? = nil
     /// Reminder switches (D-045); missing from older servers means both on.
     var notificationPrefs: NotificationPrefs? = nil
+    /// Clubs this person directs (D-044).
+    var clubs: [ClubSummary]? = nil
 
     var headCoachTeamCount: Int { teams.filter(\.isHeadCoach).count }
     var displayName: String {

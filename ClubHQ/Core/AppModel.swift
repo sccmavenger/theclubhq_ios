@@ -20,6 +20,8 @@ final class AppModel {
     }
     /// A deep link waiting for the main UI to consume (push tap, inbox row, URL).
     var pendingDeepLink: DeepLink?
+    /// Set after starting a club so the tab bar jumps to the new Club tab (D-044).
+    var showClubTab = false
     /// An invite token captured before sign-in, consumed by onboarding. Saved on the device so it
     /// survives the app being closed while a new parent confirms their email.
     var pendingInviteToken: String? {
@@ -65,6 +67,9 @@ final class AppModel {
     func updateBlockedUsers(_ ids: [UUID]) {
         context?.blockedUserIds = ids
     }
+
+    /// Clubs this person directs (D-044). Non-empty shows the Club tab.
+    var clubs: [ClubSummary] { context?.clubs ?? [] }
 
     /// Reminder switches as last loaded or saved (D-045).
     var notificationPrefs: NotificationPrefs { context?.notificationPrefs ?? NotificationPrefs() }

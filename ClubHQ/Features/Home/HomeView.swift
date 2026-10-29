@@ -244,6 +244,7 @@ struct HomeView: View {
     private func announcementSection(_ announcement: Announcement) -> some View {
         Section("Latest announcement") {
             VStack(alignment: .leading, spacing: 6) {
+                if let club = announcement.fromClub { Text("From \(club)").font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
                 Text(announcement.title).font(.headline)
                 Text(announcement.body).font(.subheadline).foregroundStyle(.secondary).lineLimit(4)
                 Text(announcement.createdAt, format: .relative(presentation: .named))

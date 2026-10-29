@@ -8,6 +8,8 @@ struct AccountView: View {
     @State private var showPaywall = false
     @State private var showManageSubscription = false
     @State private var showAddTeam = false
+    @State private var showJoinClub = false
+    @State private var showStartClub = false
     @State private var confirmDelete = false
     @State private var confirmSignOut = false
     @State private var errorText: String?
@@ -46,6 +48,11 @@ struct AccountView: View {
                         }
                     }
                     Button("Add or Join a Team", systemImage: "plus.circle") { showAddTeam = true }
+                    // Clubs (D-044): coaches join with a code; directors start one.
+                    Button("Join a Club", systemImage: "building.2") { showJoinClub = true }
+                    if model.clubs.isEmpty {
+                        Button("Start a Club", systemImage: "building.2.crop.circle") { showStartClub = true }
+                    }
                 } header: {
                     Text("My teams")
                 }
@@ -118,6 +125,8 @@ struct AccountView: View {
             // Re-sync when the signed-in user changes (e.g. demo persona switch).
             .task(id: model.context?.userId) { fullName = model.context?.fullName ?? "" }
             .sheet(isPresented: $showPaywall) { PaywallView() }
+            .sheet(isPresented: $showJoinClub) { JoinClubView() }
+            .sheet(isPresented: $showStartClub) { StartClubView() }
             .sheet(isPresented: $showAddTeam) {
                 NavigationStack {
                     JoinOrCreateList()
