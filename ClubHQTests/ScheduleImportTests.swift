@@ -229,4 +229,47 @@ struct ScheduleImportTests {
         info.events = []
         #expect(!info.isFinished(now: now), "no games yet: keep it visible")
     }
+
+    // MARK: - Team calendars (D-047)
+
+    /// A trimmed `import-preview` response for a TeamSnap feed: a game, an away game and a practice.
+    private static let calendarPreviewJSON = """
+    {"source":{"url":"https://ical-cdn.teamsnap.com/team_schedule/abc.ics","kind":"ical","title":"Hawks 12U","sheet_title":null,
+      "time_zone":"America/Chicago","dates":["2026-11-07","2026-11-10"],"home_note":null,"tab_count":0,"needs_dates":false,
+      "provider":"TeamSnap","notice":"1 all-day item (like a tournament or picture day) has no start time, so it isn't imported."},
+     "match":{"outcome":"clear","team_keys":["calendar"]},
+     "teams":[{"key":"calendar","name":"Hawks 12U","grade":null,"gender":null,"coach":null,"bracket":"calendar","bracket_title":"Hawks 12U","game_count":3}],
+     "brackets":[],
+     "games":[
+      {"key":"ics|a","bracket":"calendar","round":null,"left":{"name":"Hawks 12U","team_key":"calendar","score":null,"placeholder":false},
+       "right":{"name":"Lions","team_key":null,"score":null,"placeholder":false},"starts_at":"2026-11-07T15:00:00.000Z","day_label":"2026-11-07",
+       "time_label":"9:00 AM","location":"Lifetime Fitness","venue_name":"Lifetime Fitness","address":null,"court":null,
+       "event_type":"game","title":"Hawks 12U vs. Lions","home_away":"home"},
+      {"key":"ics|b","bracket":"calendar","round":null,"left":{"name":"Hawks 12U","team_key":"calendar","score":null,"placeholder":false},
+       "right":{"name":"Tigers","team_key":null,"score":null,"placeholder":false},"starts_at":"2026-11-08T16:00:00.000Z","day_label":"2026-11-08",
+       "time_label":"10:00 AM","location":null,"venue_name":null,"address":null,"court":null,
+       "event_type":"game","title":"Hawks 12U at Tigers","home_away":"away"},
+      {"key":"ics|c|20261110","bracket":"calendar","round":null,"left":{"name":"Hawks 12U","team_key":"calendar","score":null,"placeholder":false},
+       "right":{"name":"","team_key":null,"score":null,"placeholder":false},"starts_at":"2026-11-11T00:00:00.000Z","day_label":"2026-11-10",
+       "time_label":"6:00 PM","location":"Central Gym","venue_name":null,"address":null,"court":null,
+       "event_type":"practice","title":"Practice","home_away":null}],
+     "previous_import":null,"kept_keys":[],"existing_events":[]}
+    """
+
+    @Test func calendarPreviewShowsGamesAndPractices() throws {
+        let preview = try JSONCoding.decoder.decode(ImportPreview.self, from: Data(Self.calendarPreviewJSON.utf8))
+        #expect(preview.isCalendar)
+        #expect(preview.source.provider == "TeamSnap")
+        #expect(preview.source.notice != nil)
+        let games = preview.games(for: "calendar")
+        #expect(games.map { $0.opponentLabel(teamKey: "calendar", alias: nil) } == ["vs Lions", "@ Tigers", "Practice"])
+        #expect(games.map(\.isGame) == [true, true, false])
+    }
+
+    @Test func olderServerGamesStillReadAsGames() throws {
+        let preview = try DemoBackend.sampleImportPreview()
+        #expect(!preview.isCalendar)
+        let allGames = preview.games.allSatisfy(\.isGame)
+        #expect(allGames)
+    }
 }

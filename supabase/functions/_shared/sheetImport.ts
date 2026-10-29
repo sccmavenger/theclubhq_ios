@@ -59,6 +59,19 @@ export interface Game {
   location: string | null;
   venue: Venue | null;
   court: string | null;
+  /** Calendar feeds (D-047): practices and other events too, each with its own instant and length. */
+  calendar?: CalendarEvent;
+}
+
+export interface CalendarEvent {
+  eventType: "game" | "practice" | "other";
+  /** The feed's title, e.g. "Hawks vs Lions" or "Practice". */
+  title: string;
+  /** ISO instant (feeds say which zone, so this doesn't depend on the team's). */
+  startsAt: string;
+  minutes: number;
+  homeAway: "home" | "away" | null;
+  notes: string | null;
 }
 
 export interface Bracket {

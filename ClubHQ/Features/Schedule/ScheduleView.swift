@@ -93,7 +93,7 @@ struct ScheduleView: View {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button { showEditor = true } label: { Label("New Event", systemImage: "calendar.badge.plus") }
-                            Button { showImport = true } label: { Label("Import Tournament Schedule", systemImage: "tablecells") }
+                            Button { showImport = true } label: { Label("Import Schedule or Calendar", systemImage: "square.and.arrow.down.on.square") }
                         } label: {
                             Label("Add", systemImage: "plus")
                         }
@@ -194,10 +194,10 @@ struct ScheduleView: View {
             let result = try await model.backend.importCommit(
                 teamID: info.teamId, url: info.sourceUrl, teamKey: info.sheetTeamKey, alias: info.sheetAlias, gameKeys: nil, firstDay: nil
             )
-            var parts = ["\(result.updated) games checked"]
+            var parts = ["\(result.updated) checked"]
             if result.added > 0 { parts.append("\(result.added) new") }
-            if result.cancelled > 0 { parts.append("\(result.cancelled) no longer in the sheet (marked cancelled)") }
-            importMessage = parts.joined(separator: ", ") + "."
+            if result.cancelled > 0 { parts.append("\(result.cancelled) no longer in the schedule (marked cancelled)") }
+            importMessage = parts.joined(separator: ", ") + "." + (result.notified == true ? " Families were told about the changes." : "")
             model.noteDataChanged()
         } catch {
             importMessage = error.localizedDescription

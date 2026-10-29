@@ -62,8 +62,11 @@ try {
   // ----- Guards ----------------------------------------------------------------
   const forbidden = await api("stranger", "import-preview", { team_id: team.team_id, url: CNR });
   check("only the head coach can import", forbidden.status === 403, String(forbidden.status));
-  const bad = await api("coach", "import-preview", { team_id: team.team_id, url: "https://example.com/schedule" });
-  check("non-Sheets links are refused before fetching", bad.status === 422 && bad.body.error?.code === "not_a_sheet", JSON.stringify(bad.body));
+  // Any other web link is tried as a team calendar (D-047); text that isn't a link is refused outright.
+  const bad = await api("coach", "import-preview", { team_id: team.team_id, url: "my schedule" });
+  check("text that isn't a link is refused before fetching", bad.status === 422 && bad.body.error?.code === "not_a_sheet", JSON.stringify(bad.body));
+  const page = await api("coach", "import-preview", { team_id: team.team_id, url: "https://example.com/schedule" });
+  check("a web page that isn't a calendar explains itself", page.status === 422 && ["unreadable", "not_a_calendar"].includes(page.body.error?.code), JSON.stringify(page.body));
   const gone = await api("coach", "import-preview", { team_id: team.team_id, url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vDOESNOTEXISTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/pubhtml" });
   check("a missing sheet explains itself", gone.status === 422 && /couldn't find that sheet/i.test(gone.body.error?.message ?? ""), JSON.stringify(gone.body));
 

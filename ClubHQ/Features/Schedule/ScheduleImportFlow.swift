@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// One screen of the tournament import (D-042). The link screen is the root.
+/// One screen of the schedule import (D-042 sheets, D-043 league, D-047 calendars). The link screen is the root.
 enum ImportStep: Hashable {
     /// "Is this your team?" — one strong match.
     case confirm
@@ -51,6 +51,15 @@ final class ScheduleImportFlow {
     }
 
     var chosenTeam: ImportTeam? { chosenKey.flatMap { preview?.team($0) } }
+
+    /// Team calendars (D-047) bring practices and other events too, so they count "events".
+    var isCalendar: Bool { preview?.isCalendar == true }
+
+    /// "1 game" / "3 games", or "1 event" / "3 events" for a calendar. `capitalized` for buttons.
+    func count(_ n: Int, capitalized: Bool = false) -> String {
+        let noun = isCalendar ? (n == 1 ? "event" : "events") : (n == 1 ? "game" : "games")
+        return "\(n) \(capitalized ? noun.capitalized : noun)"
+    }
 
     /// The chosen team's games, in time order.
     var chosenGames: [ImportGame] {
@@ -103,6 +112,14 @@ final class ScheduleImportFlow {
     }
 
     private func route(_ preview: ImportPreview) {
+        // A calendar feed is one team's calendar: straight to its events.
+        if preview.isCalendar, let key = preview.match.teamKeys.first {
+            chosenKey = key
+            alias = nil
+            selectAllGames()
+            path = [.preview]
+            return
+        }
         switch preview.match.outcome {
         case .clear:
             if let previous = preview.previousImport, previous.teamKey == preview.match.teamKeys.first {

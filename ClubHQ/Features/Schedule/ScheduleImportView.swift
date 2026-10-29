@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Import a tournament schedule from the organizer's Google Sheets link (D-042):
-/// paste the link → confirm or pick the team → review its games → import.
+/// Import a schedule from a link: a team calendar from TeamSnap, GameChanger and the like (D-047),
+/// an organizer's Google Sheet (D-042) or a CNR league page (D-043).
+/// Paste the link → confirm or pick the team (sheets and leagues) → review the games → import.
 struct ScheduleImportView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var flow: ScheduleImportFlow
@@ -51,21 +52,21 @@ private struct ImportLinkStep: View {
     var body: some View {
         Form {
             Section {
-                TextField("docs.google.com/spreadsheets/…", text: $flow.url, axis: .vertical)
+                TextField("webcal://… or https://…", text: $flow.url, axis: .vertical)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .lineLimit(1...3)
                     .focused($linkFocused)
-                    .accessibilityLabel("Tournament schedule link")
+                    .accessibilityLabel("Schedule link")
                 PasteButton(payloadType: String.self) { strings in
                     if let text = strings.first { flow.url = text.trimmingCharacters(in: .whitespacesAndNewlines) }
                 }
                 .labelStyle(.titleAndIcon)
             } header: {
-                Text("Tournament schedule link")
+                Text("Schedule link")
             } footer: {
-                Text("Paste the Google Sheets link the organizer shared, or a CNR league link. We'll find your team and show its games before anything is added.")
+                Text("Paste your team's calendar link from TeamSnap, GameChanger, SportsEngine, LeagueApps, PlayMetrics or Google Calendar (look for Subscribe, Sync or iCal). A tournament's Google Sheets link or a CNR league link works too. You'll review everything before it's added, and calendar changes are picked up automatically.")
             }
 
             if flow.needsFirstDay {
@@ -80,8 +81,8 @@ private struct ImportLinkStep: View {
                 Section {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                    if flow.errorCode == "no_games" || flow.errorCode == "unreadable" || flow.errorCode == "not_a_sheet" {
-                        Button("Report this sheet") { flow.path.append(.report(flow.errorCode == "no_games" ? .gamesWrong : .unreadable)) }
+                    if flow.errorCode == "no_games" || flow.errorCode == "unreadable" || flow.errorCode == "not_a_sheet" || flow.errorCode == "not_a_calendar" {
+                        Button("Report this link") { flow.path.append(.report(flow.errorCode == "no_games" ? .gamesWrong : .unreadable)) }
                     }
                 }
             }
@@ -94,11 +95,11 @@ private struct ImportLinkStep: View {
                     linkFocused = false
                     await flow.read()
                 } label: {
-                    Text("Find My Team")
+                    Text("Read Schedule")
                 }
                 .buttonStyle(BrandCTAButtonStyle())
                 .disabled(flow.url.trimmingCharacters(in: .whitespaces).isEmpty)
-                Text("Reading a big tournament can take a few seconds.")
+                Text("Reading a big schedule can take a few seconds.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .padding()
@@ -311,10 +312,15 @@ private struct ImportPreviewStep: View {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(team.name).font(.title3.bold())
-                        Text([team.bracketTitle, team.coach.map { "Coach \($0)" }].compactMap { $0 }.joined(separator: " · "))
-                            .font(.subheadline).foregroundStyle(.secondary)
+                        if preview.isCalendar {
+                            Text(preview.source.provider.map { "\($0) calendar · updates automatically" } ?? "Team calendar · updates automatically")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        } else {
+                            Text([team.bracketTitle, team.coach.map { "Coach \($0)" }].compactMap { $0 }.joined(separator: " · "))
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
                     }
-                    Button("Change Team") { flow.changeTeam() }
+                    if !preview.isCalendar { Button("Change Team") { flow.changeTeam() } }
                 }
                 notices(preview: preview, key: key)
                 Section {
@@ -326,7 +332,7 @@ private struct ImportPreviewStep: View {
                         ) { flow.toggle(game) }
                     }
                 } header: {
-                    Text("Games")
+                    Text(preview.isCalendar ? "Events" : "Games")
                 }
                 if let error = flow.errorMessage {
                     Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
@@ -338,19 +344,19 @@ private struct ImportPreviewStep: View {
                         await flow.commit()
                     } label: {
                         let verb = flow.isReimport ? "Update" : "Import"
-                        Text(flow.selectedCount == 1 ? "\(verb) 1 Game" : "\(verb) \(flow.selectedCount) Games")
+                        Text("\(verb) \(flow.count(flow.selectedCount, capitalized: true))")
                     }
                     .buttonStyle(BrandCTAButtonStyle())
                     .disabled(flow.selectedCount == 0)
                     Text(flow.hasUpcomingSelection
                          ? "Families aren't notified. You can tell them on the next screen."
-                         : "These games already happened, so families won't be notified.")
+                         : "These already happened, so families won't be notified.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding()
                 .background(.bar)
             }
-            .navigationTitle("Review Games")
+            .navigationTitle(preview.isCalendar ? "Review Events" : "Review Games")
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -359,14 +365,14 @@ private struct ImportPreviewStep: View {
     private func notices(preview: ImportPreview, key: String) -> some View {
         let previous = preview.previousImport
         let zoneDiffers = preview.timeZone.secondsFromGMT() != TimeZone.current.secondsFromGMT()
-        if flow.levelWarning != nil || previous != nil || flow.keptGameCount > 0 || zoneDiffers || preview.source.homeNote != nil {
+        if flow.levelWarning != nil || previous != nil || flow.keptGameCount > 0 || zoneDiffers || preview.source.homeNote != nil || preview.source.notice != nil {
             Section {
                 if let warning = flow.levelWarning {
                     Label(warning, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 }
                 if let previous {
                     if previous.teamKey == key {
-                        Label("You imported this tournament before. Importing again updates those \(previous.eventCount) games instead of adding copies.", systemImage: "arrow.triangle.2.circlepath")
+                        Label("You imported this \(preview.isCalendar ? "calendar" : "tournament") before. Importing again updates those \(flow.count(previous.eventCount)) instead of adding copies.", systemImage: "arrow.triangle.2.circlepath")
                     } else {
                         Label("You picked \(preview.team(previous.teamKey)?.name ?? "another team") last time. Importing now replaces those games.", systemImage: "arrow.left.arrow.right")
                     }
@@ -378,10 +384,13 @@ private struct ImportPreviewStep: View {
                           systemImage: "arrow.triangle.2.circlepath")
                 }
                 if zoneDiffers, let zone = preview.timeZone.localizedName(for: .generic, locale: .current) {
-                    Label("Times are \(zone), where the games are played.", systemImage: "globe.americas")
+                    Label(preview.isCalendar ? "Times are \(zone), as the calendar lists them." : "Times are \(zone), where the games are played.", systemImage: "globe.americas")
                 }
                 if let note = preview.source.homeNote {
                     Label("\(note).", systemImage: "tshirt")
+                }
+                if let notice = preview.source.notice {
+                    Label(notice, systemImage: "info.circle")
                 }
             }
             .font(.subheadline)
@@ -475,7 +484,9 @@ private struct TournamentHeader: View {
         VStack(alignment: .leading, spacing: 2) {
             Label(source.title, systemImage: "trophy.fill")
                 .font(.headline)
-            Text(source.kind == "cnr_league" ? "Read from the CNR league site" : "Read from Google Sheets")
+            Text(source.kind == "cnr_league" ? "Read from the CNR league site"
+                 : source.kind == "ical" ? "Read from \(source.provider.map { "the \($0) calendar" } ?? "the team calendar")"
+                 : "Read from Google Sheets")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -498,8 +509,8 @@ private struct ImportDoneStep: View {
     private var headline: String {
         guard let result = flow.result else { return "Done" }
         if flow.isUndone { return "Import undone" }
-        if result.added == 0 && result.updated > 0 { return result.updated == 1 ? "1 game updated" : "\(result.updated) games updated" }
-        return result.added == 1 ? "1 game added" : "\(result.added) games added"
+        if result.added == 0 && result.updated > 0 { return "\(flow.count(result.updated)) updated" }
+        return "\(flow.count(result.added)) added"
     }
 
     var body: some View {
@@ -515,11 +526,14 @@ private struct ImportDoneStep: View {
                         VStack(spacing: 6) {
                             if result.added > 0 && result.updated > 0 { Text("\(result.updated) already on your schedule were updated.") }
                             if result.removed > 0 { Text("\(result.removed) games from the team you picked before were removed.") }
-                            if result.cancelled > 0 { Text("\(result.cancelled) games no longer in the sheet were marked cancelled.") }
-                            if result.skipped > 0 { Text("\(result.skipped) games had no date and were skipped.") }
+                            if result.cancelled > 0 { Text("\(flow.count(result.cancelled)) no longer in the \(flow.isCalendar ? "calendar" : "sheet") were marked cancelled.") }
+                            if result.skipped > 0 { Text("\(flow.count(result.skipped)) had no date and were skipped.") }
                             Text(result.upcoming == 0
-                                 ? "These games already happened, so they're under Past on the schedule, with scores."
+                                 ? "These already happened, so they're under Past on the schedule."
                                  : "They're on the schedule now. Families see them right away.")
+                            if flow.isCalendar {
+                                Text("ClubHQ checks this calendar about every 20 minutes and tells families when a time changes.")
+                            }
                         }
                         .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     }
@@ -537,7 +551,7 @@ private struct ImportDoneStep: View {
                             Label("Families notified", systemImage: "bell.badge.fill").font(.headline).foregroundStyle(.green)
                         } else {
                             AsyncButton { await flow.notifyFamilies() } label: {
-                                Label(result.upcoming == 1 ? "Notify Families About 1 Game" : "Notify Families About \(result.upcoming) Games", systemImage: "bell")
+                                Label("Notify Families About \(flow.count(result.upcoming, capitalized: true))", systemImage: "bell")
                             }
                             .font(.headline)
                         }

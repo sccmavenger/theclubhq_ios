@@ -7,7 +7,7 @@ import Foundation
 struct ImportPreview: Codable, Sendable {
     struct Source: Codable, Hashable, Sendable {
         var url: String
-        /// "google_sheet" or "cnr_league" (D-043). Older servers don't send it.
+        /// "google_sheet", "cnr_league" (D-043) or "ical" (D-047). Older servers don't send it.
         var kind: String?
         var title: String
         var sheetTitle: String?
@@ -18,6 +18,10 @@ struct ImportPreview: Codable, Sendable {
         var tabCount: Int
         /// The sheet only says "Sat"/"Sun" and nothing gives the dates; ask the coach.
         var needsDates: Bool
+        /// Calendar feeds: the app it came from ("TeamSnap", "GameChanger"…).
+        var provider: String? = nil
+        /// Something the coach should know, e.g. all-day items that weren't included.
+        var notice: String? = nil
     }
 
     enum Outcome: String, Codable, Sendable {
@@ -56,6 +60,8 @@ struct ImportPreview: Codable, Sendable {
 
     /// League sites list every team but load one team's games at a time.
     var isLeague: Bool { source.kind == "cnr_league" }
+    /// A team calendar feed (D-047): one team, games plus practices and other events.
+    var isCalendar: Bool { source.kind == "ical" }
     /// The league site and organizers who say "team on the right is home" (D-042, D-043).
     var homeIsRight: Bool { isLeague || source.homeNote != nil }
 
@@ -168,8 +174,16 @@ struct ImportGame: Codable, Identifiable, Hashable, Sendable {
     var venueName: String?
     var address: String?
     var court: String?
+    /// "game", "practice" or "other". Calendar feeds (D-047) have all three; older servers send nothing.
+    var eventType: String? = nil
+    /// The calendar's own title ("Practice", "Hawks vs Lions").
+    var title: String? = nil
+    /// "home"/"away" when the calendar says so.
+    var homeAway: String? = nil
 
     var id: String { key }
+
+    var isGame: Bool { eventType == nil || eventType == "game" }
 
     func ourSide(teamKey: String, alias: String?) -> (us: Side, them: Side) {
         if left.teamKey == teamKey { return (left, right) }
@@ -187,7 +201,9 @@ struct ImportGame: Codable, Identifiable, Hashable, Sendable {
     /// "vs X", or "@ X" when we're the away team (`homeIsRight`: the source puts the home team on the right).
     func opponentLabel(teamKey: String, alias: String?, homeIsRight: Bool = false) -> String {
         let (us, them) = ourSide(teamKey: teamKey, alias: alias)
-        if them.placeholder { return "Opponent TBD (\(them.name))" }
+        if !isGame { return title ?? "Event" }
+        if them.placeholder { return homeAway == nil ? "Opponent TBD (\(them.name))" : "Game · opponent TBD" }
+        if let homeAway { return homeAway == "away" ? "@ \(them.name)" : "vs \(them.name)" }
         return homeIsRight && us == left ? "@ \(them.name)" : "vs \(them.name)"
     }
 
@@ -229,6 +245,8 @@ struct ImportResult: Codable, Hashable, Sendable {
     /// Games still to be played: these can be announced to families.
     var upcoming: Int
     var eventIds: [UUID]
+    /// Check for Changes on a team calendar told families what changed (D-047).
+    var notified: Bool? = nil
 }
 
 /// A link the team imported from (`schedule_imports`).

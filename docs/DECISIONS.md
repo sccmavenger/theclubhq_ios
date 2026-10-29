@@ -9,6 +9,19 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-047 — Team calendar import from any iCal link (2026-10-29) — Accepted
+- **Context:** Roadmap #3. Coaches and families already live in TeamSnap, GameChanger, SportsEngine, LeagueApps, PlayMetrics, Google Calendar and others; every one publishes a team's schedule as an `.ics` subscription. Nothing read those feeds, and the import flow refused any link that wasn't a Google Sheet or CNR.
+- **Decision:** The D-042 import flow accepts any `http(s)`/`webcal` link that isn't a Sheet or CNR link. `_shared/icalImport.ts` reads it into the same shape, so preview, commit, Check for Changes, Keep Games and Remove Games are shared.
+  - **One team:** a feed is one team's calendar, so there's no team to pick. The app goes straight to the review list (all events ticked).
+  - **What's imported:** events from 14 days back to ~400 days ahead (max 400). Recurring rules (DAILY/WEEKLY/MONTHLY with INTERVAL, COUNT, UNTIL, BYDAY, BYMONTHDAY), EXDATE and moved occurrences (RECURRENCE-ID) are expanded. All-day items (tournament placeholders, picture day) and cancelled events are left out; the preview says how many all-day items were skipped. Times use the event's TZID (IANA, Windows or Mozilla style), UTC, or the calendar/team zone for floating times.
+  - **Event type** comes from the title: "vs X" = home game, "@ X"/"at X" = away game, "(Home)"/"(Away)" override, "Practice/Training/Workout…" = practice, everything else = other event. The team's own name is learned from the names that recur across game titles ("Bears @ Hawks 12U" → home vs Bears).
+  - **Keys** are `ics|<hash of UID>[|YYYYMMDD]`, so a moved event keeps its row.
+  - **Re-checks:** `scheduled-jobs` (every 5 min) re-reads each calendar import about every 20 minutes while it has upcoming events, every 6 hours otherwise or after 3 failures in a row (`last_checked_at`, `check_failures`, `check_error`). Changes to upcoming events (time or place moved, added, removed) are applied and families get **one** push per check: a specific one for a single change ("Time changed: vs Lions"), else a summary. Manual Check for Changes on a calendar does the same. A failed or empty read never touches the games.
+  - **Safe re-checks:** unticked events are remembered (`skipped_keys`) and stay out. Feeds have no scores, so score columns are never written: a coach's result survives. Past events are never cancelled when they fall out of the window.
+  - **Fetching safety:** only ports 80/443; no credentials in the URL; loopback, private, link-local, CGNAT, numeric and IPv6-literal hosts refused, re-checked on every redirect (max 4); 10 s timeout; 4 MB cap. A web page instead of a feed gets per-app directions ("In GameChanger, open the team → Schedule → ⚙ → Sync…").
+- **Why:** One reader covers most of the market (the appendix's integration research) with no partnerships or API keys, and a 20-minute server check beats the source apps' own calendar sync, which phones refresh as rarely as daily. Reading titles is deterministic and testable, like D-042.
+- **Consequences / next:** Migration `20261029190000_schedule_import_ical.sql` (applied 2026-10-29). Shared import code moved to `_shared/scheduleImport.ts`; re-checks in `_shared/importRecheck.ts`. DNS-rebinding to private addresses isn't blocked (hostnames aren't resolved first); the edge runtime has no private network to reach. Title parsing may call an odd event "other"; the coach can edit it. #4 can turn on re-checks for sheets by adding their kind to the job. Tests: `supabase/tests/icalImport_test.ts` (10, offline), `d047_live_check.mjs` (20/20 live), `ClubHQTests/ScheduleImportTests.swift` (2 new).
+
 ## D-046 — Deleting a team (owner-approved 2026-10-29) — Accepted
 - **Context:** A coach had no way to delete a disbanded team. Only the admin portal could archive one, or deleting the coach's own account.
 - **Decision:**

@@ -111,6 +111,8 @@ In `ClubHQ/Core/AppConfig.swift` set `supabaseURL` and `supabasePublishableKey` 
 - Tests: `npx deno test --allow-read supabase/tests/sheetImport_test.ts` (offline, saved CNR sheet) and `node supabase/tests/d042_live_check.mjs` (live, throwaway accounts).
 - CNR league (D-043): migration `20261028160000_schedule_import_league.sql` (applied 2026-10-28) allows `source_kind = 'cnr_league'`. The reader is `_shared/cnrLeague.ts` and only fetches `cnr*.stlbasketball.com`. Offline tests: `npx deno test --allow-read supabase/tests/cnrLeague_test.ts`.
 
+- Team calendars (D-047): migration `20261029190000_schedule_import_ical.sql` (applied 2026-10-29) allows `source_kind = 'ical'` and adds `last_checked_at`, `check_error`, `check_failures`, `skipped_keys`. Readers: `_shared/icalImport.ts` (fetches any public http(s) host on 80/443, never private networks), shared flow in `_shared/scheduleImport.ts`, re-checks in `_shared/importRecheck.ts` run by `scheduled-jobs`. `mobile-api` and `scheduled-jobs` deployed 2026-10-29. Tests: `npx deno test --allow-read supabase/tests/icalImport_test.ts`; live `node supabase/tests/d047_live_check.mjs` (20/20).
+
 ## 11. Reminders (D-045)
 - Migration `20261029120000_reminders.sql` (applied 2026-10-29): `event_reminder_log`, `profiles.notification_prefs`.
 - Function `scheduled-jobs` (JWT off; bearer = `APNS_DISPATCH_SECRET`), cron job `clubhq-scheduled-jobs` every 5 minutes.

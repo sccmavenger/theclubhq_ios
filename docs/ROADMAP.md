@@ -6,7 +6,7 @@
 Written 2026-10-23. Strategy and positioning: [`PRODUCT_STRATEGY.md`](PRODUCT_STRATEGY.md).
 Owner blockers: [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md). Integration research behind items 3, 4, 8 and 9 is in the appendix.
 
-**Where we are (updated 2026-10-29):** 1.0.1 (build 18, the rebrand) has been in App Review since
+**Where we are (updated 2026-10-29):** Team calendar import (#3, D-047) is live on the server. 1.0.1 (build 18, the rebrand) has been in App Review since
 2026-10-25. TestFlight has build 22 (reminders and clubs) and build 23 (Delete Team, D-046). Push
 notifications are live (OQ-04), and so are event reminders and RSVP nudges (D-045). Clubs Phase 0+1
 (D-044) is built for the 3D Basketball Academy pilot. All of it is merged to main. Coach Pro can be
@@ -27,7 +27,7 @@ teamclubhq.com/adminportal and was merged to main 2026-10-28. The ASC label step
 |---|---|---|---|---|---|
 | 1 | **Push notifications, event reminders and RSVP nudges** | Retention starts here: "Practice tomorrow 6pm, tap to RSVP," and coaches get nudges for families who haven't replied. **Push live 2026-10-28** (APNs key set, every-minute `apns-dispatch` cron). **Reminders and nudges (D-045) live 2026-10-29** through `scheduled-jobs`. | M | — | ✅ 2026-10-29 |
 | 2 | **Calendar subscribe feed** (one feed per family, covering all kids) | "Calendar sync is free" is a headline promise. **Built under D-036:** the `calendar-feed` Edge Function serves one secret, revocable feed per user covering every team. Schedule → Calendar sync has Subscribe, Copy Link and Reset Link. | S | — | ✅ 2026-10-23 |
-| 3 | **Import any team calendar** (iCal subscription) | Pulls in GameChanger, TeamSnap, SportsEngine, LeagueApps, PlayMetrics and Exposure, so "one family calendar for every kid" becomes real. A server job checks for changes every 15–30 minutes and pushes **"time changed"** alerts, which beats those apps' own calendar sync (up to a 24-hour lag). The re-check job can be shared with #4's timed re-checks. | M | — | ⬜ **Next up** |
+| 3 | **Import any team calendar** (iCal subscription) | Pulls in GameChanger, TeamSnap, SportsEngine, LeagueApps, PlayMetrics and Exposure, so "one family calendar for every kid" becomes real. **Built under D-047 (2026-10-29):** Schedule → + → Import Schedule or Calendar accepts any `webcal://`/`.ics` link (and Google Calendar share links). Games, practices and other events are read from the titles, with home/away, length, place and notes. `scheduled-jobs` re-checks every calendar about every 20 minutes and sends one "time changed" alert per change set; coach-entered scores are never overwritten. Server deployed; live check 20/20. Needs an app build to reach coaches. | M | — | ✅ server live · app in next build |
 | 4 | **Tournament import: paste a link** | The St. Louis wedge: CNR's Google Sheets first, then Exposure and Tourney Machine. Adds a tournament-weekend view with every game, venue, court and bracket placeholder, refreshed through the weekend. **v1 built 2026-10-28 (D-042):** any Google Sheets schedule, team matching, review, update in place, undo. **CNR league site added the same day (D-043).** Next: timed re-checks with change alerts, other platforms. | M–L | — | 🔨 v1 shipped |
 | 5 | **Roster import and bulk invite** (CSV / TeamSnap export) | Shortens coach setup to under 10 minutes, timed for the TeamSnap ONE migration pain. | S | — | ⬜ |
 
@@ -88,7 +88,7 @@ Update this table as items ship.
 | Rotate the credentials that were shared in chat | Security hygiene | OQ-13 | ⬜ |
 | Collect 20–30 real flyers, CNR sheets, PDFs and GroupMe posts | AI Phase 0 fixtures, #8 | — | ⬜ |
 
-Items **3, 5, 7, 8 and 9** have no blockers. **#3 is next**, because its re-check job also powers #4's change alerts.
+Items **5, 7, 8 and 9** have no blockers. #3 shipped on the server 2026-10-29 (D-047); its re-check job (`_shared/importRecheck.ts`) is ready for #4's sheet change alerts.
 
 ---
 
