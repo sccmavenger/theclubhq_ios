@@ -9,6 +9,19 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-046 — Deleting a team (owner-approved 2026-10-29) — Accepted
+- **Context:** A coach had no way to delete a disbanded team. Only the admin portal could archive one, or deleting the coach's own account.
+- **Decision:**
+  - **Who:** an independent team's **head coach** (not assistants or managers). For a club team, **only the club's directors**; the team's coach is told "Only your club's director can delete this team". There is no "release to coach".
+  - **Where:** Team Settings → Delete Team, and Club tab → team → Delete Team.
+  - **Confirming:** type the team's name. "Tell families" is on by default and sends one notice ("X was closed").
+  - **Blocked** while a card payment is processing.
+  - **Effect:** the team is gone for every member at once. It's hidden in the app, and the database rules (`can_access_team`, `parent_can_read_team`, `can_manage_team`, and the player and emergency-contact read rules) refuse deleted teams. Reminders and calendar feeds stop, and the coach's team slot frees up.
+  - **No undo in the app.** Only a platform admin can restore it, from the admin portal, within 30 days. After that, `scheduled-jobs` permanently deletes it with everything on it (roster, guardian links, events, RSVPs, attendance, chats and their photos, announcements, dues, imports), plus an empty independent organization.
+  - **What's kept:** moderation reports and usage stats keep their rows with the team pointer cleared. Audit entries `team.deleted` and `team.purged` record it.
+- **Why:** Disbanded teams shouldn't keep pinging families or hold a coach's slot. Children's data shouldn't be kept indefinitely. A short admin-only window covers a mistaken deletion without a confusing in-app undo.
+- **Consequences:** migrations `20261029170000_team_deletion.sql` and `20261029180000_deleted_team_access.sql`; `mobile-api` `delete-team`; the `admin-api` restore check; the 30-day purge in `_shared/teamPurge.ts`. Live check `supabase/tests/d046_live_check.mjs` (21/21).
+
 ## D-045 — Event reminders and RSVP nudges (2026-10-29) — Accepted
 - **Context:** Roadmap #1. Push went live on 2026-10-28 (OQ-04), but nothing created reminders. The `event_reminder` and `rsvp_reminder` kinds existed unused.
 - **Decision:** The `scheduled-jobs` Edge Function runs every 5 minutes through pg_cron, using the dispatch secret from Vault. `_shared/reminders.ts`:

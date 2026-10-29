@@ -380,6 +380,17 @@ final class DemoBackend: ClubHQBackend {
         return world.attendance.filter { eventIDs.contains($0.eventId) }
     }
 
+    func deleteTeam(teamID: UUID, confirmName: String, notifyFamilies: Bool) async throws {
+        await pause()
+        guard let team = world.teams.first(where: { $0.id == teamID }) else { throw notFound("That team") }
+        guard confirmName.trimmingCharacters(in: .whitespaces).lowercased() == team.name.lowercased() else {
+            throw BackendError.server(status: 400, code: "invalid_input", message: "Type the team's name exactly (\"\(team.name)\") to delete it.")
+        }
+        world.teams.removeAll { $0.id == teamID }
+        world.roles.removeAll { $0.teamID == teamID }
+        world.events.removeAll { $0.teamId == teamID }
+    }
+
     // MARK: - Clubs (D-044)
 
     /// A sample club for previews and tests: eight teams across grades, genders and levels.

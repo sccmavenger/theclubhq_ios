@@ -64,3 +64,29 @@ struct ClubTests {
         #expect(try await backend.clubAudience(orgID: id, filter: ClubFilter(grades: ["6"])).teamCount == 1)
     }
 }
+
+/// Deleting a team (D-046): who may, and the demo flow.
+@MainActor
+struct DeleteTeamTests {
+    @Test func onlyHeadCoachOfIndependentOrDirectorOfClub() {
+        func team(_ roles: [TeamRole], club: Bool?) -> TeamMembership {
+            TeamMembership(id: UUID(), name: "T", roles: roles, linkedPlayers: [], isPro: false, isClubTeam: club)
+        }
+        #expect(team([.headCoach], club: false).canDeleteTeam)
+        #expect(team([.headCoach], club: nil).canDeleteTeam, "older servers: treated as independent")
+        #expect(!team([.assistantCoach], club: false).canDeleteTeam)
+        #expect(!team([.parent], club: false).canDeleteTeam)
+        #expect(!team([.headCoach], club: true).canDeleteTeam, "a club team's coach can't")
+        #expect(team([.programDirector], club: true).canDeleteTeam)
+    }
+
+    @Test func demoDeleteNeedsTheNameAndRemovesTheTeam() async throws {
+        let backend = DemoBackend(persona: .coach, latency: .zero)
+        let team = try #require(try await backend.loadContext().teams.first(where: \.isHeadCoach))
+        await #expect(throws: BackendError.self) {
+            try await backend.deleteTeam(teamID: team.id, confirmName: "nope", notifyFamilies: false)
+        }
+        try await backend.deleteTeam(teamID: team.id, confirmName: team.name.uppercased(), notifyFamilies: true)
+        #expect(try await backend.loadContext().teams.contains { $0.id == team.id } == false)
+    }
+}

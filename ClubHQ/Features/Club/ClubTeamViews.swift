@@ -12,46 +12,27 @@ struct ClubTeamDetailView: View {
     @State private var coachToRemove: ClubTeam.Coach?
     @State private var editing = false
     @State private var message: String?
+    @State private var showDelete = false
+    @Environment(\.dismiss) private var dismiss
 
     private var team: ClubTeam? { overview?.teams.first { $0.id == teamID } }
 
     var body: some View {
         if let team {
             List {
+                summarySection(team)
+                coachesSection(team)
+                glanceSection(team)
                 Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(team.name).font(.title3.bold())
-                        if !team.groupingLine.isEmpty { Text(team.groupingLine).foregroundStyle(.secondary) }
-                        if let season = team.season { Text(season).font(.caption).foregroundStyle(.secondary) }
-                    }
-                    Button("Open Team", systemImage: "arrow.up.forward.app") { openTeam(team.id) }
+                    Button("Delete Team", systemImage: "trash", role: .destructive) { showDelete = true }
                 } footer: {
-                    Text("You can do everything a head coach can on this team: schedule, roster, RSVPs, attendance, dues and team chat.")
+                    Text("Only directors can delete a club team. It's removed for everyone.")
                 }
-                Section("Coaches") {
-                    ForEach(team.coaches, id: \.userId) { coach in
-                        LabeledContent(coach.name, value: coach.role.displayName)
-                            .swipeActions { Button("Remove", role: .destructive) { coachToRemove = coach } }
-                    }
-                    ForEach(team.pendingCoaches, id: \.code) { pending in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(pending.email ?? "Invited coach")
-                            Text("Invited · code \(pending.code)").font(.caption.monospaced()).foregroundStyle(.secondary)
-                        }
-                        .swipeActions {
-                            Button("Cancel Invite", role: .destructive) { Task { await removeInvite(pending) } }
-                            ShareLink(item: inviteText(pending.code)) { Label("Share", systemImage: "square.and.arrow.up") }.tint(.blue)
-                        }
-                    }
-                    Button(team.coaches.isEmpty ? "Assign a Coach" : "Add a Coach", systemImage: "person.badge.plus") { showAssign = true }
-                }
-                Section("At a glance") {
-                    LabeledContent("Players", value: "\(team.rosterCount)")
-                    LabeledContent("Families joined", value: "\(team.familyCount)")
-                    if let next = team.nextEvent {
-                        LabeledContent("Next", value: "\(next.label), \(next.startsAt.formatted(date: .abbreviated, time: .shortened))")
-                        LabeledContent("RSVPs", value: "\(next.rsvpCount) of \(team.rosterCount)")
-                    }
+            }
+            .sheet(isPresented: $showDelete) {
+                DeleteTeamView(teamID: team.id, teamName: team.name) {
+                    await reload()
+                    dismiss()
                 }
             }
             .navigationTitle(team.name)
@@ -70,6 +51,54 @@ struct ClubTeamDetailView: View {
             .alert("Coaches", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: { Text(message ?? "") }
+        }
+    }
+
+    private func summarySection(_ team: ClubTeam) -> some View {
+        Section {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(team.name).font(.title3.bold())
+                if !team.groupingLine.isEmpty { Text(team.groupingLine).foregroundStyle(.secondary) }
+                if let season = team.season { Text(season).font(.caption).foregroundStyle(.secondary) }
+            }
+            Button("Open Team", systemImage: "arrow.up.forward.app") { openTeam(team.id) }
+        } footer: {
+            Text("You can do everything a head coach can on this team: schedule, roster, RSVPs, attendance, dues and team chat.")
+        }
+    }
+
+    private func coachesSection(_ team: ClubTeam) -> some View {
+        Section("Coaches") {
+            ForEach(team.coaches, id: \.userId) { coach in
+                LabeledContent(coach.name, value: coach.role.displayName)
+                    .swipeActions { Button("Remove", role: .destructive) { coachToRemove = coach } }
+            }
+            ForEach(team.pendingCoaches, id: \.code) { pending in
+                pendingRow(pending)
+            }
+            Button(team.coaches.isEmpty ? "Assign a Coach" : "Add a Coach", systemImage: "person.badge.plus") { showAssign = true }
+        }
+    }
+
+    private func pendingRow(_ pending: ClubTeam.PendingCoach) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(pending.email ?? "Invited coach")
+            Text("Invited · code \(pending.code)").font(.caption.monospaced()).foregroundStyle(.secondary)
+        }
+        .swipeActions {
+            Button("Cancel Invite", role: .destructive) { Task { await removeInvite(pending) } }
+            ShareLink(item: inviteText(pending.code)) { Label("Share", systemImage: "square.and.arrow.up") }.tint(.blue)
+        }
+    }
+
+    private func glanceSection(_ team: ClubTeam) -> some View {
+        Section("At a glance") {
+            LabeledContent("Players", value: "\(team.rosterCount)")
+            LabeledContent("Families joined", value: "\(team.familyCount)")
+            if let next = team.nextEvent {
+                LabeledContent("Next", value: "\(next.label), \(next.startsAt.formatted(date: .abbreviated, time: .shortened))")
+                LabeledContent("RSVPs", value: "\(next.rsvpCount) of \(team.rosterCount)")
+            }
         }
     }
 

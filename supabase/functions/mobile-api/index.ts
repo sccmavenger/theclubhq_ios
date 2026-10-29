@@ -264,7 +264,7 @@ const SERVER_TRACKED_ACTIONS = new Set([
   "create-team", "update-team", "create-invite", "reset-invite", "claim-invite", "create-guardian-invite",
   "create-player-invite", "claim-player-invite", "set-player-birthdate", "create-thread", "post-message",
   "delete-message", "calendar-feed", "reset-calendar-feed", "set-mute", "create-announcement", "save-event",
-  "cancel-event", "set-rsvp", "import-preview", "import-commit", "import-undo", "import-detach", "import-notify", "import-report", "set-notification-prefs", "create-club", "club-reset-code", "club-create-teams", "club-update-team", "club-assign-coach", "club-remove-coach", "claim-club-invite", "club-announcement", "club-event", "club-event-cancel", "register-device", "sync-subscription", "create-dues", "set-dues-status",
+  "cancel-event", "set-rsvp", "import-preview", "import-commit", "import-undo", "import-detach", "import-notify", "import-report", "set-notification-prefs", "delete-team", "create-club", "club-reset-code", "club-create-teams", "club-update-team", "club-assign-coach", "club-remove-coach", "claim-club-invite", "club-announcement", "club-event", "club-event-cancel", "register-device", "sync-subscription", "create-dues", "set-dues-status",
   "remind-unpaid", "connect-payments", "checkout", "report-content", "block-user", "delete-account",
 ]);
 
@@ -723,6 +723,10 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       teamQuery = teamQuery.in("id", [...teamIds].length ? [...teamIds] : ["00000000-0000-0000-0000-000000000000"]);
     }
     const { data: teams } = await teamQuery.order("created_at", { ascending: true });
+    // Which orgs are clubs: only a club's directors may delete a club team (D-046).
+    const { data: clubOrgs } = await ctx.admin.from("organizations").select("id").eq("type", "club")
+      .in("id", [...new Set((teams ?? []).map((t) => t.org_id).filter((o) => o))].concat(["00000000-0000-0000-0000-000000000000"]));
+    const clubOrgIds = new Set((clubOrgs ?? []).map((o) => o.id));
 
     const result = await Promise.all(
       (teams ?? []).map(async (t) => {
@@ -739,6 +743,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
           roles: [...new Set(teamRoles)],
           linked_players: linked,
           player_self: self,
+          is_club_team: clubOrgIds.has(t.org_id),
           is_pro: await teamIsPro(ctx, t.id),
         };
       }),
@@ -794,12 +799,13 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     // (D-044). Teams the coach created themselves always count, club or not.
     const { data: owning } = await ctx.admin
       .from("user_roles")
-      .select("team_id, teams!inner(created_by, organizations!inner(type))")
+      .select("team_id, teams!inner(created_by, archived_at, organizations!inner(type))")
       .eq("user_id", ctx.uid)
       .eq("role", "head_coach");
     const owned = (owning ?? []).filter((r) => {
-      const t = r.teams as unknown as { created_by: string | null; organizations: { type: string } };
-      return !(t?.organizations?.type === "club" && t.created_by !== ctx.uid);
+      const t = r.teams as unknown as { created_by: string | null; archived_at: string | null; organizations: { type: string } };
+      // Archived and deleted teams (D-046) free their slot.
+      return !t.archived_at && !(t?.organizations?.type === "club" && t.created_by !== ctx.uid);
     }).length;
     const pro = await isCoachPro(ctx);
     if (owned >= PRO_TEAM_LIMIT) {
@@ -1808,6 +1814,55 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       url: "#/teams",
     });
     return { ok: true };
+  },
+
+  // ----- Deleting a team (D-046) ----------------------------------------------
+  /**
+   * The team disappears for everyone right away. Independent teams: their head coach. Club teams:
+   * only the club's directors. The exact team name must be typed. Only a platform admin can
+   * restore it, within 30 days; then scheduled-jobs deletes it and everything on it for good.
+   */
+  async "delete-team"(ctx, p) {
+    const teamId = uuid(p, "team_id");
+    const { data: team } = await ctx.admin.from("teams").select("id, name, org_id, archived_at, deleted_at, organizations!inner(name, type)").eq("id", teamId).maybeSingle();
+    if (!team || team.deleted_at) throw new ApiError("not_found", "That team was already deleted.", 404);
+    const org = team.organizations as unknown as { name: string; type: string };
+    if (org.type === "club") {
+      const { data: director } = await ctx.admin.from("user_roles").select("id").eq("user_id", ctx.uid).eq("org_id", team.org_id).is("team_id", null).eq("role", "program_director").maybeSingle();
+      if (!director) throw new ApiError("forbidden", `Only ${org.name}'s directors can delete this team.`, 403);
+    } else {
+      const { data: coach } = await ctx.admin.from("user_roles").select("id").eq("user_id", ctx.uid).eq("team_id", teamId).eq("role", "head_coach").maybeSingle();
+      if (!coach) throw new ApiError("forbidden", "Only the head coach can delete this team.", 403);
+    }
+    const typed = str(p, "confirm_name", { max: 200 });
+    if (typed.trim().toLowerCase() !== team.name.trim().toLowerCase()) {
+      throw new ApiError("invalid_input", `Type the team's name exactly ("${team.name}") to delete it.`);
+    }
+    const { data: processing } = await ctx.admin.from("dues_items").select("id, dues_requests!inner(team_id)").eq("dues_requests.team_id", teamId).eq("status", "processing").limit(1);
+    if ((processing?.length ?? 0) > 0) {
+      throw new ApiError("invalid_input", "A family's card payment is still processing. Try again once it finishes.");
+    }
+    // Tell families first, while they're still on the team.
+    if (p.notify_families !== false) {
+      const people = await audienceForTeams(ctx, [teamId]);
+      if (people.length > 0) {
+        const { data: me } = await ctx.admin.from("profiles").select("full_name").eq("id", ctx.uid).maybeSingle();
+        const who = org.type === "club" ? org.name : me?.full_name?.trim() ? `Coach ${me.full_name.trim()}` : "The coach";
+        await enqueueTeamNotification(ctx.admin, {
+          teamId, kind: "announcement", subject: `${team.name} was closed`,
+          body: `${who} closed this team on ClubHQ. Its schedule, chat and roster are no longer available.`,
+          recipientUserIds: people, senderUserId: ctx.uid,
+        });
+        await dispatchPendingPushes(ctx.admin, 200);
+      }
+    }
+    const now = new Date().toISOString();
+    const { error } = await ctx.admin.from("teams").update({ archived_at: team.archived_at ?? now, deleted_at: now, deleted_by: ctx.uid }).eq("id", teamId);
+    if (error) throw new ApiError("internal", error.message, 500);
+    await ctx.admin.from("team_invites").update({ revoked_at: now }).eq("team_id", teamId).is("revoked_at", null);
+    await ctx.admin.from("audit_logs").insert({ actor_user_id: ctx.uid, action: "team.deleted", target_table: "teams", target_id: teamId, team_id: teamId, metadata: { name: team.name, club: org.type === "club" ? org.name : null } });
+    await alertAdmins(ctx.admin, { type: "team", title: "Team deleted", body: `${team.name}${org.type === "club" ? ` (${org.name})` : ""}. Restorable for 30 days.`, url: `#/teams/${teamId}` });
+    return { ok: true, purge_after: new Date(Date.now() + 30 * DAY_MS).toISOString() };
   },
 
   // ----- Clubs (D-044) --------------------------------------------------------

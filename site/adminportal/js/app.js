@@ -202,6 +202,7 @@ async function teamsCache(force = false) {
 }
 
 function teamHealth(t) {
+  if (t.deleted_at) return ["Deleted", "critical"];
   if (t.archived_at) return ["Archived", "neutral"];
   if (daysSince(t.created_at) < 7) return ["New", "info"];
   const idle = daysSince(t.last_activity_at);
@@ -336,14 +337,18 @@ async function renderTeam(teamId) {
   const threads = d.threads.map((th) => html`<tr><td>${th.title ?? label(th.kind)}${raw(th.deleted_at ? " " + badge("Deleted", "neutral") : "")}</td><td>${label(th.kind)} · ${label(th.audience)}</td>
       <td class="numcol">${num(th.message_count)}</td><td>${ago(th.last_message_at)}</td></tr>`);
   const grants = d.grants.map(grantRow);
+  // Deleted by its coach or club (D-046): restorable here for 30 days, then purged for good.
+  const purgeAt = t.deleted_at ? new Date(new Date(t.deleted_at).getTime() + 30 * 864e5) : null;
+  const restorable = purgeAt && purgeAt > new Date();
   return {
     html: html`<p class="crumbs"><a href="#/teams">Teams</a> /</p>
-      <h1>${t.name} ${raw(badge(healthText, healthStatus))} ${raw(t.is_pro ? badge("Pro", "info") : "")} ${raw(t.archived_at ? badge("Archived", "neutral") : "")}</h1>
+      <h1>${t.name} ${raw(badge(healthText, healthStatus))} ${raw(t.is_pro ? badge("Pro", "info") : "")} ${raw(t.deleted_at ? badge("Deleted", "critical") : t.archived_at ? badge("Archived", "neutral") : "")}</h1>
+      ${raw(t.deleted_at ? html`<p class="help">Deleted by ${t.deleted_by_name ?? "its coach"} on ${dateTime(t.deleted_at)}. ${restorable ? `It can be restored until ${dateTime(purgeAt)}; after that it's permanently deleted with everything on it.` : "The restore window has passed; it's being permanently deleted."}</p>` : "")}
       <div class="actions row">
         <button class="btn" id="rename">Rename</button>
         <button class="btn" id="grant">Grant Pro</button>
         <button class="btn" id="reset-code">Reset team code</button>
-        <button class="btn ${t.archived_at ? "" : "btn-danger-outline"}" id="archive">${t.archived_at ? "Restore team" : "Archive team"}</button>
+        ${raw(t.deleted_at && !restorable ? "" : html`<button class="btn ${t.archived_at ? "" : "btn-danger-outline"}" id="archive">${t.archived_at ? "Restore team" : "Archive team"}</button>`)}
       </div>
       <section class="grid2">
         <div class="card"><h2>Details</h2>${raw(kv([
@@ -380,11 +385,12 @@ async function renderTeam(teamId) {
         const v = await dialog({ title: "Reset team code?", message: "The current link and code stop working right away. Families who already joined aren't affected. Send the coach the new link.", submit: "Reset code", danger: true });
         if (v && (await run(e.target, () => api.act("reset-team-code", { team_id: t.id }), "New code created."))) reload();
       });
-      root.querySelector("#archive").addEventListener("click", async (e) => {
+      root.querySelector("#archive")?.addEventListener("click", async (e) => {
         const archiving = !t.archived_at;
         const v = await dialog({
           title: archiving ? "Archive this team?" : "Restore this team?",
-          message: archiving ? "The team disappears from everyone's app. Nothing is deleted, and you can restore it." : "The team comes back for its members.",
+          message: archiving ? "The team disappears from everyone's app. Nothing is deleted, and you can restore it."
+            : t.deleted_at ? `The coach deleted this team. Restoring brings it back for all its members exactly as it was, and stops the permanent deletion on ${dateTime(purgeAt)}.` : "The team comes back for its members.",
           fields: [{ name: "note", label: "Note for the audit log", type: "textarea", required: archiving }],
           submit: archiving ? "Archive" : "Restore", danger: archiving, confirmText: archiving ? t.name : null,
         });

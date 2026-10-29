@@ -87,6 +87,8 @@ Intelligence groundwork, D-039). Builds 1–15 are expired; only 16 (never distr
 It's in internal testing and waiting for Beta App Review for the external "Beta Families" group. It is not
 attached to any App Store version. 1.0 (build 17) is still waiting for review and was not touched.
 
+**2026-10-29: 1.0.1 build 23 to TestFlight** (internal only), branch `clubs`: Delete Team (D-046). Not attached to the version in review.
+
 **2026-10-29: 1.0.1 build 22 to TestFlight** (internal only) from branch `clubs` (includes `reminders`): event reminders and RSVP nudges with switches (D-045), clubs Phase 0 + 1 (D-044). Not attached to the version in review.
 
 **2026-10-28: 1.0.1 build 21 to TestFlight** (internal only) from `schedule-import`: Keep Games, Remove from List; the

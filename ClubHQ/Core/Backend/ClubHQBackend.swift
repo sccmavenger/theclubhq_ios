@@ -90,6 +90,9 @@ protocol ClubHQBackend: AnyObject {
     /// Links this team imported from, newest first.
     func scheduleImports(teamID: UUID) async throws -> [ScheduleImportInfo]
 
+    /// Deletes the team for everyone (D-046). `confirmName` must match the team's name.
+    func deleteTeam(teamID: UUID, confirmName: String, notifyFamilies: Bool) async throws
+
     // MARK: Clubs (D-044)
     /// Starts a club with the caller as director. Returns the club's id.
     func createClub(name: String) async throws -> UUID

@@ -348,6 +348,12 @@ final class SupabaseBackend: ClubHQBackend {
         ])
     }
 
+    func deleteTeam(teamID: UUID, confirmName: String, notifyFamilies: Bool) async throws {
+        let _: OK = try await client.invoke("delete-team", [
+            "team_id": .uuid(teamID), "confirm_name": .string(confirmName), "notify_families": .bool(notifyFamilies),
+        ])
+    }
+
     // MARK: - Clubs (D-044)
 
     private func filterJSON(_ filter: ClubFilter) -> JSONValue {
