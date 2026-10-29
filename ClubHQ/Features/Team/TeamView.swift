@@ -10,7 +10,7 @@ struct TeamView: View {
     @State private var sheet: TeamSheet?
 
     private enum TeamSheet: String, Identifiable {
-        case newPlayer, invite, announcement, groupMe
+        case invite, announcement, groupMe
         var id: String { rawValue }
     }
 
@@ -31,8 +31,8 @@ struct TeamView: View {
                 if team?.canManageRoster == true {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
+                            // Families add their own children from the invite (D-048); coaches don't add players.
                             Button("Invite Families", systemImage: "person.crop.circle.badge.plus") { sheet = .invite }
-                            Button("Add Player", systemImage: "person.badge.plus") { sheet = .newPlayer }
                             Button("Post Announcement", systemImage: "megaphone") { sheet = .announcement }
                             Divider()
                             Button("Move from GroupMe", systemImage: "arrow.right.arrow.left") { sheet = .groupMe }
@@ -45,7 +45,6 @@ struct TeamView: View {
             .sheet(item: $sheet, onDismiss: { Task { await load() } }) { sheet in
                 if let team {
                     switch sheet {
-                    case .newPlayer: PlayerEditorView(draft: PlayerDraft(teamId: team.id), sport: team.resolvedSport)
                     case .invite: InviteFamiliesView(team: team)
                     case .announcement: AnnouncementComposer(teamID: team.id)
                     case .groupMe: NavigationStack { MoveFromGroupMeView(team: team, showsDoneButton: true) }

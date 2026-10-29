@@ -29,7 +29,7 @@ teamclubhq.com/adminportal and was merged to main 2026-10-28. The ASC label step
 | 2 | **Calendar subscribe feed** (one feed per family, covering all kids) | "Calendar sync is free" is a headline promise. **Built under D-036:** the `calendar-feed` Edge Function serves one secret, revocable feed per user covering every team. Schedule → Calendar sync has Subscribe, Copy Link and Reset Link. | S | — | ✅ 2026-10-23 |
 | 3 | **Import any team calendar** (iCal subscription) | Pulls in GameChanger, TeamSnap, SportsEngine, LeagueApps, PlayMetrics and Exposure, so "one family calendar for every kid" becomes real. **Built under D-047 (2026-10-29):** Schedule → + → Import Schedule or Calendar accepts any `webcal://`/`.ics` link (and Google Calendar share links). Games, practices and other events are read from the titles, with home/away, length, place and notes. `scheduled-jobs` re-checks every calendar about every 20 minutes and sends one "time changed" alert per change set; coach-entered scores are never overwritten. Server deployed; live check 20/20. App in TestFlight build 24 (internal). | M | — | ✅ build 24 in TestFlight |
 | 4 | **Tournament import: paste a link** | The St. Louis wedge: CNR's Google Sheets first, then Exposure and Tourney Machine. Adds a tournament-weekend view with every game, venue, court and bracket placeholder, refreshed through the weekend. **v1 built 2026-10-28 (D-042):** any Google Sheets schedule, team matching, review, update in place, undo. **CNR league site added the same day (D-043).** Next: timed re-checks with change alerts, other platforms. | M–L | — | 🔨 v1 shipped |
-| 5 | **Roster import and bulk invite** (CSV / TeamSnap export) | Shortens coach setup to under 10 minutes, timed for the TeamSnap ONE migration pain. | S | — | ⬜ |
+| 5 | ~~**Roster import and bulk invite**~~ (CSV / TeamSnap export) | **Not doing (D-048, owner decision 2026-10-29).** Families add their own children from the team link; the coach only sends the link. Add Player was removed from the app for the same reason. | — | — | ❌ Dropped |
 
 ## Next: revenue and game day (about 1–3 months out)
 
@@ -88,7 +88,7 @@ Update this table as items ship.
 | Rotate the credentials that were shared in chat | Security hygiene | OQ-13 | ⬜ |
 | Collect 20–30 real flyers, CNR sheets, PDFs and GroupMe posts | AI Phase 0 fixtures, #8 | — | ⬜ |
 
-Items **5, 7, 8 and 9** have no blockers. #3 shipped on the server 2026-10-29 (D-047); its re-check job (`_shared/importRecheck.ts`) is ready for #4's sheet change alerts.
+Items **7, 8 and 9** have no blockers (#5 was dropped, D-048). #3 shipped on the server 2026-10-29 (D-047); its re-check job (`_shared/importRecheck.ts`) is ready for #4's sheet change alerts.
 
 ---
 

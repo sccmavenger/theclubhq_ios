@@ -9,6 +9,15 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-048 — Families add their own children; coaches only send the link (owner decision 2026-10-29) — Accepted
+- **Context:** Roadmap #5 proposed roster import (CSV / TeamSnap export) and bulk invites. A roster could get built two ways: families join from the team link and add their child (`claim-invite`), or the coach types players in with Add Player. The two collide: a parent whose child the coach already added hits "Jordan Smith is already on this team" and must either create a duplicate or chase a co-parent invite.
+- **Decision:** The team invite link/code is the **only** way a child joins a team. The coach shares the link; clicking it and finishing onboarding is the parent's job. The app drops **+ → Add Player**. Roster import and bulk invite (roadmap #5) are **not doing**.
+  - Kept: editing a player (jersey, position, notes) and archiving one; co-parent invites (D-035); 13+ player logins (D-008), which attach to a child the parent already added.
+- **Why:** Owner rule — accountability for joining sits with the parent. The family enters the child's details and emergency contacts themselves, so there's one profile per child, no coach typing, and no duplicate dead end.
+- **Consequences:**
+  - The database still has the coach `INSERT` policy on `players` ("Head coach manages players"), because builds already on phones (1.0, build 18 in review, TestFlight 22–24) still show Add Player. Drop it once those builds are gone, so the rule holds on the server too.
+  - Existing data: on 2026-10-29, 52 of 68 active players had no linked parent (six THA teams and ClubHQ Test Team). Families joining those teams by code will see the duplicate alert. Left as is; the coach can archive those players or send a co-parent invite from each profile.
+
 ## D-047 — Team calendar import from any iCal link (2026-10-29) — Accepted
 - **Context:** Roadmap #3. Coaches and families already live in TeamSnap, GameChanger, SportsEngine, LeagueApps, PlayMetrics, Google Calendar and others; every one publishes a team's schedule as an `.ics` subscription. Nothing read those feeds, and the import flow refused any link that wasn't a Google Sheet or CNR.
 - **Decision:** The D-042 import flow accepts any `http(s)`/`webcal` link that isn't a Sheet or CNR link. `_shared/icalImport.ts` reads it into the same shape, so preview, commit, Check for Changes, Keep Games and Remove Games are shared.
