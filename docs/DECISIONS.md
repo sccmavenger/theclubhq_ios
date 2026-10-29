@@ -9,6 +9,16 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-044 — Clubs: directors over many teams, invisible to parents (owner-approved 2026-10-28) — Accepted
+- **Context:** Roadmap #10. The pilot is 3D Basketball Academy (20+ teams, one or two directors). Today every new team creates its own organization, directors can only look, and `can_access_team` would let any coach in a shared club read every team.
+- **Decision:** The plan and the 15 owner decisions are in [`CLUBS.md`](CLUBS.md).
+  - Directors (`program_director` on the org) get head-coach powers on every club team, club announcements and club events filtered by grade, gender, level or season, and the main team chats (not private threads).
+  - The club stays invisible to parents: club messages land as team announcements labeled with the club name.
+  - Teams join by director setup (one, or a pasted list) or a club code. The club owns teams when coaches leave. Seasons copy forward.
+  - The pilot is free through a club Pro grant. The app comes first.
+- **Why:** One director signs up 20+ teams at once (the GameChanger clubs threat, roadmap note). Keeping parents' experience unchanged avoids confusion and keeps the family app simple.
+- **Consequences:** Phase 0 fixes org-wide access in the RLS helpers before any club has two teams. Club billing waits for OQ-18.
+
 ## D-043 — CNR league schedules from cnrschedule.stlbasketball.com (owner-approved 2026-10-28) — Accepted
 - **Context:** CNR posts its league season (e.g. 11/7/26 – 12/20/26, 818 teams) on a Next.js site, cnrschedule.stlbasketball.com, with past seasons on their own sites (cnrsummer2026.stlbasketball.com and others). Each team has a page and, in the current season, a calendar feed. There's no public API.
 - **Decision:** The D-042 import flow also accepts CNR league links: the home page, a team page, a division page, or a team's `webcal://` feed. `_shared/cnrLeague.ts` builds the same shape as the sheet reader, so preview, commit, Check for Changes and Remove Games are shared.

@@ -39,7 +39,7 @@ Plan and status: [`ADMIN_PORTAL.md`](ADMIN_PORTAL.md).
 
 | # | Build | Why it matters | Size | Blocked by |
 |---|---|---|---|---|
-| 10 | **Club layer:** a director view across teams, club-wide announcements, registration forms and waivers | GameChanger started recruiting basketball clubs in Oct 2026. Signing a club brings every team at once and leads to Club SaaS revenue. The iPhone app is the only client, so this starts as an in-app, iPad-friendly view. | L | — |
+| 10 | **Club layer** (plan: [CLUBS.md](CLUBS.md), D-044, pilot 3D Basketball Academy)**:** a director view across teams, club-wide announcements, registration forms and waivers | GameChanger started recruiting basketball clubs in Oct 2026. Signing a club brings every team at once and leads to Club SaaS revenue. The iPhone app is the only client, so this starts as an in-app, iPad-friendly view. | L | — |
 
 **On deck but not in the top 10:** Spanish localization, Android, the daily RSVP digest, local sponsorship cards, fundraising (pending legal review).
 
