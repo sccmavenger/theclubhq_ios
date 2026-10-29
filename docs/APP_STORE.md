@@ -87,6 +87,8 @@ Intelligence groundwork, D-039). Builds 1–15 are expired; only 16 (never distr
 It's in internal testing and waiting for Beta App Review for the external "Beta Families" group. It is not
 attached to any App Store version. 1.0 (build 17) is still waiting for review and was not touched.
 
+**2026-10-29: 2.0 (build 25), fresh start** at the owner's request. The 1.0.1 submission (build 18) was **withdrawn from App Review** and the App Store version renamed **2.0** (the app has never been released). Build 25 is attached to 2.0 but **not submitted**. It's on TestFlight internal (Ring 0); builds 18–24 are expired, so 25 is the only active build. The production database was reset and seeded with the demo world (`docs/DEMO_TEAM.md`). **Before submitting 2.0:** the App Review demo account (coach@teamclubhq.com) and the extra logins in the review notes were deleted in the reset. Point them at seeded accounts first, and not the Avengers team (Marvel names, guideline 5.2).
+
 **2026-10-29: 1.0.1 build 24 to TestFlight** (internal only) from `main`: team calendar import from any iCal link (D-047). Uploaded with the ASC API key (`-authenticationKeyPath`), since the Xcode account export failed ("Failed to Use Accounts"). Not attached to the version in review.
 
 **2026-10-29: 1.0.1 build 23 to TestFlight** (internal only), branch `clubs`: Delete Team (D-046). Not attached to the version in review.

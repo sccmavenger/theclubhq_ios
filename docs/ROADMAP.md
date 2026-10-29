@@ -6,8 +6,10 @@
 Written 2026-10-23. Strategy and positioning: [`PRODUCT_STRATEGY.md`](PRODUCT_STRATEGY.md).
 Owner blockers: [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md). Integration research behind items 3, 4, 8 and 9 is in the appendix.
 
-**Where we are (updated 2026-10-29):** Team calendar import (#3, D-047) is live on the server. 1.0.1 (build 18, the rebrand) has been in App Review since
-2026-10-25. TestFlight has build 22 (reminders and clubs), build 23 (Delete Team, D-046) and build 24 (team calendar import, D-047). Push
+**Where we are (updated 2026-10-29):** **Version 2.0, build 25** is the only active TestFlight build (internal). The 1.0.1
+submission was withdrawn and the App Store version renamed 2.0 (attached, not submitted). The database was reset to a
+demo world: 4 independent teams and the 16-team Gateway Rise Basketball Club ([`DEMO_TEAM.md`](DEMO_TEAM.md)).
+Team calendar import (#3, D-047) is live on the server. Push
 notifications are live (OQ-04), and so are event reminders and RSVP nudges (D-045). Clubs Phase 0+1
 (D-044) is built for the 3D Basketball Academy pilot. All of it is merged to main. Coach Pro can be
 purchased (D-034). Card payments are off; families pay dues through Venmo and Cash App buttons (D-033).

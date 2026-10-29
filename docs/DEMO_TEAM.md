@@ -1,37 +1,62 @@
-# Demo team for coach demos — "St. Louis Mavericks 14U"
+# Demo world for 2.0 (seeded 2026-10-29)
 
-Owner / head coach: **dguilloryjr@msn.com** (your normal login). It has a complimentary Coach Pro
-entitlement (`app_store_subscriptions.original_transaction_id = comp-owner-dguilloryjr`,
-environment "Comp"), so every Pro feature shows in demos.
+The production database was reset on 2026-10-29 (backup in `.secrets/backups/`) and seeded with
+4 independent teams and a 16-team club. **Every login, team code and the club code:**
+`.secrets/demo-logins.md` (gitignored, 74 rows). All demo passwords: **`ClubHQ-Demo-2026!`**.
+Demo emails are `info+…@teamclubhq.com`, which has no inbox (OQ-16), so sign in with the password.
 
-| Who | Login | Password |
-|---|---|---|
-| Head coach (you) | dguilloryjr@msn.com | your password |
-| Assistant coach (Marcus Bell) | info+mav-assistant@teamclubhq.com | ClubHQ-Demo-2026! |
-| Parent of Jalen (Tasha Carter) | info+mav-tasha.carter@teamclubhq.com | ClubHQ-Demo-2026! |
-| Player, age 14 (Jalen Carter) | info+mav-jalen@teamclubhq.com | ClubHQ-Demo-2026! |
-| Other parents | info+mav-<first>.<last>@teamclubhq.com (e.g. carlos.reyes, keisha.thompson) | ClubHQ-Demo-2026! |
+**Reset before a demo:** `node scripts/seed-demo.mjs --wipe` from a folder with the `postgres` npm
+package installed (it reads `.env.local`). It wipes all app data and every account except
+dguilloryjr@msn.com and dguilloryjr@gmail.com, then rebuilds the same world with fresh dates.
+**Take a backup first.**
 
-All demo emails are plus-addresses that deliver to the info@teamclubhq.com inbox.
+## Your account (dguilloryjr@msn.com)
+Head coach of **St. Louis Mavericks 14U** and director of **Gateway Rise Basketball Club**, with a
+complimentary Coach Pro grant (`pro_grants`). One login shows a coach's team plus the Club tab.
 
-**Contents:**
-- 12 players with positions, birthdates, guardians, and emergency contacts
-- 15 events: 2 past games (W 52–44, L 38–41) and 3 past practices with attendance; upcoming practices, a home game, team photos, a 2-game tournament Saturday, and another home game
-- RSVPs with notes
-- 3 announcements
-- Team chat, a parents-only "Tournament carpool" thread, and a staff "Coaches" thread
-- Dues: Fall season ($175; 8 paid, 1 waived, 3 unpaid) and tournament entry ($45; 3 paid)
-- 2 inbox notifications
-- Team code **MAVSSH7M77**, valid 90 days, for demoing a parent joining
+## Independent teams
+| Team | Sport | Head coach (login) | Highlights |
+|---|---|---|---|
+| **Avengers 12U** | Basketball | **Captain America** (info+avengers-captain-america@teamclubhq.com); assistant **Nick Fury** | 17 Avengers on the roster (Iron Man, Thor Odinson, The Hulk, Black Widow, Hawkeye Barton, Scarlet Witch, Quicksilver Maximoff, The Vision, The Falcon, War Machine, Black Panther, Spider-Man Parker, Doctor Strange, Captain Marvel, Ant-Man Lang, The Wasp, Winter Soldier). Parents include Howard Stark, Frigga and Odin Odinson, May Parker. Themed chat. |
+| **St. Louis Mavericks 14U** | Basketball | You; assistant Marcus Bell | Coach Pro, a 13+ player login |
+| **Gateway FC 10U Girls** | Soccer | Maria Alvarez; assistant Dana Kim | 14 players, Tue/Thu practices |
+| **Arch City Aces 14U Volleyball** | Volleyball | Tamara Reed | 11 players, a 13+ player login |
 
-**Reset before a demo:** `node scripts/seed-demo-team.mjs` (needs the `postgres` npm package and `.env.local`). It rebuilds the team with fresh dates and reuses the same logins.
+## Gateway Rise Basketball Club
+- **16 teams**, 3rd–8th grade boys and girls, Elite and Gold, each with a head coach (8 with an
+  assistant) and 10 players. 7th–8th grade teams have a 13+ player login.
+- Directors: you and **Angela Price** (info+rise-director-angela-price@teamclubhq.com). Club Pro
+  grant on the club, so club teams don't count against coaches' limits.
+- Club announcements on every team ("From Gateway Rise Basketball Club"): winter registration and
+  picture day.
+- Club events linked across teams: **picture day** (16 teams, staggered slots), **parent meeting**
+  (16), **spring tryouts info night** (the six 7th–8th grade teams).
+- **Taylor Morgan** (info+rise-parent-taylor.morgan@teamclubhq.com) has kids on Rise 7th Boys Elite
+  and Rise 5th Girls Elite: one family calendar and one push per club announcement.
 
-## Suggested 5-minute demo script
-1. **Coach Home:** next practice, RSVP counts, "who hasn't responded", unpaid dues.
-2. **Event:** availability list, then **Take Attendance**.
-3. **Schedule:** tournament weekend; **+** to add a weekly practice in seconds.
-4. **Team:** roster, player profile, emergency contacts, and **Invite Families** (team code).
-5. **Messages:** team chat, plus the parents-only carpool thread.
-6. **Dues:** create a request, then mark a cash/Venmo payment as paid.
-7. **Pro:** Team → Season Report (attendance %), then Export.
-8. Sign in as **Tasha (parent)** on a second phone: the family view, with one-tap RSVP.
+## Every team has
+- Families who joined themselves (D-048): one guardian per child, a co-parent on one family, and
+  emergency contacts
+- Three past weeks (practices with attendance, Saturday games with scores) and four upcoming weeks:
+  practices, Saturday games, a tournament weekend (two pool games plus a bracket game with time TBD)
+  and one cancelled practice
+- RSVPs: the next practice and game nearly full, the following ones partly answered (for "who
+  hasn't responded"), with notes on maybe/no
+- Announcements, a pinned team chat, a parents-only carpool thread, and a coaches thread where
+  there's an assistant
+- Dues: season dues (about two-thirds paid, one waived) and a tournament entry fee
+- Inbox items for the coach (new message, RSVP reminder, family joined) and for the first families
+
+## Suggested demo script
+1. **Captain America (coach):** Home shows the next event and RSVP counts; open a game for the
+   availability list, then **Take Attendance**.
+2. **Schedule:** the tournament weekend, the cancelled practice, Calendar sync.
+3. **Team:** roster, a player profile, emergency contacts, **Invite Families** (team code).
+4. **Messages:** team chat, the parents-only carpool thread.
+5. **Dues:** mark a Venmo payment as paid.
+6. **You (msn):** **Club** tab, with 16 teams by grade, next events and RSVPs; post a club
+   announcement to 6th grade only; club events.
+7. **Taylor Morgan (parent):** one schedule across two club teams, one-tap RSVP.
+
+**Not for App Review or marketing:** the Avengers team uses Marvel character names. Keep it out
+of App Store screenshots and reviewer accounts (guideline 5.2, intellectual property).
