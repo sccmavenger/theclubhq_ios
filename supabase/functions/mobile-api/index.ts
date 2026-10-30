@@ -409,15 +409,18 @@ const DEFAULT_ZONE_FOR_CLUBS = "America/Chicago";
 const GENDERS = ["boys", "girls", "coed"] as const;
 const MAX_CLUB_TEAMS_PER_CALL = 60;
 
-interface Club { id: string; name: string; type: string; brand_color: string | null; time_zone: string | null }
+interface Club { id: string; name: string; type: string; brand_color: string | null; time_zone: string | null; club_approved_at?: string | null }
 
-/** The club, if the caller directs it (a `program_director` row with no team). */
+const CLUB_PENDING_MESSAGE = "Your club is waiting for approval. We'll let you know as soon as it's on — usually within a day.";
+
+/** The club, if the caller directs it (a `program_director` row with no team) and it's approved (D-051). */
 async function requireDirector(ctx: Ctx, orgId: string): Promise<Club> {
-  const { data: org } = await ctx.admin.from("organizations").select("id, name, type, brand_color, time_zone").eq("id", orgId).maybeSingle();
+  const { data: org } = await ctx.admin.from("organizations").select("id, name, type, brand_color, time_zone, club_approved_at").eq("id", orgId).maybeSingle();
   if (!org) throw new ApiError("not_found", "That club wasn't found.", 404);
   const { data: role } = await ctx.admin
     .from("user_roles").select("id").eq("user_id", ctx.uid).eq("org_id", orgId).is("team_id", null).eq("role", "program_director").maybeSingle();
   if (!role) throw new ApiError("forbidden", "Only the club's directors can do that.", 403);
+  if (org.type === "club" && !org.club_approved_at) throw new ApiError("club_pending", CLUB_PENDING_MESSAGE, 403);
   return org as Club;
 }
 
@@ -494,30 +497,25 @@ async function clubCode(ctx: Ctx, orgId: string, rotate = false): Promise<string
 }
 
 /**
- * Puts a coach on a club team. An existing ClubHQ account is added right away (and told);
- * otherwise a one-time coach code is returned for the director to send.
+ * Invites a coach to a club team with a one-time code (owner decision 2026-10-30, D-051). Nobody
+ * is put on a team without accepting, and the director gets the same answer whether or not the
+ * email has a ClubHQ account. If it does, that person also gets the code privately in the app.
  */
 async function assignCoach(ctx: Ctx, club: Club, team: { id: string; name: string }, email: string, role: "head_coach" | "assistant_coach") {
   const clean = email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new ApiError("invalid_input", `"${email}" isn't an email address.`);
-  const { data: userId } = await ctx.admin.rpc("club_user_id_by_email", { _email: clean });
-  if (userId) {
-    const { data: existing } = await ctx.admin.from("user_roles").select("id").eq("user_id", userId).eq("team_id", team.id).eq("role", role).maybeSingle();
-    if (!existing) {
-      const { error } = await ctx.admin.from("user_roles").insert({ user_id: userId, role, team_id: team.id, org_id: club.id });
-      if (error) throw new ApiError("internal", error.message, 500);
-      await notify(ctx, {
-        teamId: team.id, kind: "family_joined",
-        subject: `You're ${role === "head_coach" ? "head coach" : "an assistant coach"} of ${team.name}`,
-        body: `${club.name} added you. Open ClubHQ to see the team.`,
-        recipientUserIds: [userId as string],
-      });
-    }
-    return { status: "assigned" as const, email: clean };
-  }
   const token = shortCode(10);
   const { error } = await ctx.admin.from("club_invites").insert({ org_id: club.id, kind: "coach", token, team_id: team.id, role, email: clean, created_by: ctx.uid });
   if (error) throw new ApiError("internal", error.message, 500);
+  const { data: userId } = await ctx.admin.rpc("club_user_id_by_email", { _email: clean });
+  if (userId && userId !== ctx.uid) {
+    await notify(ctx, {
+      teamId: team.id, kind: "announcement",
+      subject: `${club.name} invited you to coach ${team.name}`,
+      body: `To accept, open More → Join a Club and enter code ${token}.`,
+      recipientUserIds: [userId as string],
+    });
+  }
   return { status: "invited" as const, email: clean, code: token };
 }
 
@@ -554,7 +552,13 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       ctx.admin.from("profiles").select("full_name, notification_prefs").eq("id", ctx.uid).maybeSingle(),
     ]);
 
-    const orgIds = (roles ?? []).filter((r) => !r.team_id && r.org_id).map((r) => r.org_id as string);
+    const allOrgIds = (roles ?? []).filter((r) => !r.team_id && r.org_id).map((r) => r.org_id as string);
+    // Clubs waiting for approval (D-051): shown to the director, but their role reaches no teams yet.
+    const { data: orgRows } = allOrgIds.length
+      ? await ctx.admin.from("organizations").select("id, type, club_approved_at").in("id", allOrgIds)
+      : { data: [] as { id: string; type: string; club_approved_at: string | null }[] };
+    const pendingOrgIds = new Set((orgRows ?? []).filter((o) => o.type === "club" && !o.club_approved_at).map((o) => o.id));
+    const orgIds = allOrgIds.filter((id) => !pendingOrgIds.has(id));
     const teamIds = new Set<string>();
     (roles ?? []).forEach((r) => r.team_id && teamIds.add(r.team_id));
     (links ?? []).forEach((l) => teamIds.add((l.players as unknown as { team_id: string }).team_id));
@@ -578,7 +582,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const result = await Promise.all(
       (teams ?? []).map(async (t) => {
         const teamRoles = (roles ?? [])
-          .filter((r) => r.team_id === t.id || (!r.team_id && r.org_id === t.org_id))
+          .filter((r) => r.team_id === t.id || (!r.team_id && r.org_id === t.org_id && !pendingOrgIds.has(t.org_id)))
           .map((r) => r.role);
         const linked = (links ?? [])
           .map((l) => ({ ...(l.players as unknown as Record<string, unknown>), relationship: l.relationship }))
@@ -604,9 +608,13 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       is_coach_pro: await isCoachPro(ctx),
       teams: result,
       // Clubs this person directs (D-044): the app shows the Club tab for these.
-      clubs: orgIds.length === 0 ? [] : await (async () => {
-        const { data: orgs } = await ctx.admin.from("organizations").select("id, name, brand_color").in("id", orgIds).eq("type", "club");
-        return (orgs ?? []).map((o) => ({ ...o, team_count: (teams ?? []).filter((t) => t.org_id === o.id).length }));
+      clubs: allOrgIds.length === 0 ? [] : await (async () => {
+        const { data: orgs } = await ctx.admin.from("organizations").select("id, name, brand_color, club_approved_at").in("id", allOrgIds).eq("type", "club");
+        return (orgs ?? []).map((o) => ({
+          id: o.id, name: o.name, brand_color: o.brand_color,
+          team_count: (teams ?? []).filter((t) => t.org_id === o.id).length,
+          pending: !o.club_approved_at,
+        }));
       })(),
       blocked_user_ids: await blockedAuthorIds(ctx),
     };
@@ -688,9 +696,9 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     await markSignupVia(ctx, "created_team");
     await alertAdmins(ctx.admin, {
       type: "team",
-      title: "New team",
-      body: `${teamName} · ${sport}${orgType === "club" ? ` · ${orgName}` : ""}`,
-      url: `#/teams/${team.id}`,
+      title: orgType === "club" ? "New club waiting for approval" : "New team",
+      body: `${teamName} · ${sport}${orgType === "club" ? ` · ${orgName}. Approve it on the Overview page.` : ""}`,
+      url: orgType === "club" ? "#/" : `#/teams/${team.id}`,
     });
     return { team_id: team.id, org_id: org.id };
   },
@@ -1645,8 +1653,9 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const { error: roleErr } = await ctx.admin.from("user_roles").insert({ user_id: ctx.uid, role: "program_director", team_id: null, org_id: org.id });
     if (roleErr) throw new ApiError("internal", roleErr.message, 500);
     await markSignupVia(ctx, "created_team");
-    await alertAdmins(ctx.admin, { type: "team", title: "New club", body: name, url: "#/teams" });
-    return { org_id: org.id, code: await clubCode(ctx, org.id) };
+    await alertAdmins(ctx.admin, { type: "team", title: "New club waiting for approval", body: `${name}. Approve it on the Overview page.`, url: "#/" });
+    // The club code comes with approval (club-overview creates it); there's nothing to join yet.
+    return { org_id: org.id, code: null, pending: true };
   },
 
   /** Everything the Club tab shows: teams with coaches, roster, families, next event and RSVPs. */
@@ -1767,7 +1776,8 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     if (!inv || inv.revoked_at || new Date(inv.expires_at) < new Date() || (inv.kind === "coach" && inv.used_at)) {
       throw new ApiError("expired", "That club code isn't valid. Ask the club director for a new one.", 410);
     }
-    const { data: org } = await ctx.admin.from("organizations").select("name").eq("id", inv.org_id).single();
+    const { data: org } = await ctx.admin.from("organizations").select("name, club_approved_at").eq("id", inv.org_id).single();
+    if (!org?.club_approved_at) throw new ApiError("club_pending", "That club isn't active yet. Try again once the director tells you it's on.", 410);
     const { data: team } = inv.team_id ? await ctx.admin.from("teams").select("name").eq("id", inv.team_id).single() : { data: null };
     // Teams the caller could bring in: ones they head-coach that aren't in a club yet.
     const { data: mine } = await ctx.admin.from("user_roles").select("team_id, teams!inner(id, name, org_id, archived_at, organizations!inner(type))")
@@ -1790,6 +1800,8 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       throw new ApiError("expired", "That club code isn't valid. Ask the club director for a new one.", 410);
     }
     await requireNotPlayerAccount(ctx);
+    const { data: invOrg } = await ctx.admin.from("organizations").select("club_approved_at").eq("id", inv.org_id).single();
+    if (!invOrg?.club_approved_at) throw new ApiError("club_pending", "That club isn't active yet. Try again once the director tells you it's on.", 410);
     if (inv.kind === "coach") {
       const { data: existing } = await ctx.admin.from("user_roles").select("id").eq("user_id", ctx.uid).eq("team_id", inv.team_id).eq("role", inv.role).maybeSingle();
       if (!existing) await ctx.admin.from("user_roles").insert({ user_id: ctx.uid, role: inv.role, team_id: inv.team_id, org_id: inv.org_id });

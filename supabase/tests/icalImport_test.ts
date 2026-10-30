@@ -5,6 +5,7 @@ import {
   classifyTitle,
   expandRule,
   fetchCalendar,
+  isPrivateAddress,
   isPrivateHost,
   parseCalendar,
   parseCalendarURL,
@@ -110,9 +111,10 @@ Deno.test("fetch: refuses redirects into private networks and web pages", async 
     if (url.includes("page")) return Promise.resolve(new Response("<html>TeamSnap</html>"));
     return Promise.resolve(new Response(feed));
   }) as unknown as typeof fetch;
+  const publicDNS = () => Promise.resolve(["52.10.20.30"]);
   const code = async (url: string) => {
     try {
-      await fetchCalendar({ url, provider: "TeamSnap" }, fake);
+      await fetchCalendar({ url, provider: "TeamSnap" }, fake, publicDNS);
       return "ok";
     } catch (e) {
       return (e as { code: string }).code;
@@ -143,4 +145,27 @@ Deno.test("re-check cadence", () => {
   assertEquals(isDue(at(20), true, NOW), true);
   assertEquals(isDue(at(60), false, NOW), false, "idle imports wait 6 hours");
   assertEquals(isDue(at(60), true, NOW) && !isDue(at(60, 3), true, NOW), true, "backs off after 3 failures");
+});
+
+Deno.test("fetch: refuses public names that point at private addresses (D-051)", async () => {
+  const fake = (() => Promise.resolve(new Response(feed))) as unknown as typeof fetch;
+  const dns: Record<string, string[]> = {
+    "rebind.example.com": ["127.0.0.1"],
+    "metadata.example.com": ["169.254.169.254"],
+    "v6.example.com": ["2600:1f18::1", "fd00::5"],
+    "mapped.example.com": ["::ffff:10.0.0.4"],
+    "ok.example.com": ["93.184.216.34", "2606:2800:220:1::1"],
+  };
+  const resolve = (h: string) => Promise.resolve(dns[h] ?? []);
+  const code = async (url: string) => {
+    try { await fetchCalendar({ url, provider: "Calendar" }, fake, resolve); return "ok"; } catch (e) { return (e as { code: string }).code; }
+  };
+  assertEquals(await code("https://rebind.example.com/x.ics"), "unreadable");
+  assertEquals(await code("https://metadata.example.com/x.ics"), "unreadable");
+  assertEquals(await code("https://v6.example.com/x.ics"), "unreadable");
+  assertEquals(await code("https://mapped.example.com/x.ics"), "unreadable");
+  assertEquals(await code("https://ok.example.com/x.ics"), "ok");
+  for (const [addr, priv] of [["10.1.1.1", true], ["8.8.8.8", false], ["::1", true], ["fe80::1", true], ["2001:4860::8888", false]] as const) {
+    assertEquals(isPrivateAddress(addr), priv, addr);
+  }
 });

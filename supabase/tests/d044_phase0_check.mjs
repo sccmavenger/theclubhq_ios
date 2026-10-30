@@ -22,7 +22,7 @@ const rest = async (role, path) => {
 let org;
 try {
   for (const r of ["coachA", "coachB", "director", "parentA"]) await makeUser(r);
-  org = (await sql(`insert into organizations (name, type, created_by) values ('QA Club ${stamp}', 'club', '${users.director.id}') returning id`))[0].id;
+  org = (await sql(`insert into organizations (name, type, created_by, club_approved_at) values ('QA Club ${stamp}', 'club', '${users.director.id}', now()) returning id`))[0].id;
   const [ta, tb] = (await sql(`insert into teams (org_id, name, created_by) values ('${org}', 'QA Club A', '${users.coachA.id}'), ('${org}', 'QA Club B', '${users.coachB.id}') returning id`)).map((r) => r.id);
   await sql(`insert into user_roles (user_id, role, team_id, org_id) values
       ('${users.coachA.id}', 'head_coach', '${ta}', '${org}'), ('${users.coachB.id}', 'head_coach', '${tb}', '${org}'),

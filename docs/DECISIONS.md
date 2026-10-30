@@ -9,6 +9,23 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-051 — Clubs need approval, coaches always accept a code, calendar links are checked by address (owner decisions 2026-10-30) — Accepted
+- **Context:** Three open questions from the D-050 review.
+  - Starting a club was free with no team limit, so it sidestepped the 1-team free and 3-team Coach Pro limits.
+  - A director could put any existing ClubHQ user on a team by email, without asking, and learned whether that email had an account.
+  - Calendar import blocked private addresses by name only.
+- **Decisions:**
+  - **New clubs wait for approval.** "Start a Club" and the onboarding "Part of a club or league" switch both create a club that waits for a ClubHQ admin. Its director powers (every club team, club chats, adding teams, coach and club codes) are off until then; the director's own team works normally. Admins approve on the portal's Overview (`approve-club`, audited), and the directors get a push. Existing clubs were approved by the migration.
+  - **Every coach gets a code and accepts it** (More → Join a Club). If the email has an account, that person also gets the code privately in the app. The director sees the same answer either way.
+  - **Calendar links are checked by address.** Every hop's name is looked up (A and AAAA). A link is refused if any address is private, loopback, link-local or unique-local, or an IPv4-mapped private address.
+- **How:**
+  - Migration `20261030140000_club_approval.sql`: `organizations.club_approved_at`/`club_approved_by`. `private.has_org_role` only counts `program_director` on approved clubs.
+  - No user-created teams or organizations: the app never inserted them directly, and those policies let a modified app add teams to any org. A trigger stops a creator changing an org's type or approval. `admin_pending_clubs()` feeds the portal.
+  - `mobile-api`: `requireDirector` refuses `club_pending`. `context` lists pending clubs with `pending: true`, and their director role reaches no teams. Club codes for pending clubs return 410. `assignCoach` always issues a code.
+  - `_shared/icalImport.ts`: `resolveHost` and `isPrivateAddress`; tests inject a fake resolver.
+  - App: the Club tab shows "Waiting for approval" for a pending club. Start a Club and coach-invite wording updated.
+- **Tests:** `live-d044-1` covers pending → refused → approved → codes, an existing coach invited and accepting, and the same answer either way. `security` gained 4 attacks (direct team and org inserts, self-approval, a pending club adding teams): 60/60. `server-unit` gained the DNS cases. App tests 75/75.
+
 ## D-050 — Security and QA review: holes closed at the server and database (2026-10-30) — Accepted
 - **Context:** The owner asked for a full code review and an end-to-end attempt to break the app. `supabase/tests/security_probe_check.mjs` attacks production with throwaway accounts (two coaches, a parent, a 14-year-old player account, an outsider), through `mobile-api` and straight through PostgREST with each user's own token, the way a modified app could. The first run blocked 45 of 56 attacks.
 - **Fixed (server):**

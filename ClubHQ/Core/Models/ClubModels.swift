@@ -8,6 +8,9 @@ struct ClubSummary: Codable, Identifiable, Hashable, Sendable {
     var name: String
     var brandColor: String?
     var teamCount: Int
+    /// Waiting for a ClubHQ admin to approve it (D-051). Older servers don't send it: approved.
+    var pending: Bool?
+    var isPending: Bool { pending == true }
 }
 
 /// Response of `club-overview`.
@@ -138,10 +141,11 @@ struct NewClubTeam: Codable, Hashable, Sendable, Identifiable {
 
 /// Result of putting a coach on a team.
 struct CoachAssignment: Codable, Hashable, Sendable {
+    /// Coaches always get a code now (D-051); `assigned` is what older servers sent.
     enum Status: String, Codable, Sendable { case assigned, invited }
     var status: Status
     var email: String
-    /// One-time code for a coach who isn't on ClubHQ yet.
+    /// One-time code the coach enters in More → Join a Club.
     var code: String?
 }
 

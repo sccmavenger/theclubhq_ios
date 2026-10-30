@@ -230,7 +230,7 @@ const endOfDay = (d) => (d ? new Date(`${d}T23:59:59`).toISOString() : null);
 // Overview
 // =====================================================================================
 async function renderOverview() {
-  const o = await api.rpc("admin_overview");
+  const [o, pendingClubs] = await Promise.all([api.rpc("admin_overview"), api.rpc("admin_pending_clubs").catch(() => [])]);
   const weeks = o.weekly.map((w) => ({ ...w, label: new Date(`${w.week}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) }));
   const series = [
     { title: "Active teams per week", valueLabel: "active teams", points: weeks.map((w) => ({ label: w.label, value: w.active_teams })) },
@@ -246,6 +246,8 @@ async function renderOverview() {
   return {
     html: html`<h1>Overview</h1>
       ${raw(o.deletions_due > 0 ? html`<div class="banner">${o.deletions_due} scheduled deletion(s) are due. <button class="btn btn-small" id="process-deletions">Delete them now</button></div>` : "")}
+      ${raw((pendingClubs ?? []).length > 0 ? html`<div class="banner"><strong>${pendingClubs.length} club${pendingClubs.length === 1 ? "" : "s"} waiting for approval.</strong> Director powers (every team, club messages, coach codes) switch on when you approve.
+        ${raw(table(["Club", "Directors", "Teams", "Asked", ""], pendingClubs.map((c) => html`<tr><td>${c.name}${raw(c.internal ? " " + badge("Internal", "neutral") : "")}</td><td>${(c.directors ?? []).map((d) => `${d.name} (${d.email})`).join(", ") || "—"}</td><td class="numcol">${num(c.team_count)}</td><td>${ago(c.created_at)}</td><td><button class="btn btn-small" data-approve-club="${c.id}">Approve</button></td></tr>`), ""))}</div>` : "")}
       ${raw(o.reports_open > 0 ? html`<div class="banner ${oldestHours > 16 ? "banner-critical" : ""}">${raw(badge(`${o.reports_open} open report${o.reports_open === 1 ? "" : "s"}`, oldestHours > 16 ? "critical" : "warning"))} The oldest is ${Math.floor(oldestHours)} h old; reports should be handled within 24 h. <a href="#/moderation">Open moderation</a></div>` : "")}
       <section class="hero card"><div class="hero-value">${num(o.teams_active_7d)}</div><div>teams active in the last 7 days <span class="muted">of ${num(o.teams_total)} teams</span></div></section>
       <section class="tiles">
@@ -267,6 +269,10 @@ async function renderOverview() {
       <p class="muted small">Metrics exclude staff, QA and demo accounts (${num(o.internal_users)} accounts on @teamclubhq.com or marked deleted). App Store sandbox subscriptions: ${num(o.pro_sandbox)}.</p>`,
     bind(root) {
       bindCharts(root, series);
+      root.querySelectorAll("[data-approve-club]").forEach((b) => b.addEventListener("click", async () => {
+        const r = await run(b, () => api.act("approve-club", { org_id: b.dataset.approveClub }), "Club approved. Its directors were told.");
+        if (r) reload();
+      }));
       root.querySelector("#process-deletions")?.addEventListener("click", async (e) => {
         const r = await run(e.currentTarget, () => api.act("process-deletions"), (x) => `${x.completed} account(s) deleted.`);
         if (r) reload();

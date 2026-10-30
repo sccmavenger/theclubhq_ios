@@ -153,6 +153,21 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
   },
 
   // ----- Teams -------------------------------------------------------------------------
+  /** New clubs wait for approval (D-051). Turns on the club's director powers and tells its directors. */
+  async "approve-club"(ctx, p) {
+    const orgId = uuid(p, "org_id");
+    const { data: org } = await ctx.admin.from("organizations").select("id, name, type, club_approved_at").eq("id", orgId).maybeSingle();
+    if (!org || org.type !== "club") throw new ApiError("not_found", "That club wasn't found.", 404);
+    if (org.club_approved_at) return { ok: true, already: true };
+    const { error } = await ctx.admin.from("organizations").update({ club_approved_at: new Date().toISOString(), club_approved_by: ctx.uid }).eq("id", orgId);
+    if (error) throw new ApiError("internal", error.message, 500);
+    const { data: directors } = await ctx.admin.from("user_roles").select("user_id").eq("org_id", orgId).is("team_id", null).eq("role", "program_director");
+    const push = await pushToUsers(ctx, [...new Set((directors ?? []).map((d) => d.user_id))], `${org.name} is approved`,
+      "Your club is on. Open the Club tab to add teams and invite coaches.");
+    await audit(ctx, "club.approve", { table: "organizations", id: orgId }, { name: org.name, push });
+    return { ok: true, push };
+  },
+
   async "update-team"(ctx, p) {
     const teamId = uuid(p, "team_id");
     const name = str(p, "name", { min: 1, max: 120 });

@@ -67,7 +67,7 @@ export const FEATURES = [
   { id: "import", name: "Schedule import: sheets, CNR league, team calendars", decisions: ["D-042", "D-043", "D-047"],
     suites: ["live-d042", "live-d047", "server-unit", "app-unit"], paths: ["ClubHQ/Features/Schedule/ScheduleImport", "supabase/functions/_shared/sheetImport.ts", "supabase/functions/_shared/cnrLeague.ts", "supabase/functions/_shared/icalImport.ts", "supabase/functions/_shared/scheduleImport.ts"] },
   { id: "clubs", name: "Clubs: directors, club teams, club announcements and events", decisions: ["D-044", "D-051"],
-    suites: ["live-d044-0", "live-d044-1", "app-unit"], paths: ["ClubHQ/Features/Club/", "ClubHQ/Core/Models/ClubModels.swift"] },
+    suites: ["live-d044-0", "live-d044-1", "security", "app-unit"], paths: ["ClubHQ/Features/Club/", "ClubHQ/Core/Models/ClubModels.swift"] },
   { id: "delete-team", name: "Deleting a team", decisions: ["D-046"],
     suites: ["live-d046", "app-unit"], paths: ["ClubHQ/Features/Team/DeleteTeamView.swift"] },
   { id: "push", name: "Push notifications, reminders, notification taps", decisions: ["D-012", "D-045"],

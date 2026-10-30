@@ -633,14 +633,44 @@ function notCalendarMessage(provider: string): string {
   return `That's a web page, not a calendar link. ${WHERE_TO_FIND[provider] ?? "Look for \"Subscribe\", \"Sync to calendar\" or \"iCal\" in the app and copy that link (it often starts with webcal:// or ends in .ics)."}`;
 }
 
-/** Downloads a feed. Follows up to 4 redirects, re-checking each address; refuses private networks and huge bodies. */
-export async function fetchCalendar(source: CalendarSource, fetcher: typeof fetch = fetch): Promise<string> {
+/** A host's IPv4 and IPv6 addresses. Swappable so tests don't touch the network. */
+export type HostResolver = (host: string) => Promise<string[]>;
+
+/** Real DNS. Lookups that fail return nothing; the fetch then fails on its own. */
+export const resolveHost: HostResolver = async (host) => {
+  const resolveDns = (Deno as unknown as { resolveDns?: (h: string, t: "A" | "AAAA") => Promise<string[]> }).resolveDns;
+  if (typeof resolveDns !== "function") return [];
+  const found: string[] = [];
+  for (const type of ["A", "AAAA"] as const) {
+    try { found.push(...(await resolveDns(host, type))); } catch { /* no record of this type */ }
+  }
+  return found;
+};
+
+/** Private, loopback, link-local and unique-local IPv6 addresses, plus IPv4-mapped private ones. */
+export function isPrivateAddress(address: string): boolean {
+  const a = address.toLowerCase();
+  if (!a.includes(":")) return isPrivateHost(a);
+  const mapped = a.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return isPrivateHost(mapped[1]);
+  return a === "::" || a === "::1" || /^f[cd]/.test(a) || /^fe[89ab]/.test(a);
+}
+
+/**
+ * Downloads a feed. Follows up to 4 redirects, re-checking each address; refuses private networks
+ * and huge bodies. Each hop's name is also looked up, so a public name that points at a private
+ * address is refused too (owner decision 2026-10-30, D-051).
+ */
+export async function fetchCalendar(source: CalendarSource, fetcher: typeof fetch = fetch, resolve: HostResolver = resolveHost): Promise<string> {
   let url = source.url;
   let res: Response | null = null;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const parsed = new URL(url);
     if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") || isPrivateHost(parsed.hostname) ||
       (parsed.port && parsed.port !== "443" && parsed.port !== "80")) {
+      throw new CalendarError("unreadable", "That calendar link points somewhere we can't open.");
+    }
+    if ((await resolve(parsed.hostname)).some(isPrivateAddress)) {
       throw new CalendarError("unreadable", "That calendar link points somewhere we can't open.");
     }
     res = await fetcher(url, {

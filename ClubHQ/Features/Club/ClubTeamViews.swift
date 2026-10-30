@@ -121,7 +121,7 @@ struct ClubTeamDetailView: View {
     }
 }
 
-/// Put a coach on a team by email: added right away if they're on ClubHQ, otherwise a code to send.
+/// Invite a coach to a team by email: always a code they accept (D-051).
 struct AssignCoachView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -143,7 +143,7 @@ struct AssignCoachView: View {
                             Label("\(assignment.email) is now \(role == .headCoach ? "head coach" : "an assistant coach") of \(team.name). We told them.", systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
                         } else {
-                            Label("\(assignment.email) isn't on ClubHQ yet. Send them this code:", systemImage: "envelope.badge")
+                            Label("Send \(assignment.email) this code. They join \(team.name) when they enter it in More → Join a Club.", systemImage: "envelope.badge")
                             Text(assignment.code ?? "").font(.title2.monospaced().bold()).textSelection(.enabled)
                             if let inviteText { ShareLink(item: inviteText) { Label("Send Invite", systemImage: "square.and.arrow.up") } }
                         }
@@ -166,7 +166,7 @@ struct AssignCoachView: View {
                             Text("Assistant Coach").tag(TeamRole.assistantCoach)
                         }
                     } footer: {
-                        Text("If they already use ClubHQ, they're added right away. Otherwise you'll get a code to send them.")
+                        Text("You'll get a code to send them. They join when they enter it in More → Join a Club. If they already use ClubHQ, we send it to them in the app too.")
                     }
                     if let errorText { Section { Text(errorText).foregroundStyle(.red) } }
                 }
@@ -291,7 +291,7 @@ struct AddClubTeamsView: View {
                                 switch team.coach?.status {
                                 case .assigned: Text("Coach added: \(team.coach?.email ?? "")").font(.caption).foregroundStyle(.green)
                                 case .invited:
-                                    Text("\(team.coach?.email ?? "Coach") isn't on ClubHQ yet · code \(team.coach?.code ?? "")").font(.caption)
+                                    Text("\(team.coach?.email ?? "Coach") invited · code \(team.coach?.code ?? "")").font(.caption)
                                     if let text = team.inviteText { ShareLink(item: text) { Label("Send Invite", systemImage: "square.and.arrow.up") }.font(.caption) }
                                 case nil: Text("No coach yet").font(.caption).foregroundStyle(.secondary)
                                 }

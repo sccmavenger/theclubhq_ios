@@ -103,7 +103,9 @@ try {
   // ----- Club team: only directors ---------------------------------------------
   const club = (await api("director", "create-club", { name: `QA Delete Club ${stamp}` })).body;
   orgs.push(club.org_id);
+  await sql(`update organizations set club_approved_at = now() where id = '${club.org_id}'`); // new clubs wait for approval (D-051)
   const [ct] = (await api("director", "club-create-teams", { org_id: club.org_id, teams: [{ name: "QA Club Team", grade: "6", coach_email: users.clubcoach.email }] })).body.teams;
+  await api("clubcoach", "claim-club-invite", { token: ct.coach.code }); // coaches accept a code (D-051)
   const cctx = (await api("clubcoach", "context")).body.teams.find((t) => t.id === ct.team_id);
   check("context marks a club team", cctx?.is_club_team === true && cctx.roles.includes("head_coach"), JSON.stringify(cctx));
   const coachTry = await api("clubcoach", "delete-team", { team_id: ct.team_id, confirm_name: "QA Club Team" });

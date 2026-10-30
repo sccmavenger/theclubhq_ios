@@ -108,9 +108,17 @@ async function runSuite(s, { env, dir, simulator }) {
       const { code, out } = await run("node", [s.file], { env, log });
       const m = out.match(/(\d+) passed, (\d+) failed/);
       const fails = out.split("\n").filter((l) => l.startsWith("FAIL")).slice(0, 3).map((l) => l.slice(6, 120));
-      // A check that finished all its assertions but hit a network blip on the way out still passed.
-      const passed = m && m[2] === "0";
-      return { status: passed ? "PASS" : "FAIL", counts: m ? `${m[1]} passed, ${m[2]} failed` : undefined, detail: passed ? undefined : (fails.join(" | ") || firstLine(out, /Error/) || `exit ${code}`) };
+      // A check that crashes still prints its summary from `finally`, so "0 failed" alone isn't
+      // enough: a non-zero exit fails too, unless the only error is a network blip on the way out.
+      const networkBlip = /fetch failed|ETIMEDOUT|ECONNRESET|EAI_AGAIN/.test(out) && !/TypeError: (?!fetch failed)|ReferenceError|SyntaxError/.test(out);
+      const crashed = code !== 0 && !networkBlip;
+      const passed = m && m[2] === "0" && !crashed;
+      const crashLine = crashed ? firstLine(out, /^(TypeError|ReferenceError|Error|SyntaxError)/) : undefined;
+      return {
+        status: passed ? "PASS" : "FAIL", counts: m ? `${m[1]} passed, ${m[2]} failed` : undefined,
+        detail: passed ? (code !== 0 ? "network error after the checks finished; rerun if unsure" : undefined)
+          : (fails.join(" | ") || (crashLine ? `crashed: ${crashLine}` : undefined) || firstLine(out, /Error/) || `exit ${code}`),
+      };
     }
     case "hygiene": {
       if (!env.SUPABASE_ACCESS_TOKEN) return { status: "BLOCKED", detail: ".env.local is missing" };

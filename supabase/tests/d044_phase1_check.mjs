@@ -34,9 +34,17 @@ try {
   // ----- Create the club -----------------------------------------------------
   const club = await api("director", "create-club", { name: `QA Academy ${stamp}`, time_zone: "America/Chicago" });
   orgId = club.body.org_id;
-  check("a director creates a club and gets a club code", club.status === 200 && orgId && /^[A-Z0-9]{10}$/.test(club.body.code ?? ""), JSON.stringify(club.body));
+  // New clubs wait for approval (D-051): no code, no director powers, until an admin approves.
+  check("a director creates a club; it waits for approval", club.status === 200 && orgId && club.body.pending === true && club.body.code === null, JSON.stringify(club.body));
+  const waiting = (await api("director", "context")).body;
+  check("the director's context lists the club as pending", waiting.clubs?.some((c) => c.id === orgId && c.pending === true), JSON.stringify(waiting.clubs));
+  const early = await api("director", "club-create-teams", { org_id: orgId, teams: [{ name: "Too early" }] });
+  check("a pending club can't add teams yet", early.status === 403 && early.body.error?.code === "club_pending", JSON.stringify(early.body));
+  const pend = await sql(`select private.is_internal_user('${users.director.id}') as i, (select count(*)::int from organizations where id = '${orgId}' and club_approved_at is null) as n`);
+  check("it shows in the admin portal's approval list", pend[0]?.n === 1, JSON.stringify(pend));
+  await sql(`update organizations set club_approved_at = now() where id = '${orgId}'`); // what admin-api approve-club does
   const dctx = (await api("director", "context")).body;
-  check("the director's context lists the club", dctx.clubs?.some((c) => c.id === orgId), JSON.stringify(dctx.clubs));
+  check("once approved, the context lists the club as active", dctx.clubs?.some((c) => c.id === orgId && c.pending === false), JSON.stringify(dctx.clubs));
 
   // ----- Teams: one with an existing coach, one invited by code, one without -----
   const created = await api("director", "club-create-teams", { org_id: orgId, teams: [
@@ -46,12 +54,18 @@ try {
   ] });
   const [gold, girls, seventh] = created.body.teams ?? [];
   check("bulk team creation", created.status === 200 && created.body.teams?.length === 3, JSON.stringify(created.body).slice(0, 200));
-  check("a coach already on ClubHQ is assigned right away", gold?.coach?.status === "assigned", JSON.stringify(gold?.coach));
+  // Every coach gets a code and accepts (D-051): the director can't tell who already has an account.
+  check("a coach already on ClubHQ gets a code too, not added without asking", gold?.coach?.status === "invited" && /^[A-Z0-9]{10}$/.test(gold?.coach?.code ?? ""), JSON.stringify(gold?.coach));
   check("a new coach gets a code and a message to send", girls?.coach?.status === "invited" && /Join a Club/.test(girls?.invite_text ?? ""), JSON.stringify(girls));
+  check("the director sees the same answer either way", JSON.stringify(Object.keys(gold?.coach ?? {}).sort()) === JSON.stringify(Object.keys(girls?.coach ?? {}).sort()));
+  const before = (await api("coachA", "context")).body;
+  check("the existing coach isn't on the team until they accept", !before.teams?.some((t) => t.id === gold.team_id), JSON.stringify(before.teams?.map((t) => t.name)));
+  await new Promise((s) => setTimeout(s, 2000));
+  const told = await sql(`select n.subject, n.body from notifications n join notification_sends s on s.notification_id=n.id where s.recipient_user_id='${users.coachA.id}'`);
+  check("…but gets the code privately in the app", told.some((n) => /invited you to coach 6th Boys Gold/.test(n.subject) && n.body.includes(gold.coach.code)), JSON.stringify(told));
+  const accept = await api("coachA", "claim-club-invite", { token: gold.coach.code });
   const actx = (await api("coachA", "context")).body;
-  check("the assigned coach sees the team as head coach", actx.teams?.some((t) => t.id === gold.team_id && t.roles.includes("head_coach")), JSON.stringify(actx.teams?.map((t) => [t.name, t.roles])));
-  const told = await sql(`select n.subject from notifications n join notification_sends s on s.notification_id=n.id where s.recipient_user_id='${users.coachA.id}'`);
-  check("…and is told", told.some((n) => /head coach of 6th Boys Gold/.test(n.subject)), JSON.stringify(told));
+  check("after accepting, they're head coach", accept.status === 200 && actx.teams?.some((t) => t.id === gold.team_id && t.roles.includes("head_coach")), JSON.stringify(actx.teams?.map((t) => [t.name, t.roles])));
 
   // The invited coach signs up and uses the code.
   await makeUser("newcoach");
@@ -65,9 +79,11 @@ try {
   // A coach brings their existing team in with the club code.
   const indieTeam = (await api("indie", "create-team", { team_name: "Indie Hoopers", heard_from: "friend_or_coach" })).body;
   indieOrg = indieTeam.org_id;
-  const look2 = await api("indie", "lookup-club-invite", { token: club.body.code });
+  // The club code comes with approval: the director shares it from the Club tab (club-overview).
+  const clubCode = (await api("director", "club-overview", { org_id: orgId })).body.club.code;
+  const look2 = await api("indie", "lookup-club-invite", { token: clubCode });
   check("the club code offers the coach's own team to bring in", look2.body.kind === "club_code" && look2.body.movable_teams?.some((t) => t.id === indieTeam.team_id), JSON.stringify(look2.body));
-  const brought = await api("indie", "claim-club-invite", { token: club.body.code, team_id: indieTeam.team_id });
+  const brought = await api("indie", "claim-club-invite", { token: clubCode, team_id: indieTeam.team_id });
   const indieRow = (await sql(`select org_id from teams where id='${indieTeam.team_id}'`))[0];
   check("…and the team moves into the club", brought.status === 200 && indieRow.org_id === orgId, JSON.stringify(brought.body));
 

@@ -129,7 +129,7 @@ struct StartClubView: View {
                 Section {
                     TextField("Club name (e.g. 3D Basketball Academy)", text: $name)
                 } footer: {
-                    Text("You'll be the club's director: see every team, message families by grade or level, and add club events. You don't need to coach a team. Parents won't see the club, only their own team.")
+                    Text("You'll be the club's director: see every team, message families by grade or level, and add club events. You don't need to coach a team. Parents won't see the club, only their own team.\n\nWe review new clubs before they go live, usually within a day. You'll get a notification when it's on.")
                 }
                 if let errorText { Section { Text(errorText).foregroundStyle(.red) } }
             }

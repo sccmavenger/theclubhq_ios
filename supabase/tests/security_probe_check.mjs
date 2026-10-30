@@ -125,6 +125,18 @@ try {
   const orgMove = await rest("coachA", "PATCH", `teams?id=eq.${A.team_id}`, { org_id: B.org_id });
   const orgNow = await sql(`select org_id from teams where id = '${A.team_id}'`);
   check("a coach can't move their team into another organization directly", orgNow[0]?.org_id === A.org_id, `patch ${orgMove.status}`);
+  // Teams and organizations only come from the server, with its limits and club approval (D-051).
+  const sneakTeam = await rest("outsider", "POST", "teams", { org_id: B.org_id, name: "Sneaky team", created_by: users.outsider.id });
+  check("nobody can insert a team directly (into someone else's org or their own)", sneakTeam.status >= 400, `status ${sneakTeam.status}`);
+  const sneakOrg = await rest("outsider", "POST", "organizations", { name: "Sneaky club", type: "club", created_by: users.outsider.id, club_approved_at: new Date().toISOString() });
+  check("nobody can insert an organization (or a pre-approved club) directly", sneakOrg.status >= 400, `status ${sneakOrg.status}`);
+  const selfApprove = await rest("coachA", "PATCH", `organizations?id=eq.${A.org_id}`, { type: "club", club_approved_at: new Date().toISOString() });
+  const orgState = await sql(`select type, club_approved_at from organizations where id = '${A.org_id}'`);
+  check("a coach can't turn their org into an approved club", orgState[0]?.type === "independent" && orgState[0]?.club_approved_at === null, `patch ${selfApprove.status} ${JSON.stringify(orgState)}`);
+  const pendingClub = (await api("outsider", "create-club", { name: `Probe Club ${stamp}` })).body;
+  if (pendingClub?.org_id) orgs.push(pendingClub.org_id);
+  const pendingAct = await api("outsider", "club-create-teams", { org_id: pendingClub?.org_id, teams: [{ name: "Unapproved team" }] });
+  check("a club waiting for approval can't add teams", pendingAct.status === 403, `status ${pendingAct.status}`);
   const color = await rest("coachA", "PATCH", `teams?id=eq.${A.team_id}`, { brand_color: "#123456" });
   const colorNow = await sql(`select brand_color from teams where id = '${A.team_id}'`);
   check("a free coach can't set a team color directly (Coach Pro)", colorNow[0]?.brand_color !== "#123456", `patch ${color.status}`);

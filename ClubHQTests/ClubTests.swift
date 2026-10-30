@@ -52,6 +52,13 @@ struct ClubTests {
         #expect(context.clubs?.first?.name == "3D Basketball Academy" && context.clubs?.first?.teamCount == 21)
         let a = #"{"id":"1c9f0288-38ce-4a4d-9755-d34a42187290","team_id":"1c9f0288-38ce-4a4d-9755-d34a42187290","title":"Picture day","body":"Bring jerseys","created_at":"2026-10-29T12:00:00Z","created_by":"0f97d776-45f5-4aff-97c8-19c885970c99","from_club":"3D Basketball Academy"}"#
         #expect(try JSONCoding.decoder.decode(Announcement.self, from: Data(a.utf8)).fromClub == "3D Basketball Academy")
+        #expect(context.clubs?.first?.isPending == false, "Older servers don't send pending: the club is active")
+    }
+
+    /// New clubs wait for approval (D-051); the Club tab shows that instead of an error.
+    @Test func pendingClubsAreFlagged() throws {
+        let json = #"{"id":"1c9f0288-38ce-4a4d-9755-d34a42187290","name":"New Club","brand_color":null,"team_count":0,"pending":true}"#
+        #expect(try JSONCoding.decoder.decode(ClubSummary.self, from: Data(json.utf8)).isPending)
     }
 
     @Test func demoClubAddsTeamsAndAudience() async throws {

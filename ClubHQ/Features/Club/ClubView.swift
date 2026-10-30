@@ -47,6 +47,32 @@ struct ClubView: View {
     }
 
     var body: some View {
+        if club.isPending { pendingBody } else { clubBody }
+    }
+
+    /// A new club waits for a ClubHQ admin's approval (D-051); the director's own team works meanwhile.
+    private var pendingBody: some View {
+        NavigationStack {
+            ContentUnavailableView {
+                Label("Waiting for approval", systemImage: "hourglass")
+            } description: {
+                Text("We review new clubs before they go live, usually within a day. You'll get a notification when \(club.name) is on. Then you can add teams, invite coaches and message families.")
+            } actions: {
+                Button("Check Again") { Task { await model.reloadContext() } }.buttonStyle(.bordered)
+            }
+            .navigationTitle(club.name)
+            .toolbar {
+                if showsAccountButton {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { showAccount = true } label: { Label("More", systemImage: "person.crop.circle") }
+                    }
+                }
+            }
+            .sheet(isPresented: $showAccount) { AccountView() }
+        }
+    }
+
+    private var clubBody: some View {
         NavigationStack(path: $path) {
             List {
                 if let overview {
