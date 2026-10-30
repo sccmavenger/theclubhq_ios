@@ -96,6 +96,8 @@ attached to any App Store version. 1.0 (build 17) is still waiting for review an
 - **Coach Pro is not in 2.0.** Both subscriptions are still MISSING_METADATA (Paid Apps Agreement, D-034), so the app shows no Pro wording. **Don't activate the Paid Apps Agreement while 2.0 is in review:** the products would start loading in the review sandbox without being submitted (2.1). Their review notes now name the Aces coach for the release that ships Pro.
 - **Day of submission:** re-seed first (`node scripts/seed-demo.mjs --wipe`) so the reviewer sees four weeks of upcoming events. Logins and team codes stay the same.
 
+**2026-10-30: 2.0 build 29 to TestFlight** from `main`: club portal companion changes (D-053): edit a club event on every team, director codes in More → Join a Club, "Club Portal on the Web" in the Club menu. Regression run PASS beforehand. Not attached to the 2.0 draft (still build 28).
+
 **2026-10-29: 1.0.1 build 24 to TestFlight** (internal only) from `main`: team calendar import from any iCal link (D-047). Uploaded with the ASC API key (`-authenticationKeyPath`), since the Xcode account export failed ("Failed to Use Accounts"). Not attached to the version in review.
 
 **2026-10-29: 1.0.1 build 23 to TestFlight** (internal only), branch `clubs`: Delete Team (D-046). Not attached to the version in review.
