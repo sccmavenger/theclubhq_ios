@@ -7,6 +7,14 @@ import SwiftUI
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        #if DEBUG
+        // UI tests (ClubHQUITests, docs/TESTING.md) launch with `-UITestReset` so every run starts
+        // signed out with no saved team, tour or invite. Must run before AppModel reads the session.
+        if CommandLine.arguments.contains("-UITestReset") {
+            KeychainStore().remove("supabase.session")
+            if let id = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: id) }
+        }
+        #endif
         let model = AppModel()
         self.model = model
         // App Intents can run on a cold launch with no UI, so register before anything else (D-039).

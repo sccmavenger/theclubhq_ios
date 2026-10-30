@@ -6,8 +6,26 @@
 	objectVersion = 90;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		66F3A1A0308BEF43004359F4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000100000000;
+			remoteInfo = ClubHQ;
+		};
+		66F3A1A2308BEF43004359F4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000100000000;
+			remoteInfo = ClubHQ;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* ClubHQ.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClubHQ.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		661207333094D7B0000B303A /* ClubHQUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClubHQUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		66F3A192308BEF43004359F4 /* ClubHQTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClubHQTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -30,6 +48,11 @@
 			path = ClubHQ;
 			sourceTree = "<group>";
 		};
+		661207343094D7B0000B303A /* ClubHQUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ClubHQUITests;
+			sourceTree = "<group>";
+		};
 		66F3A193308BEF43004359F4 /* ClubHQTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ClubHQTests;
@@ -39,6 +62,11 @@
 
 /* Begin PBXFrameworksBuildPhase section */
 		000000000000000130000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		661207303094D7B0000B303A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -56,6 +84,7 @@
 			children = (
 				000000000000000000000010 /* ClubHQ */,
 				66F3A193308BEF43004359F4 /* ClubHQTests */,
+				661207343094D7B0000B303A /* ClubHQUITests */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -65,6 +94,7 @@
 			children = (
 				000000000000000000000120 /* ClubHQ.app */,
 				66F3A192308BEF43004359F4 /* ClubHQTests.xctest */,
+				661207333094D7B0000B303A /* ClubHQUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -90,6 +120,27 @@
 			productReference = 000000000000000000000120 /* ClubHQ.app */;
 			productType = "com.apple.product-type.application";
 		};
+		661207323094D7B0000B303A /* ClubHQUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 661207393094D7B0000B303A /* Build configuration list for PBXNativeTarget "ClubHQUITests" */;
+			buildPhases = (
+				6612072F3094D7B0000B303A /* Sources */,
+				661207303094D7B0000B303A /* Frameworks */,
+				661207313094D7B0000B303A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				66F3A1A3308BEF43004359F4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				661207343094D7B0000B303A /* ClubHQUITests */,
+			);
+			name = ClubHQUITests;
+			productName = ClubHQUITests;
+			productReference = 661207333094D7B0000B303A /* ClubHQUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		66F3A191308BEF43004359F4 /* ClubHQTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 66F3A196308BEF43004359F4 /* Build configuration list for PBXNativeTarget "ClubHQTests" */;
@@ -99,6 +150,9 @@
 				66F3A190308BEF43004359F4 /* Resources */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				66F3A1A1308BEF43004359F4 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				66F3A193308BEF43004359F4 /* ClubHQTests */,
@@ -121,6 +175,9 @@
 					000000000000000100000000 = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					661207323094D7B0000B303A = {
+						CreatedOnToolsVersion = 27.0;
+					};
 					66F3A191308BEF43004359F4 = {
 						CreatedOnToolsVersion = 27.0;
 					};
@@ -142,12 +199,18 @@
 			targets = (
 				000000000000000100000000 /* ClubHQ */,
 				66F3A191308BEF43004359F4 /* ClubHQTests */,
+				661207323094D7B0000B303A /* ClubHQUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		000000000000000140000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		661207313094D7B0000B303A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -165,12 +228,30 @@
 			files = (
 			);
 		};
+		6612072F3094D7B0000B303A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		66F3A18E308BEF43004359F4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		66F3A1A1308BEF43004359F4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 000000000000000100000000 /* ClubHQ */;
+			targetProxy = 66F3A1A0308BEF43004359F4 /* PBXContainerItemProxy */;
+		};
+		66F3A1A3308BEF43004359F4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 000000000000000100000000 /* ClubHQ */;
+			targetProxy = 66F3A1A2308BEF43004359F4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		000000000000000011000000 /* Debug configuration for PBXProject "ClubHQ" */ = {
@@ -399,6 +480,50 @@
 			};
 			name = Release;
 		};
+		661207373094D7B0000B303A /* Debug configuration for PBXNativeTarget "ClubHQUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.teamclubhq.app.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = ClubHQ;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		661207383094D7B0000B303A /* Release configuration for PBXNativeTarget "ClubHQUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.teamclubhq.app.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = ClubHQ;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 		66F3A197308BEF43004359F4 /* Debug configuration for PBXNativeTarget "ClubHQTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -465,6 +590,14 @@
 			buildConfigurations = (
 				000000000000000111000000 /* Debug configuration for PBXNativeTarget "ClubHQ" */,
 				000000000000000112000000 /* Release configuration for PBXNativeTarget "ClubHQ" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		661207393094D7B0000B303A /* Build configuration list for PBXNativeTarget "ClubHQUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				661207373094D7B0000B303A /* Debug configuration for PBXNativeTarget "ClubHQUITests" */,
+				661207383094D7B0000B303A /* Release configuration for PBXNativeTarget "ClubHQUITests" */,
 			);
 			defaultConfigurationName = Release;
 		};
