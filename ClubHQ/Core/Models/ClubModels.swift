@@ -20,7 +20,7 @@ struct ClubOverview: Codable, Sendable {
         var name: String
         var brandColor: String?
         var timeZone: String?
-        /// Code coaches enter in Account → Join a Club.
+        /// Code coaches enter in More → Join a Club.
         var code: String
         var familyCount: Int
     }
@@ -36,6 +36,11 @@ struct ClubOverview: Codable, Sendable {
         var eventType: EventType
         var startsAt: Date
         var teamCount: Int
+        /// Place and notes, for editing (D-053). Older servers don't send them.
+        var endsAt: Date? = nil
+        var location: String? = nil
+        var locationAddress: String? = nil
+        var notes: String? = nil
         var id: UUID { clubEventId }
     }
 
@@ -158,9 +163,31 @@ struct CreatedClubTeam: Codable, Hashable, Sendable, Identifiable {
     var id: UUID { teamId }
 }
 
+/// The editable fields of a club event; saving changes it on every team (`club-event-update`, D-053).
+struct ClubEventEdit: Equatable, Sendable {
+    var title: String
+    var startsAt: Date
+    var endsAt: Date?
+    var location: String
+    var locationAddress: String
+    var notes: String
+
+    init(event: ClubOverview.ClubEvent) {
+        title = event.title
+        startsAt = event.startsAt
+        endsAt = event.endsAt
+        location = event.location ?? ""
+        locationAddress = event.locationAddress ?? ""
+        notes = event.notes ?? ""
+    }
+
+    var isValid: Bool { !title.trimmingCharacters(in: .whitespaces).isEmpty && (endsAt.map { $0 > startsAt } ?? true) }
+}
+
 /// Response of `lookup-club-invite`.
 struct ClubInvitePreview: Codable, Hashable, Sendable {
-    enum Kind: String, Codable, Sendable { case clubCode = "club_code", coach }
+    /// `director`: a second director's one-time code (D-053).
+    enum Kind: String, Codable, Sendable { case clubCode = "club_code", coach, director }
     struct MovableTeam: Codable, Hashable, Sendable, Identifiable {
         var id: UUID
         var name: String

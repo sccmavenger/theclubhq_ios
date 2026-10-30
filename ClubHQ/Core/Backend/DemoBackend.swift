@@ -497,7 +497,7 @@ final class DemoBackend: ClubHQBackend {
         throw BackendError.server(status: 410, code: "expired", message: "Club codes work with a real account, not in Demo Mode.")
     }
 
-    func claimClubInvite(code: String, teamID: UUID?, newTeam: NewClubTeam?) async throws -> UUID {
+    func claimClubInvite(code: String, teamID: UUID?, newTeam: NewClubTeam?) async throws -> UUID? {
         await pause()
         throw BackendError.server(status: 410, code: "expired", message: "Club codes work with a real account, not in Demo Mode.")
     }
@@ -523,6 +523,18 @@ final class DemoBackend: ClubHQBackend {
         let count = demoClub?.clubEvents.first { $0.clubEventId == clubEventID }?.teamCount ?? 0
         demoClub?.clubEvents.removeAll { $0.clubEventId == clubEventID }
         return count
+    }
+
+    func clubEventUpdate(clubEventID: UUID, edit: ClubEventEdit, notify: Bool) async throws -> Int {
+        await pause()
+        guard let i = demoClub?.clubEvents.firstIndex(where: { $0.clubEventId == clubEventID }) else { throw notFound("That club event") }
+        demoClub?.clubEvents[i].title = edit.title
+        demoClub?.clubEvents[i].startsAt = edit.startsAt
+        demoClub?.clubEvents[i].endsAt = edit.endsAt
+        demoClub?.clubEvents[i].location = edit.location.isEmpty ? nil : edit.location
+        demoClub?.clubEvents[i].locationAddress = edit.locationAddress.isEmpty ? nil : edit.locationAddress
+        demoClub?.clubEvents[i].notes = edit.notes.isEmpty ? nil : edit.notes
+        return demoClub?.clubEvents[i].teamCount ?? 0
     }
 
     // MARK: - Notification preferences (D-045)

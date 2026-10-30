@@ -22,8 +22,9 @@ struct ClubView: View {
     /// Reset after "Open Team" so the Club tab comes back to the team list, not a detail page.
     @State private var path: [ClubTeam] = []
 
-    enum ClubSheet: Identifiable {
+    enum ClubSheet: Identifiable, Hashable {
         case addTeams, announcement, event, share
+        case editEvent(ClubOverview.ClubEvent)
         var id: Self { self }
     }
 
@@ -124,6 +125,9 @@ struct ClubView: View {
                         Divider()
                         Button { sheet = .addTeams } label: { Label("Add Teams", systemImage: "person.3.sequence") }
                         Button { sheet = .share } label: { Label("Invite Coaches", systemImage: "qrcode") }
+                        Divider()
+                        // The director portal (D-053): bulk setup and the club at a glance on a computer.
+                        Link(destination: URL(string: "https://teamclubhq.com/club")!) { Label("Club Portal on the Web", systemImage: "laptopcomputer") }
                     } label: {
                         Label("Club Actions", systemImage: "plus")
                     }
@@ -140,6 +144,7 @@ struct ClubView: View {
                     case .announcement: ClubComposerView(mode: .announcement, overview: overview)
                     case .event: ClubComposerView(mode: .event, overview: overview)
                     case .share: ClubCodeView(club: overview.club) { await resetCode() }
+                    case .editEvent(let event): ClubEventEditView(event: event)
                     }
                 }
             }
@@ -197,17 +202,24 @@ struct ClubView: View {
     private func clubEventsSection(_ overview: ClubOverview) -> some View {
         Section("Club events") {
             ForEach(overview.clubEvents) { event in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(event.title).font(.headline)
-                        Text("\(event.startsAt.formatted(date: .abbreviated, time: .shortened)) · \(event.teamCount) teams")
-                            .font(.caption).foregroundStyle(.secondary)
+                Button { sheet = .editEvent(event) } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.title).font(.headline)
+                            Text([event.startsAt.formatted(date: .abbreviated, time: .shortened), event.location, ClubText.teams(event.teamCount)].compactMap { $0 }.joined(separator: " · "))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
                     }
-                    Spacer()
+                    .contentShape(.rect)
                 }
+                .tint(.primary)
+                .accessibilityHint("Edits it on every team")
                 // Not `role: .destructive`: that animates the row away before the coach confirms.
                 .swipeActions {
                     Button("Cancel Event") { eventToCancel = event }.tint(.red)
+                    Button("Edit") { sheet = .editEvent(event) }.tint(.blue)
                 }
             }
         }

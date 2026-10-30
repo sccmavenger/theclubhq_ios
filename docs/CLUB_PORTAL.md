@@ -1,7 +1,20 @@
-# ClubHQ Club Portal: plan (draft for the owner)
+# ClubHQ Club Portal
 
-Written 2026-10-30. Builds on [CLUBS.md](CLUBS.md) (D-044) and the admin portal (D-041).
-**Mockup:** [`design/club-portal/mockup.html`](../design/club-portal/mockup.html). Open it in a browser and click through the left menu. All data in it is fake.
+## Status
+**Phase A shipped 2026-10-30: https://teamclubhq.com/club** (owner answers in [D-053](DECISIONS.md)).
+
+| Piece | Where | Check |
+|---|---|---|
+| Server: `my-clubs`, `club-team-detail`, `club-announcements` (sent history), `club-event-update`, `club-invite-director` / `club-remove-director`, director codes in `lookup/claim-club-invite`, extra `club-overview` fields (linked players, this week's events and RSVPs, invite dates, pending directors) | `mobile-api`, migration `20261030160000_club_portal.sql` | `supabase/tests/d053_club_portal_check.mjs` 37/37 |
+| Portal: sign-in (password or emailed code) and director gate; Overview with "needs your attention"; Teams (filters, bulk message/event/edit); team page (coaches, family code, coming up with RSVPs, roster with family and dues status, edit, delete); Messages with preview and history; Club events (add, edit, cancel); Add teams from a paste or CSV; Club settings (club code, directors) | `site/club/` | `supabase/tests/club_portal_ui_check.mjs` 25/25 in Chrome against the live site |
+| App: edit a club event on every team; director codes in More → Join a Club; "Club Portal on the Web" in the Club menu | `Features/Club/` | `ClubPortalAppTests` |
+
+The live check caught one real bug before release: a director code could be used twice. Codes are now single-use.
+
+---
+
+Plan written 2026-10-30. Builds on [CLUBS.md](CLUBS.md) (D-044) and the admin portal (D-041).
+**Original mockup:** [`design/club-portal/mockup.html`](../design/club-portal/mockup.html). Open it in a browser and click through the left menu. All data in it is fake.
 
 **Goal:** a web portal at **teamclubhq.com/club**. A director signs in with the **same ClubHQ login as the app** and runs every team in the club from a laptop. Coaches and parents stay in the app, and parents still never see the club (decision 6).
 

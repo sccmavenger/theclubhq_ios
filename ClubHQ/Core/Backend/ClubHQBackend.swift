@@ -105,11 +105,15 @@ protocol ClubHQBackend: AnyObject {
     func clubRemoveCoach(teamID: UUID, userID: UUID?, email: String?) async throws
     func lookupClubInvite(code: String) async throws -> ClubInvitePreview
     /// Coach code → coach of that team. Club code → bring `teamID` in, or start `newTeam`.
-    func claimClubInvite(code: String, teamID: UUID?, newTeam: NewClubTeam?) async throws -> UUID
+    /// Director code → director of the club (D-053); returns nil since there's no team.
+    func claimClubInvite(code: String, teamID: UUID?, newTeam: NewClubTeam?) async throws -> UUID?
     func clubAudience(orgID: UUID, filter: ClubFilter) async throws -> ClubAudience
     func clubAnnouncement(orgID: UUID, filter: ClubFilter, title: String, body: String) async throws -> ClubAudience
     func clubEvent(orgID: UUID, filter: ClubFilter, draft: EventDraft) async throws -> ClubAudience
     func clubEventCancel(clubEventID: UUID) async throws -> Int
+    /// Changes a club event on every team; returns how many teams. Families are told when the
+    /// time or place moves, unless `notify` is false.
+    func clubEventUpdate(clubEventID: UUID, edit: ClubEventEdit, notify: Bool) async throws -> Int
 
     // MARK: Messaging
     func threads(teamID: UUID) async throws -> [MessageThread]

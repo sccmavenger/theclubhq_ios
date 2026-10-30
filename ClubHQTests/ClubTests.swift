@@ -97,3 +97,47 @@ struct DeleteTeamTests {
         #expect(try await backend.loadContext().teams.contains { $0.id == team.id } == false)
     }
 }
+
+/// Club portal Phase A in the app (D-053): director codes and editing a club event.
+@MainActor
+struct ClubPortalAppTests {
+    @Test func directorCodePreviewDecodes() throws {
+        let json = #"{"kind":"director","club_name":"3D Basketball Academy","team_name":null,"role":"program_director","movable_teams":[]}"#
+        let preview = try JSONCoding.decoder.decode(ClubInvitePreview.self, from: Data(json.utf8))
+        #expect(preview.kind == .director)
+        #expect(preview.role == .programDirector)
+    }
+
+    @Test func clubEventDecodesWithAndWithoutPlace() throws {
+        let old = #"{"club_event_id":"6F1C2A6E-1111-4C59-9D3B-1B1B1B1B1B1B","title":"Picture Day","event_type":"other","starts_at":"2026-11-08T18:00:00Z","team_count":24}"#
+        let new = #"{"club_event_id":"6F1C2A6E-1111-4C59-9D3B-1B1B1B1B1B1B","title":"Picture Day","event_type":"other","starts_at":"2026-11-08T18:00:00Z","ends_at":null,"location":"Academy gym","location_address":null,"notes":"Home jersey","team_count":24}"#
+        let a = try JSONCoding.decoder.decode(ClubOverview.ClubEvent.self, from: Data(old.utf8))
+        let b = try JSONCoding.decoder.decode(ClubOverview.ClubEvent.self, from: Data(new.utf8))
+        #expect(a.location == nil && b.location == "Academy gym" && b.notes == "Home jersey")
+    }
+
+    @Test func clubEventEditValidation() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        var edit = ClubEventEdit(event: .init(clubEventId: UUID(), title: "Tryouts", eventType: .other, startsAt: start, teamCount: 3))
+        #expect(edit.isValid && edit.location.isEmpty)
+        edit.endsAt = start.addingTimeInterval(-60)
+        #expect(!edit.isValid)
+        edit.endsAt = start.addingTimeInterval(3600)
+        edit.title = "  "
+        #expect(!edit.isValid)
+    }
+
+    @Test func demoEditUpdatesTheClubEvent() async throws {
+        let backend = DemoBackend()
+        let orgID = try await backend.createClub(name: "Demo Club")
+        let created = try await backend.clubCreateTeams(orgID: orgID, teams: [NewClubTeam(name: "8th Boys Elite", grade: "8")])
+        var draft = EventDraft(teamId: try #require(created.first).teamId)
+        draft.title = "Picture Day"
+        _ = try await backend.clubEvent(orgID: orgID, filter: ClubFilter(), draft: draft)
+        let event = try #require(try await backend.clubOverview(orgID: orgID).clubEvents.first)
+        var edit = ClubEventEdit(event: event)
+        edit.location = "Main gym"
+        _ = try await backend.clubEventUpdate(clubEventID: event.clubEventId, edit: edit, notify: true)
+        #expect(try await backend.clubOverview(orgID: orgID).clubEvents.first?.location == "Main gym")
+    }
+}

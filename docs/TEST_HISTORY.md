@@ -15,3 +15,4 @@ One line per run of `scripts/test/run.mjs` (newest last). Reports live in `build
 | 2026-10-30 14:40 | regression | dddacf1+ | PASS | 2 pass, 0 fail, 0 blocked, 0 to-do |  |
 | 2026-10-30 14:42 | regression | dddacf1+ | PASS | 1 pass, 0 fail, 0 blocked, 0 to-do |  |
 | 2026-10-30 14:42 | full | dddacf1+ | PASS | 15 pass, 0 fail, 0 blocked, 2 to-do | app-unit 70/70 + app-ui 9/9 in Xcode (79/79); exploratory pass by AI simulator helper: 8 findings, all fixed (D-052); real-iPhone checklist pending owner on build 28 |
+| 2026-10-30 18:36 | regression | 6bf8595+ | PASS (with blocked suites) | 17 pass, 0 fail, 2 blocked, 0 to-do |  |

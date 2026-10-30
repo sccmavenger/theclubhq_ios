@@ -425,8 +425,8 @@ final class SupabaseBackend: ClubHQBackend {
         try await client.invoke("lookup-club-invite", ["token": .string(code)])
     }
 
-    func claimClubInvite(code: String, teamID: UUID?, newTeam: NewClubTeam?) async throws -> UUID {
-        struct Claimed: Decodable { let teamId: UUID }
+    func claimClubInvite(code: String, teamID: UUID?, newTeam: NewClubTeam?) async throws -> UUID? {
+        struct Claimed: Decodable { let teamId: UUID? }
         var params: [String: JSONValue] = ["token": .string(code)]
         if let teamID { params["team_id"] = .uuid(teamID) }
         if let newTeam {
@@ -461,6 +461,17 @@ final class SupabaseBackend: ClubHQBackend {
         struct Cancelled: Decodable { let cancelled: Int }
         let r: Cancelled = try await client.invoke("club-event-cancel", ["club_event_id": .uuid(clubEventID)])
         return r.cancelled
+    }
+
+    func clubEventUpdate(clubEventID: UUID, edit: ClubEventEdit, notify: Bool) async throws -> Int {
+        struct Updated: Decodable { let updated: Int }
+        let r: Updated = try await client.invoke("club-event-update", [
+            "club_event_id": .uuid(clubEventID), "title": .string(edit.title.trimmingCharacters(in: .whitespaces)),
+            "starts_at": .date(edit.startsAt), "ends_at": edit.endsAt.map { .date($0) } ?? .string(""),
+            "location": .string(edit.location), "location_address": .string(edit.locationAddress), "notes": .string(edit.notes),
+            "notify": .bool(notify),
+        ])
+        return r.updated
     }
 
     // MARK: - Schedule import (D-042)

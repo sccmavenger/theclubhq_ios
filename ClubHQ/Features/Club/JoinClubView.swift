@@ -2,6 +2,7 @@ import SwiftUI
 
 /// More → Join a Club (D-044). A coach code makes you coach of that team; the club code lets a
 /// coach bring one of their teams into the club (roster and families come along) or start one.
+/// A director code makes you one of the club's directors (D-053).
 struct JoinClubView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -10,7 +11,7 @@ struct JoinClubView: View {
     @State private var choice: Choice = .bring
     @State private var bringTeamID: UUID?
     @State private var newTeam = NewClubTeam(name: "")
-    @State private var joinedTeamID: UUID?
+    @State private var joined = false
     @State private var errorText: String?
 
     enum Choice: Hashable { case bring, start }
@@ -18,7 +19,13 @@ struct JoinClubView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if joinedTeamID != nil {
+                if joined, preview?.kind == .director {
+                    Section {
+                        Label("You're a director of \(preview?.clubName ?? "the club").", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } footer: {
+                        Text("Open the Club tab to see every team. You can also manage the club on a computer at teamclubhq.com/club with this same login.")
+                    }
+                } else if joined {
                     Section {
                         Label("You're in \(preview?.clubName ?? "the club").", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                     } footer: {
@@ -42,8 +49,8 @@ struct JoinClubView: View {
             .navigationTitle("Join a Club")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(joinedTeamID == nil ? "Cancel" : "Done") { dismiss() } }
-                if joinedTeamID == nil {
+                ToolbarItem(placement: .cancellationAction) { Button(joined ? "Done" : "Cancel") { dismiss() } }
+                if !joined {
                     ToolbarItem(placement: .confirmationAction) {
                         if preview == nil {
                             AsyncButton("Next") { await lookup() }.disabled(code.trimmingCharacters(in: .whitespaces).count < 8)
@@ -58,7 +65,13 @@ struct JoinClubView: View {
 
     @ViewBuilder
     private func content(_ preview: ClubInvitePreview) -> some View {
-        if preview.kind == .coach {
+        if preview.kind == .director {
+            Section {
+                Text("\(preview.clubName) invited you to be a **director**.")
+            } footer: {
+                Text("Directors see every team in the club, act as head coach on any of them, message families and add club events. Private messages between coaches and parents stay private.")
+            }
+        } else if preview.kind == .coach {
             Section {
                 Text("\(preview.clubName) invited you to be \(preview.role == .assistantCoach ? "an assistant coach" : "head coach") of **\(preview.teamName ?? "a team")**.")
             }
@@ -87,7 +100,7 @@ struct JoinClubView: View {
 
     private var canJoin: Bool {
         guard let preview else { return false }
-        if preview.kind == .coach { return true }
+        if preview.kind == .coach || preview.kind == .director { return true }
         if choice == .bring && !preview.movableTeams.isEmpty { return bringTeamID != nil }
         return !newTeam.name.trimmingCharacters(in: .whitespaces).isEmpty
     }
@@ -109,9 +122,9 @@ struct JoinClubView: View {
                 teamID: preview.kind == .clubCode && choice == .bring ? bringTeamID : nil,
                 newTeam: preview.kind == .clubCode && (choice == .start || preview.movableTeams.isEmpty) ? newTeam : nil
             )
-            joinedTeamID = teamID
+            joined = true
             await model.reloadContext()
-            model.selectedTeamID = teamID
+            if let teamID { model.selectedTeamID = teamID } else { model.showClubTab = true }
         } catch { errorText = error.localizedDescription }
     }
 }

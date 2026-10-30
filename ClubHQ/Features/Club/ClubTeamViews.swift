@@ -499,3 +499,86 @@ enum ClubText {
     static func teams(_ n: Int) -> String { n == 1 ? "1 team" : "\(n) teams" }
     static func people(_ n: Int) -> String { n == 1 ? "1 person" : "\(n) people" }
 }
+
+/// Edits a club event on every team at once (D-053). Families are told when the time or place moves.
+struct ClubEventEditView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let event: ClubOverview.ClubEvent
+    @State private var edit: ClubEventEdit
+    @State private var hasEnd: Bool
+    @State private var notify = true
+    @State private var saved: Int?
+    @State private var errorText: String?
+
+    init(event: ClubOverview.ClubEvent) {
+        self.event = event
+        _edit = State(initialValue: ClubEventEdit(event: event))
+        _hasEnd = State(initialValue: event.endsAt != nil)
+    }
+
+    /// The edit as it will be saved: no end time unless the switch is on.
+    private var resolved: ClubEventEdit {
+        var e = edit
+        if !hasEnd { e.endsAt = nil }
+        return e
+    }
+
+    private var moves: Bool {
+        resolved.startsAt != event.startsAt || resolved.location.trimmingCharacters(in: .whitespaces) != (event.location ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if let saved {
+                    Section {
+                        Label("Updated on \(ClubText.teams(saved)).", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } footer: {
+                        Text(moves && notify ? "Families were told about the change." : "Families weren't notified.")
+                    }
+                } else {
+                    Section {
+                        TextField("Title", text: $edit.title)
+                        DatePicker("Starts", selection: $edit.startsAt)
+                        Toggle("End time", isOn: $hasEnd.animation())
+                        if hasEnd {
+                            DatePicker("Ends", selection: Binding(get: { edit.endsAt ?? edit.startsAt.addingTimeInterval(3600) }, set: { edit.endsAt = $0 }), in: edit.startsAt...)
+                        }
+                        TextField("Location", text: $edit.location)
+                        TextField("Address (optional)", text: $edit.locationAddress)
+                        TextField("Notes (optional)", text: $edit.notes, axis: .vertical).lineLimit(2...5)
+                    } footer: {
+                        Text("Saving changes it on all \(ClubText.teams(event.teamCount)).")
+                    }
+                    if moves {
+                        Section {
+                            Toggle("Tell families", isOn: $notify)
+                        } footer: {
+                            Text("Sends one notification about the new time or place.")
+                        }
+                    }
+                    if let errorText { Section { Text(errorText).foregroundStyle(.red) } }
+                }
+            }
+            .navigationTitle("Edit Club Event")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(saved == nil ? "Cancel" : "Done") { dismiss() } }
+                if saved == nil {
+                    ToolbarItem(placement: .confirmationAction) {
+                        AsyncButton("Save") { await save() }.disabled(!resolved.isValid || resolved == ClubEventEdit(event: event))
+                    }
+                }
+            }
+        }
+    }
+
+    private func save() async {
+        do {
+            saved = try await model.backend.clubEventUpdate(clubEventID: event.clubEventId, edit: resolved, notify: notify)
+            model.noteDataChanged()
+            errorText = nil
+        } catch { errorText = error.localizedDescription }
+    }
+}

@@ -36,7 +36,8 @@ Roadmap #10. The admin portal (D-041) already treats clubs as first-class (`orga
 - **Phase 0 shipped:** club-wide access only from club-level roles (`20261029130000_club_access.sql`). The live check proved the leak first (coach B read team A's roster, the director read a private thread), then passed 10/10 (`supabase/tests/d044_phase0_check.mjs`).
 - **Phase 1 built (TestFlight build 22, branch `clubs`):** server (`20261029140000_clubs.sql`, `20261029160000_club_chat_and_lookup.sql`, club actions in `mobile-api`, live check 27/27 `d044_phase1_check.mjs`) and app (Club tab for directors, setup, composer, Join/Start a Club).
   - Directors' tab bar is Home, Schedule, Team, Messages, **Club**; More opens from the Club tab's person button (iPhone shows five tabs).
-  - Not yet: season rollover, web dashboard, club billing, editing a club event (cancel works), club branding in the app.
+  - Not yet: season rollover, club billing. (Club branding dropped, D-053.)
+- **Club portal Phase A shipped 2026-10-30** at teamclubhq.com/club, plus editing club events and second directors ([CLUB_PORTAL.md](CLUB_PORTAL.md), D-053).
 
 ## Plan
 
@@ -80,5 +81,6 @@ Roadmap #10. The admin portal (D-041) already treats clubs as first-class (`orga
 
 ## Open questions for the owner
 - Can a club director also see **dues** details per family, or only totals? (Assumed: everything, per decision 4.)
-- Does 3D Basketball Academy have a logo and colors to load for the pilot?
-- Who is the second director, if any?
+- ~~Logo and colors~~: not needed, no club branding (D-053).
+- ~~Second director~~: any director adds one with a director code (Club settings on the web, D-053).
+- When does 3D Basketball Academy's next season start? (Decides when season rollover is built.)
