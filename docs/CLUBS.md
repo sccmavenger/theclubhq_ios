@@ -71,7 +71,7 @@ Roadmap #10. The admin portal (D-041) already treats clubs as first-class (`orga
 
 ### Phase 2 — Seasons and scale
 - Season rollover: copy teams forward (names, coaches, chosen players) and archive the old season, still viewable.
-- Web dashboard for bulk setup (CSV upload, coach invites) at teamclubhq.com/club.
+- Web dashboard for bulk setup (CSV upload, coach invites) at teamclubhq.com/club. Full plan, competitor research and mockup: [CLUB_PORTAL.md](CLUB_PORTAL.md).
 - Club director weekly digest (roadmap): RSVP health, teams without upcoming events, families not joined.
 - Schedule import at club scale: import a whole CNR tournament or league once and place every club team's games (D-042/D-043).
 

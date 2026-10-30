@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClubHQ Club Portal — mockup</title>
+<!-- Static mockup (docs/CLUB_PORTAL.md). Fake data, no network. Open in a browser. -->
+<style>
+:root {
+  --page:#f6f7f9; --surface:#fff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#6b6a66; --line:#e3e5e8;
+  --accent:#0077c2; --navy:#0b1e3a; --good:#0ca30c; --warn:#b77d00; --warn-bg:#fff6dc; --bad:#d03b3b; --bad-bg:#fdeceb;
+  --good-bg:#e7f6e7; --chip:#eef4fa; --radius:12px;
+  font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif; color:var(--ink);
+}
+* { box-sizing:border-box }
+body { margin:0; background:var(--page) }
+.banner { background:#fff3c4; color:#5c4400; text-align:center; font-size:12px; padding:6px }
+.shell { display:grid; grid-template-columns:232px 1fr; min-height:calc(100vh - 30px) }
+nav { background:var(--navy); color:#cfd8e6; padding:18px 12px; display:flex; flex-direction:column; gap:2px }
+.club { display:flex; gap:10px; align-items:center; padding:4px 8px 18px; color:#fff }
+.logo { width:36px; height:36px; border-radius:9px; background:#e4572e; display:grid; place-items:center; font-weight:800; color:#fff }
+.club b { display:block; font-size:14px } .club small { color:#9fb0c8; font-size:11px }
+nav a { color:#cfd8e6; text-decoration:none; padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; cursor:pointer }
+nav a:hover { background:#16305a } nav a.on { background:#0077c2; color:#fff }
+nav .count { background:#d03b3b; color:#fff; border-radius:10px; font-size:11px; padding:0 7px }
+nav .sep { height:1px; background:#1f3a63; margin:10px 4px }
+nav .me { margin-top:auto; font-size:12px; color:#9fb0c8; padding:8px 10px }
+main { padding:24px 32px 60px; max-width:1240px }
+header.top { display:flex; align-items:center; gap:12px; margin-bottom:20px }
+header.top h1 { font-size:24px; margin:0; flex:1 }
+.btn { border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:7px 12px; font:inherit; cursor:pointer }
+.btn.primary { background:var(--accent); color:#fff; border-color:var(--accent) }
+.btn.danger { color:var(--bad) }
+.season { border:1px solid var(--line); border-radius:8px; padding:6px 10px; background:#fff }
+.grid { display:grid; gap:14px } .g4 { grid-template-columns:repeat(4,1fr) } .g3 { grid-template-columns:repeat(3,1fr) } .g2 { grid-template-columns:2fr 1fr }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px }
+.card h2 { font-size:15px; margin:0 0 10px; display:flex; justify-content:space-between; align-items:center }
+.card h2 small { font-weight:400; color:var(--muted) }
+.kpi b { font-size:26px; display:block } .kpi span { color:var(--muted); font-size:12px } .kpi em { font-style:normal; font-size:12px }
+.up { color:var(--good) } .down { color:var(--bad) }
+.alert { display:flex; gap:10px; padding:10px 0; border-top:1px solid var(--line); align-items:center }
+.alert:first-of-type { border-top:0 }
+.dot { width:8px; height:8px; border-radius:50%; flex:none } .dot.bad { background:var(--bad) } .dot.warn { background:#fab219 } .dot.good { background:var(--good) }
+.alert div { flex:1 } .alert small { color:var(--muted); display:block }
+table { width:100%; border-collapse:collapse; background:var(--surface) }
+th { text-align:left; font-weight:600; color:var(--muted); font-size:12px; padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap }
+td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:middle }
+tr.grp td { background:#f1f3f6; font-weight:600; font-size:12px; color:var(--ink-2) }
+tr:hover td { background:#fafbfc } tr.grp:hover td { background:#f1f3f6 }
+.tag { display:inline-block; border-radius:6px; padding:1px 7px; font-size:12px; background:var(--chip); color:#0b4f80 }
+.pill { display:inline-block; border-radius:10px; padding:1px 8px; font-size:12px }
+.pill.ok { background:var(--good-bg); color:#0a6e0a } .pill.warn { background:var(--warn-bg); color:var(--warn) } .pill.bad { background:var(--bad-bg); color:var(--bad) }
+.bar { height:6px; background:#e9ecf0; border-radius:3px; width:90px; display:inline-block; vertical-align:middle; margin-right:6px }
+.bar i { display:block; height:100%; border-radius:3px; background:var(--accent) }
+.muted { color:var(--muted) } .small { font-size:12px }
+.filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center }
+.filters select, .filters input { border:1px solid var(--line); border-radius:8px; padding:6px 9px; font:inherit; background:#fff }
+.bulk { background:var(--navy); color:#fff; border-radius:10px; padding:8px 12px; display:flex; gap:10px; align-items:center; margin-bottom:10px }
+.bulk .btn { background:#16305a; color:#fff; border-color:#2a4a7a }
+.view { display:none } .view.on { display:block }
+.compose { display:grid; grid-template-columns:1.3fr 1fr; gap:14px }
+label.f { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px }
+input.t, textarea.t, select.t { width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit }
+textarea.t { min-height:130px }
+.chips { display:flex; gap:6px; flex-wrap:wrap }
+.chip { border:1px solid var(--line); border-radius:16px; padding:4px 10px; cursor:pointer; user-select:none; background:#fff }
+.chip.on { background:var(--accent); color:#fff; border-color:var(--accent) }
+.phone { border:1px solid var(--line); border-radius:22px; padding:14px; background:#f2f2f7 }
+.notif { background:#fff; border-radius:14px; padding:10px 12px; box-shadow:0 1px 2px #0001 }
+.notif small { color:var(--muted) }
+.cal { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden }
+.cal div { background:#fff; min-height:92px; padding:6px; font-size:11px }
+.cal .h { min-height:auto; font-weight:600; color:var(--muted); text-align:center; background:#f6f7f9 }
+.cal .d { color:var(--muted) }
+.ev { display:block; border-radius:4px; padding:1px 4px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.ev.g { background:#e7f0fb; color:#0b4f80 } .ev.p { background:#eef7ee; color:#215f21 } .ev.c { background:#fde9e1; color:#9a3412; font-weight:600 } .ev.x { background:#fdeceb; color:var(--bad); text-decoration:line-through }
+.steps { display:flex; gap:8px; margin-bottom:14px } .steps span { flex:1; text-align:center; padding:8px; border-radius:8px; background:#eef1f5; color:var(--muted); font-size:12px }
+.steps span.on { background:var(--accent); color:#fff } .steps span.done { background:var(--good-bg); color:#0a6e0a }
+pre.paste { background:#0b1e3a; color:#d6e4ff; border-radius:10px; padding:12px; font-size:12px; overflow:auto; margin:0 }
+.ok { color:var(--good) } .bad { color:var(--bad) } .warnc { color:var(--warn) }
+.split { display:grid; grid-template-columns:1fr 1fr; gap:14px }
+.note { border-left:3px solid var(--accent); background:#eef6fc; padding:8px 12px; border-radius:6px; font-size:12px; color:#0b3a5c; margin:10px 0 }
+@media (max-width:900px) { .shell { grid-template-columns:1fr } nav { flex-direction:row; overflow:auto } .g4,.g3,.g2,.compose,.split { grid-template-columns:1fr } }
+</style>
+</head>
+<body>
+<div class="banner">MOCKUP · fake data · teamclubhq.com/club · signed in with the same ClubHQ login as the app</div>
+<div class="shell">
+<nav>
+  <div class="club"><div class="logo">3D</div><div><b>3D Basketball Academy</b><small>Director · Pro (club pilot)</small></div></div>
+  <a data-v="home" class="on">Overview <span class="count">4</span></a>
+  <a data-v="teams">Teams <span class="muted small">24</span></a>
+  <a data-v="team">· 8th Boys Elite</a>
+  <a data-v="people">Coaches &amp; staff</a>
+  <a data-v="families">Families</a>
+  <a data-v="calendar">Calendar</a>
+  <a data-v="messages">Messages</a>
+  <a data-v="import">Add teams (CSV)</a>
+  <a data-v="season">New season</a>
+  <div class="sep"></div>
+  <a data-v="reports">Reports</a>
+  <a data-v="settings">Club settings</a>
+  <div class="me">Marcus Reed · director<br>Sign out</div>
+</nav>
+<main>
+
+<!-- ===================== OVERVIEW ===================== -->
+<section class="view on" id="home">
+  <header class="top"><h1>Good morning, Marcus</h1>
+    <select class="season"><option>Fall 2026</option><option>Summer 2026 (archived)</option></select>
+    <button class="btn">Club event</button><button class="btn primary">Message families</button></header>
+  <div class="grid g4">
+    <div class="card kpi"><span>Teams</span><b>24</b><em class="muted">22 with a head coach</em></div>
+    <div class="card kpi"><span>Players</span><b>287</b><em class="up">+11 this week</em></div>
+    <div class="card kpi"><span>Families joined</span><b>81%</b><em class="muted">233 of 287 players linked</em></div>
+    <div class="card kpi"><span>RSVPs this week</span><b>74%</b><em class="down">−6 pts vs last week</em></div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card"><h2>Needs your attention <small>updated 2 min ago</small></h2>
+      <div class="alert"><i class="dot bad"></i><div><b>2 teams have no head coach</b><small>7th Girls Gold · 5th Boys Select. Invite sent to j.ortiz@… 4 days ago, not accepted.</small></div><button class="btn">Assign</button></div>
+      <div class="alert"><i class="dot bad"></i><div><b>6th Boys Gold: only 3 of 12 families joined</b><small>The team link hasn't been shared since Sep 30.</small></div><button class="btn">Resend link</button></div>
+      <div class="alert"><i class="dot warn"></i><div><b>4 teams have nothing scheduled in the next 14 days</b><small>8th Girls Select, 6th Girls Gold, 5th Girls Gold, 4th Boys</small></div><button class="btn">View</button></div>
+      <div class="alert"><i class="dot warn"></i><div><b>Saturday's tournament: 31 players haven't answered</b><small>CNR Fall Classic · 9 teams · RSVPs close Fri 6 PM</small></div><button class="btn">Nudge</button></div>
+      <div class="alert"><i class="dot good"></i><div><b>Picture Day is on 24 teams</b><small>Sun Nov 8 · 214 going · 12 can't</small></div><button class="btn">Open</button></div>
+    </div>
+    <div class="card"><h2>This weekend</h2>
+      <table><tbody>
+        <tr><td><b>Sat 9:00</b></td><td>8th Boys Elite @ Gateway Elite<br><span class="muted small">CNR Fall Classic · Court 3</span></td></tr>
+        <tr><td><b>Sat 10:30</b></td><td>7th Boys Elite vs Mo Hawks<br><span class="muted small">CNR Fall Classic · Court 5</span></td></tr>
+        <tr><td><b>Sat 1:00</b></td><td>6th Girls Gold practice<br><span class="muted small">Academy gym</span></td></tr>
+        <tr><td><b>Sun 12:00</b></td><td><span class="tag" style="background:#fde9e1;color:#9a3412">Club</span> Picture Day<br><span class="muted small">24 teams</span></td></tr>
+      </tbody></table>
+      <p class="small muted" style="margin:10px 0 0">+ 23 more events · <a href="#">Calendar</a></p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px"><h2>Teams at a glance <small>tap a column to sort · red = needs attention</small></h2>
+    <table id="glance"></table>
+  </div>
+</section>
+
+<!-- ===================== TEAMS ===================== -->
+<section class="view" id="teams">
+  <header class="top"><h1>Teams</h1><button class="btn">Export CSV</button><button class="btn">Add one team</button><button class="btn primary">Add teams from a list</button></header>
+  <div class="filters">
+    <input placeholder="Search team or coach" style="width:220px">
+    <select><option>All grades</option><option>4th</option><option>5th</option><option>6th</option><option>7th</option><option>8th</option></select>
+    <select><option>Boys &amp; girls</option><option>Boys</option><option>Girls</option></select>
+    <select><option>All levels</option><option>Elite</option><option>Gold</option><option>Select</option></select>
+    <select><option>Any status</option><option>Needs a coach</option><option>Families not joined</option><option>Nothing scheduled</option></select>
+  </div>
+  <div class="bulk"><b>3 selected</b><button class="btn">Message families</button><button class="btn">Add club event</button><button class="btn">Set level…</button><button class="btn">Invite assistant…</button><span style="flex:1"></span><button class="btn">Clear</button></div>
+  <table id="teamtable"></table>
+</section>
+
+<!-- ===================== TEAM DETAIL ===================== -->
+<section class="view" id="team">
+  <header class="top"><h1>8th Boys Elite <span class="tag">8th · Boys · Elite</span></h1>
+    <button class="btn">Edit</button><button class="btn">Open in app</button><button class="btn danger">Delete team</button></header>
+  <div class="grid g4">
+    <div class="card kpi"><span>Roster</span><b>12</b><em class="muted">11 families joined</em></div>
+    <div class="card kpi"><span>Next</span><b style="font-size:18px">Sat 9:00 AM</b><em class="muted">@ Gateway Elite · 9 of 12 going</em></div>
+    <div class="card kpi"><span>Attendance (30 days)</span><b>88%</b><em class="up">+3 pts</em></div>
+    <div class="card kpi"><span>Dues</span><b>$2,160</b><em class="muted">of $2,400 · 2 families owe</em></div>
+  </div>
+  <div class="split" style="margin-top:14px">
+    <div class="card"><h2>Coaches <button class="btn">Invite coach</button></h2>
+      <table><tbody>
+        <tr><td><b>Darnell Price</b><br><span class="muted small">dprice@…</span></td><td>Head coach</td><td><button class="btn">Replace</button></td></tr>
+        <tr><td><b>Kev Walker</b><br><span class="muted small">kwalker@…</span></td><td>Assistant</td><td><button class="btn">Remove</button></td></tr>
+        <tr><td><span class="muted">tlong@… (invited)</span><br><span class="small" style="font-family:monospace">K7PQ-2MXD</span></td><td>Assistant</td><td><button class="btn">Copy invite</button></td></tr>
+      </tbody></table></div>
+    <div class="card"><h2>Upcoming <a class="small" href="#">Full schedule</a></h2>
+      <table><tbody>
+        <tr><td>Sat Nov 7 · 9:00</td><td>@ Gateway Elite</td><td><span class="pill ok">9/12</span></td></tr>
+        <tr><td>Sat Nov 7 · 2:00</td><td>vs STL Kings</td><td><span class="pill ok">9/12</span></td></tr>
+        <tr><td>Sun Nov 8 · 12:00</td><td>Picture Day <span class="tag" style="background:#fde9e1;color:#9a3412">Club</span></td><td><span class="pill warn">7/12</span></td></tr>
+        <tr><td>Tue Nov 10 · 6:00</td><td>Practice</td><td><span class="pill warn">4/12</span></td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h2>Roster <small>read-only here · coaches edit in the app</small></h2>
+    <table><thead><tr><th>#</th><th>Player</th><th>Family</th><th>RSVP rate</th><th>Attendance</th><th>Dues</th></tr></thead><tbody>
+      <tr><td>3</td><td>Jalen M.</td><td><span class="ok">2 guardians</span></td><td>92%</td><td>95%</td><td><span class="pill ok">Paid</span></td></tr>
+      <tr><td>5</td><td>Chris T.</td><td><span class="ok">1 guardian</span></td><td>80%</td><td>86%</td><td><span class="pill ok">Paid</span></td></tr>
+      <tr><td>11</td><td>Devin A.</td><td><span class="bad">Not joined</span></td><td>—</td><td>78%</td><td><span class="pill bad">Owes $120</span></td></tr>
+      <tr><td>14</td><td>Marcus J.</td><td><span class="ok">2 guardians</span></td><td>100%</td><td>100%</td><td><span class="pill warn">Owes $120</span></td></tr>
+      <tr><td colspan="6" class="muted small">+ 8 more</td></tr>
+    </tbody></table>
+    <div class="note">Private coach↔parent threads are never shown here (D-009). Team chat: read in the app.</div>
+  </div>
+</section>
+
+<!-- ===================== PEOPLE ===================== -->
+<section class="view" id="people">
+  <header class="top"><h1>Coaches &amp; staff</h1><button class="btn">Export</button><button class="btn primary">Invite coaches</button></header>
+  <div class="grid g3">
+    <div class="card kpi"><span>Coaches</span><b>31</b><em class="muted">22 head · 9 assistants</em></div>
+    <div class="card kpi"><span>Pending invites</span><b>3</b><em class="warnc">1 older than 3 days</em></div>
+    <div class="card kpi"><span>Directors</span><b>2</b><em class="muted">Marcus Reed · Tasha Reed</em></div>
+  </div>
+  <table style="margin-top:14px"><thead><tr><th>Name</th><th>Teams</th><th>Role</th><th>Last active</th><th>Background check</th><th></th></tr></thead><tbody>
+    <tr><td><b>Darnell Price</b><br><span class="muted small">dprice@…</span></td><td>8th Boys Elite, 7th Boys Elite</td><td>Head coach</td><td>Today</td><td><span class="pill ok">Cleared · exp Jun 2027</span></td><td><button class="btn">Manage</button></td></tr>
+    <tr><td><b>Angela Brooks</b></td><td>7th Girls Elite</td><td>Head coach</td><td>Yesterday</td><td><span class="pill warn">Expires in 21 days</span></td><td><button class="btn">Manage</button></td></tr>
+    <tr><td><b>Kev Walker</b></td><td>8th Boys Elite</td><td>Assistant</td><td>3 days ago</td><td><span class="pill bad">Missing</span></td><td><button class="btn">Manage</button></td></tr>
+    <tr><td><span class="muted">j.ortiz@… (invited Oct 26)</span></td><td>7th Girls Gold</td><td>Head coach</td><td>—</td><td>—</td><td><button class="btn">Resend</button></td></tr>
+  </tbody></table>
+  <div class="note">Background checks are Phase C (tracked by the director: date + expiry; no check provider integration yet).</div>
+</section>
+
+<!-- ===================== FAMILIES ===================== -->
+<section class="view" id="families">
+  <header class="top"><h1>Families</h1><button class="btn">Export</button><button class="btn primary">Message selected</button></header>
+  <div class="filters"><input placeholder="Search player or guardian" style="width:240px"><select><option>All teams</option></select><select><option>Any status</option><option>Not joined</option><option>Owes dues</option><option>Low RSVP</option><option>On 2+ teams</option></select></div>
+  <table><thead><tr><th><input type="checkbox"></th><th>Player</th><th>Team(s)</th><th>Guardians</th><th>Joined app</th><th>Dues</th></tr></thead><tbody>
+    <tr><td><input type="checkbox" checked></td><td>Devin A.</td><td>8th Boys Elite</td><td class="muted">none linked</td><td><span class="pill bad">No</span></td><td>Owes $120</td></tr>
+    <tr><td><input type="checkbox"></td><td>Maya R.</td><td>6th Girls Gold, 7th Girls Elite <span class="tag">2 teams</span></td><td>Lisa R., Tony R.</td><td><span class="pill ok">Yes</span></td><td>Paid</td></tr>
+    <tr><td><input type="checkbox" checked></td><td>Aiden K.</td><td>6th Boys Gold</td><td class="muted">invite pending</td><td><span class="pill warn">Invited</span></td><td>—</td></tr>
+  </tbody></table>
+  <div class="note">Directors see families the same way a head coach does on each team. No family contact details leave ClubHQ except through Export, which is logged.</div>
+</section>
+
+<!-- ===================== CALENDAR ===================== -->
+<section class="view" id="calendar">
+  <header class="top"><h1>November 2026</h1>
+    <select class="season"><option>All teams</option><option>8th grade</option><option>Girls</option></select>
+    <button class="btn">Import tournament for many teams</button><button class="btn primary">Club event</button></header>
+  <div class="cal" id="cal"></div>
+  <p class="small muted">Club events (orange) are one event on many teams; editing or cancelling changes them all. Conflicts: <b class="bad">2 teams double-booked Tue 6 PM in the Academy gym</b>.</p>
+</section>
+
+<!-- ===================== MESSAGES ===================== -->
+<section class="view" id="messages">
+  <header class="top"><h1>Message families</h1><button class="btn">Sent (18)</button></header>
+  <div class="compose">
+    <div class="card">
+      <label class="f">Send to</label>
+      <div class="chips" id="aud">
+        <span class="chip on">Everyone</span><span class="chip">4th</span><span class="chip">5th</span><span class="chip">6th</span><span class="chip">7th</span><span class="chip">8th</span>
+        <span class="chip">Boys</span><span class="chip">Girls</span><span class="chip">Elite</span><span class="chip">Gold</span><span class="chip">Select</span><span class="chip">Pick teams…</span>
+      </div>
+      <label class="f">Who on those teams</label>
+      <select class="t"><option>Families and coaches</option><option>Coaches only</option><option>Families who haven't paid dues</option><option>Families who haven't RSVP'd to Picture Day</option></select>
+      <label class="f">Title</label><input class="t" value="Picture Day is Sunday">
+      <label class="f">Message</label><textarea class="t">Team and individual photos Sunday Nov 8 at the Academy gym. Arrive 15 minutes early in your home jersey. Order forms are at the front desk.</textarea>
+      <label class="f">When</label><select class="t"><option>Send now</option><option>Schedule… (Phase B)</option></select>
+      <div style="display:flex;gap:8px;margin-top:14px;align-items:center"><span class="muted small" id="reach">Reaches 24 teams · 251 people · 1 push each</span><span style="flex:1"></span><button class="btn">Save draft</button><button class="btn primary">Send</button></div>
+    </div>
+    <div>
+      <div class="card"><h2>What parents see</h2>
+        <div class="phone">
+          <div class="notif"><small>CLUBHQ · now</small><br><b>3D Basketball Academy: Picture Day is Sunday</b><br>Team and individual photos Sunday Nov 8 at the Academy gym…</div>
+          <p class="small muted" style="margin:10px 4px 0">In the app it's an announcement on their own team, labeled “From 3D Basketball Academy”. Parents never see a club area (decision 6–7).</p>
+        </div></div>
+      <div class="card" style="margin-top:14px"><h2>Recent</h2>
+        <table><tbody>
+          <tr><td>Gym closed Thursday<br><span class="muted small">All teams · Oct 27 · read by 88%</span></td></tr>
+          <tr><td>Fall tournament packet<br><span class="muted small">7th–8th · Oct 20 · read by 79%</span></td></tr>
+        </tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== IMPORT ===================== -->
+<section class="view" id="import">
+  <header class="top"><h1>Add teams from a list</h1><button class="btn">Download template</button></header>
+  <div class="steps"><span class="done">1 · Upload or paste</span><span class="on">2 · Check</span><span>3 · Create &amp; invite</span></div>
+  <div class="split">
+    <div class="card"><h2>Pasted from a spreadsheet</h2>
+<pre class="paste">Team,Grade,Gender,Level,Season,Coach email
+3D 8th Boys Elite,8,Boys,Elite,Fall 2026,dprice@gmail.com
+3D 8th Boys Gold,8th,Boys,Gold,Fall 2026,
+3D 7th Girls Elite,7,G,Elite,Fall 2026,abrooks@yahoo.com
+3D 7th Girls Gold,7,Girls,Gold,Fall 2026,j.ortiz@
+3D 6th Boys Gold,6th grade,Boys,Gold,Fall 2026,mlee@outlook.com
+…19 more rows</pre></div>
+    <div class="card"><h2>We read 24 teams <small>fix the red rows or skip them</small></h2>
+      <table><thead><tr><th>Team</th><th>Group</th><th>Coach</th><th></th></tr></thead><tbody>
+        <tr><td>3D 8th Boys Elite</td><td><span class="tag">8th · Boys · Elite</span></td><td>dprice@gmail.com <span class="small ok">has ClubHQ</span></td><td class="ok">✓</td></tr>
+        <tr><td>3D 8th Boys Gold</td><td><span class="tag">8th · Boys · Gold</span></td><td class="muted">none yet</td><td class="warnc">no coach</td></tr>
+        <tr><td>3D 7th Girls Elite</td><td><span class="tag">7th · Girls · Elite</span></td><td>abrooks@yahoo.com <span class="small muted">will get a code</span></td><td class="ok">✓</td></tr>
+        <tr><td>3D 7th Girls Gold</td><td><span class="tag">7th · Girls · Gold</span></td><td class="bad">j.ortiz@ — not an email</td><td class="bad">fix</td></tr>
+        <tr><td>3D 6th Boys Gold</td><td><span class="tag">6th · Boys · Gold</span></td><td>mlee@outlook.com</td><td class="warnc">same name exists — skip?</td></tr>
+      </tbody></table>
+      <div style="display:flex;gap:8px;margin-top:12px"><span class="muted small">22 ready · 1 to fix · 1 duplicate</span><span style="flex:1"></span><button class="btn primary">Create 22 teams &amp; email 19 coaches</button></div>
+    </div>
+  </div>
+  <div class="note">Uses the app's existing list rules (`ClubGrouping.parseTeamList`): “8th grade”, “G”, “Girls” all normalize. The web adds .csv/.xlsx upload, a duplicate check, and emails the coach codes for you.</div>
+</section>
+
+<!-- ===================== SEASON ===================== -->
+<section class="view" id="season">
+  <header class="top"><h1>Start Winter 2027</h1></header>
+  <div class="steps"><span class="done">1 · Name &amp; dates</span><span class="on">2 · Teams &amp; coaches</span><span>3 · Players</span><span>4 · Review</span></div>
+  <div class="card"><h2>Copy these teams forward <small>Fall 2026 stays viewable, read-only</small></h2>
+    <table><thead><tr><th><input type="checkbox" checked></th><th>Fall 2026 team</th><th>Winter 2027 name</th><th>Grade</th><th>Coaches</th><th>Players</th></tr></thead><tbody>
+      <tr><td><input type="checkbox" checked></td><td>8th Boys Elite</td><td><input class="t" value="8th Boys Elite"></td><td>8 → 8</td><td>Keep (2)</td><td>All 12</td></tr>
+      <tr><td><input type="checkbox" checked></td><td>7th Girls Elite</td><td><input class="t" value="7th Girls Elite"></td><td>7 → 7</td><td>Keep (1)</td><td>Pick… (10 of 11)</td></tr>
+      <tr><td><input type="checkbox"></td><td>4th Boys</td><td class="muted">not continuing</td><td></td><td></td><td></td></tr>
+    </tbody></table>
+    <div class="note">Spring rollover can bump every grade by one (“7th Girls Elite” → “8th Girls Elite”). Families stay linked to their child, so carried-over players need no new invite.</div>
+    <div style="text-align:right"><button class="btn">Back</button> <button class="btn primary">Next: players</button></div>
+  </div>
+</section>
+
+<!-- ===================== REPORTS ===================== -->
+<section class="view" id="reports">
+  <header class="top"><h1>Reports</h1><select class="season"><option>Last 30 days</option><option>This season</option></select><button class="btn">Export all (CSV)</button></header>
+  <div class="grid g3">
+    <div class="card"><h2>RSVP rate by team</h2><table id="rsvpbar"></table></div>
+    <div class="card"><h2>Dues across the club</h2>
+      <div class="kpi"><b>$31,480</b><span>collected of $38,200 (82%)</span></div>
+      <table style="margin-top:10px"><tbody><tr><td>Paid in app</td><td>$22,900</td></tr><tr><td>Marked paid (cash/Venmo)</td><td>$8,580</td></tr><tr><td class="bad">Outstanding · 41 families</td><td class="bad">$6,720</td></tr></tbody></table></div>
+    <div class="card"><h2>Weekly digest email</h2><p class="small">Every Monday 7 AM to both directors: teams needing attention, RSVP health, families not joined, dues outstanding.</p><button class="btn">Preview this week's</button></div>
+  </div>
+</section>
+
+<!-- ===================== SETTINGS ===================== -->
+<section class="view" id="settings">
+  <header class="top"><h1>Club settings</h1></header>
+  <div class="split">
+    <div class="card"><h2>Club</h2>
+      <label class="f">Name</label><input class="t" value="3D Basketball Academy">
+      <label class="f">Logo and color</label><div style="display:flex;gap:10px;align-items:center"><div class="logo">3D</div><input class="t" value="#E4572E" style="width:120px"><button class="btn">Upload logo</button></div>
+      <label class="f">Time zone</label><select class="t"><option>Central (Chicago)</option></select>
+      <label class="f">Club code for coaches</label><div style="display:flex;gap:8px"><input class="t" value="G23P-7J4M-5P" style="font-family:monospace"><button class="btn">Copy</button><button class="btn">New code</button></div>
+    </div>
+    <div class="card"><h2>Directors <button class="btn">Add director</button></h2>
+      <table><tbody><tr><td><b>Marcus Reed</b> (you)</td><td>Owner</td></tr><tr><td><b>Tasha Reed</b></td><td>Director</td><td><button class="btn">Remove</button></td></tr></tbody></table>
+      <h2 style="margin-top:18px">Plan</h2><p class="small">Club Pro · pilot grant through Mar 31, 2027 · 24 teams · 287 players. After the pilot: $2.50 per player per season (min $499), billed on the web.</p>
+      <h2 style="margin-top:18px">Security</h2><p class="small">Directors sign in with their ClubHQ email and password, or an emailed code. Two-step sign-in (authenticator app) optional. Every export and deletion is logged.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+<script>
+// Fake club data, just for the mockup.
+const T = [
+  ["8th Boys Elite",8,"Boys","Elite","Darnell Price",12,11,9,12,"Sat 9:00 @ Gateway Elite"],
+  ["8th Boys Gold",8,"Boys","Gold","Ray Simmons",11,10,8,11,"Sat 11:00 vs Rise"],
+  ["8th Girls Select",8,"Girls","Select","Nia Carter",10,8,0,10,""],
+  ["7th Boys Elite",7,"Boys","Elite","Darnell Price",12,12,11,12,"Sat 10:30 vs Mo Hawks"],
+  ["7th Girls Elite",7,"Girls","Elite","Angela Brooks",11,10,7,11,"Sat 12:00 vs Lady Kings"],
+  ["7th Girls Gold",7,"Girls","Gold","",10,7,4,10,"Tue 6:00 Practice"],
+  ["6th Boys Gold",6,"Boys","Gold","Mike Lee",12,3,2,12,"Tue 6:00 Practice"],
+  ["6th Girls Gold",6,"Girls","Gold","Erin Holt",9,9,0,9,""],
+  ["5th Boys Select",5,"Boys","Select","",11,9,6,11,"Wed 5:30 Practice"],
+  ["5th Girls Gold",5,"Girls","Gold","Kim Ward",10,9,0,10,""],
+];
+const pct = (a,b) => b ? Math.round(100*a/b) : 0;
+function teamRows(withCheck) {
+  let html = `<thead><tr>${withCheck?'<th><input type=checkbox></th>':''}<th>Team</th><th>Head coach</th><th>Players</th><th>Families joined</th><th>Next up</th><th>RSVPs</th><th></th></tr></thead><tbody>`;
+  let g = null;
+  T.forEach((t,i) => {
+    if (t[1] !== g) { g = t[1]; html += `<tr class=grp><td colspan=${withCheck?8:7}>${g}th Grade</td></tr>`; }
+    const fam = pct(t[6],t[5]);
+    const coach = t[4] || '<span class="pill bad">No coach</span>';
+    const next = t[9] || '<span class="pill warn">Nothing in 14 days</span>';
+    const rs = t[9] ? `${t[7]}/${t[8]}` : '—';
+    html += `<tr>${withCheck?`<td><input type=checkbox ${i<3?'checked':''}></td>`:''}<td><b>${t[0]}</b><br><span class="tag">${t[1]}th · ${t[2]} · ${t[3]}</span></td><td>${coach}</td><td>${t[5]}</td>
+      <td><span class=bar><i style="width:${fam}%;background:${fam<50?'#d03b3b':'#0077c2'}"></i></span>${fam}%</td><td class=small>${next}</td><td>${rs}</td><td><button class=btn data-go=team>Open</button></td></tr>`;
+  });
+  return html + `<tr><td colspan=8 class="muted small">+ 14 more teams (4th–5th grade)</td></tr></tbody>`;
+}
+document.getElementById('glance').innerHTML = teamRows(false);
+document.getElementById('teamtable').innerHTML = teamRows(true);
+document.getElementById('rsvpbar').innerHTML = T.filter(t=>t[9]).map(t=>`<tr><td class=small>${t[0]}</td><td><span class=bar><i style="width:${pct(t[7],t[8])}%"></i></span>${pct(t[7],t[8])}%</td></tr>`).join('');
+
+// Calendar: November 2026 starts on a Sunday.
+const ev = {3:[["p","6 teams practice"]],5:[["p","8 teams practice"]],7:[["g","CNR Fall Classic · 9 teams"],["g","8th BE @ Gateway"],["p","6th GG practice"]],8:[["c","Picture Day · 24 teams"],["g","CNR Fall Classic"]],
+  10:[["p","9 teams practice"],["x","7th GG practice"]],12:[["p","7 teams practice"]],14:[["g","League night · 12 games"]],17:[["c","Parent meeting · 8th"]],21:[["c","Tryouts · Winter"],["g","6 games"]],26:[["c","No practice · Thanksgiving"]],28:[["g","Turkey Shootout · 5 teams"]]};
+let cal = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>`<div class=h>${d}</div>`).join('');
+for (let d=1; d<=35; d++) {
+  const day = d<=30 ? d : '';
+  cal += `<div><span class=d>${day}</span>${(ev[d]||[]).map(([k,txt])=>`<span class="ev ${k}">${txt}</span>`).join('')}</div>`;
+}
+document.getElementById('cal').innerHTML = cal;
+
+// Navigation and audience chips.
+function show(v) {
+  document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === v));
+  document.querySelectorAll('nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v));
+  scrollTo(0,0);
+}
+document.querySelectorAll('nav a[data-v]').forEach(a => a.onclick = () => show(a.dataset.v));
+document.addEventListener('click', e => { if (e.target.dataset.go) show(e.target.dataset.go); });
+const reach = {Everyone:[24,251],"4th":[4,38],"5th":[5,49],"6th":[5,52],"7th":[5,57],"8th":[5,55],Boys:[13,140],Girls:[11,111],Elite:[6,66],Gold:[10,104],Select:[8,81]};
+document.querySelectorAll('#aud .chip').forEach(c => c.onclick = () => {
+  document.querySelectorAll('#aud .chip').forEach(x => x.classList.remove('on'));
+  c.classList.add('on');
+  const r = reach[c.textContent] || [3,31];
+  document.getElementById('reach').textContent = `Reaches ${r[0]} teams · ${r[1]} people · 1 push each`;
+});
+</script>
+</body>
+</html>
