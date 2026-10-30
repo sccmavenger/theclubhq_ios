@@ -36,6 +36,17 @@
 /adminportal/manifest.webmanifest
   Content-Type: application/manifest+json
 
+# Club director portal (D-053). Same rules as the admin portal: only our Supabase project is
+# reachable, not indexable, not frameable, never cached, no referrer.
+/club/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://qpchhtakmxcfqtbjjpvi.supabase.co; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  X-Robots-Tag: noindex, nofollow
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Cache-Control: no-cache
+/club
+  X-Robots-Tag: noindex, nofollow
+
 # Sample team calendar for App Review and demos (Schedule → + → Import Schedule or Calendar).
 /samples/*.ics
   Content-Type: text/calendar; charset=utf-8

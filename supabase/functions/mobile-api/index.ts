@@ -522,8 +522,8 @@ async function assignCoach(ctx: Ctx, club: Club, team: { id: string; name: strin
 /** "3D Basketball Academy" plus a share line the director can text to a coach. */
 function coachInviteText(club: Club, teamName: string | null, code: string): string {
   return teamName
-    ? `You're invited to coach ${teamName} with ${club.name} on ClubHQ. Get the app at teamclubhq.com, then Account → Join a Club and enter code ${code}.`
-    : `Join ${club.name} on ClubHQ: get the app at teamclubhq.com, then Account → Join a Club and enter code ${code}.`;
+    ? `You're invited to coach ${teamName} with ${club.name} on ClubHQ. Get the app at teamclubhq.com, then More → Join a Club and enter code ${code}.`
+    : `Join ${club.name} on ClubHQ: get the app at teamclubhq.com, then More → Join a Club and enter code ${code}.`;
 }
 
 // ---------------------------------------------------------------------------
