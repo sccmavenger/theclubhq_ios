@@ -261,7 +261,7 @@ const SERVER_TRACKED_ACTIONS = new Set([
   "create-team", "update-team", "create-invite", "reset-invite", "claim-invite", "create-guardian-invite",
   "create-player-invite", "claim-player-invite", "set-player-birthdate", "create-thread", "post-message",
   "delete-message", "calendar-feed", "reset-calendar-feed", "set-mute", "create-announcement", "save-event",
-  "cancel-event", "set-rsvp", "import-preview", "import-commit", "import-undo", "import-detach", "import-notify", "import-report", "set-notification-prefs", "delete-team", "create-club", "club-reset-code", "club-create-teams", "club-update-team", "club-assign-coach", "club-remove-coach", "claim-club-invite", "club-announcement", "club-event", "club-event-cancel", "register-device", "sync-subscription", "create-dues", "set-dues-status",
+  "cancel-event", "set-rsvp", "import-preview", "import-commit", "import-undo", "import-detach", "import-notify", "import-report", "set-notification-prefs", "delete-team", "create-club", "club-reset-code", "club-create-teams", "club-update-team", "club-assign-coach", "club-remove-coach", "claim-club-invite", "club-announcement", "club-event", "club-event-cancel", "club-event-update", "club-invite-director", "club-remove-director", "register-device", "sync-subscription", "create-dues", "set-dues-status",
   "remind-unpaid", "connect-payments", "checkout", "report-content", "block-user", "delete-account",
 ]);
 
@@ -1666,58 +1666,81 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const teams = await clubTeams(ctx, club.id, { grades: [], genders: [], levels: [], seasons: [], teamIds: [] });
     const ids = teams.map((t) => t.id);
     const none = ["00000000-0000-0000-0000-000000000000"];
-    const [{ data: roles }, { data: players }, { data: links }, { data: events }, { data: invites }, { data: directors }] = await Promise.all([
+    const [{ data: roles }, { data: players }, { data: links }, { data: events }, { data: invites }, { data: directors }, { data: directorInvites }] = await Promise.all([
       ctx.admin.from("user_roles").select("user_id, role, team_id").in("team_id", ids.length ? ids : none).in("role", ["head_coach", "assistant_coach"]),
       ctx.admin.from("players").select("id, team_id").in("team_id", ids.length ? ids : none).is("archived_at", null),
-      ctx.admin.from("parent_player_links").select("parent_user_id, players!inner(team_id, archived_at)").in("players.team_id", ids.length ? ids : none).is("players.archived_at", null),
-      ctx.admin.from("events").select("id, team_id, title, event_type, opponent, home_away, starts_at, club_event_id")
+      ctx.admin.from("parent_player_links").select("parent_user_id, player_id, players!inner(team_id, archived_at)").in("players.team_id", ids.length ? ids : none).is("players.archived_at", null),
+      ctx.admin.from("events").select("id, team_id, title, event_type, opponent, home_away, starts_at, ends_at, location, location_address, notes, club_event_id")
         .in("team_id", ids.length ? ids : none).is("cancelled_at", null).gte("starts_at", new Date().toISOString()).order("starts_at").limit(1000),
-      ctx.admin.from("club_invites").select("team_id, email, token, role").eq("org_id", club.id).eq("kind", "coach").is("used_at", null).is("revoked_at", null),
+      ctx.admin.from("club_invites").select("team_id, email, token, role, created_at").eq("org_id", club.id).eq("kind", "coach").is("used_at", null).is("revoked_at", null),
       ctx.admin.from("user_roles").select("user_id").eq("org_id", club.id).is("team_id", null).eq("role", "program_director"),
+      ctx.admin.from("club_invites").select("email, token, created_at").eq("org_id", club.id).eq("kind", "director").is("used_at", null).is("revoked_at", null).gt("expires_at", new Date().toISOString()),
     ]);
     const names = await profileNames(ctx, [...new Set([...(roles ?? []).map((r) => r.user_id), ...(directors ?? []).map((d) => d.user_id)])]);
     const nextByTeam = new Map<string, { id: string; title: string; event_type: string; opponent: string | null; home_away: string | null; starts_at: string; club_event_id: string | null }>();
     for (const e of events ?? []) if (!nextByTeam.has(e.team_id)) nextByTeam.set(e.team_id, e);
-    const nextIds = [...nextByTeam.values()].map((e) => e.id);
-    const { data: rsvps } = nextIds.length ? await ctx.admin.from("rsvps").select("event_id, status").in("event_id", nextIds) : { data: [] };
+    // The coming week across the club: the portal's "this week" list and RSVP health.
+    const weekEnd = Date.now() + 7 * DAY_MS;
+    const week = (events ?? []).filter((e) => new Date(e.starts_at).getTime() <= weekEnd);
+    const rsvpEventIds = [...new Set([...nextByTeam.values()].map((e) => e.id).concat(week.map((e) => e.id)))];
+    const { data: rsvps } = rsvpEventIds.length ? await ctx.admin.from("rsvps").select("event_id, status").in("event_id", rsvpEventIds) : { data: [] };
+    const answeredBy = new Map<string, number>();
+    for (const r of rsvps ?? []) answeredBy.set(r.event_id, (answeredBy.get(r.event_id) ?? 0) + 1);
     const families = new Map<string, Set<string>>();
+    const linkedPlayers = new Map<string, Set<string>>();
     for (const l of links ?? []) {
       const tid = (l.players as unknown as { team_id: string }).team_id;
       families.set(tid, (families.get(tid) ?? new Set()).add(l.parent_user_id));
+      linkedPlayers.set(tid, (linkedPlayers.get(tid) ?? new Set()).add(l.player_id));
     }
     const allFamilies = new Set((links ?? []).map((l) => l.parent_user_id));
+    const rosterOf = (teamId: string) => (players ?? []).filter((pl) => pl.team_id === teamId).length;
+    const teamName = new Map(teams.map((t) => [t.id, t.name]));
     // Upcoming club events (one entry per club_event_id).
-    const clubEvents = new Map<string, { club_event_id: string; title: string; event_type: string; starts_at: string; team_count: number }>();
+    const clubEvents = new Map<string, { club_event_id: string; title: string; event_type: string; starts_at: string; ends_at: string | null; location: string | null; location_address: string | null; notes: string | null; team_count: number }>();
     for (const e of events ?? []) {
       if (!e.club_event_id) continue;
       const c = clubEvents.get(e.club_event_id);
       if (c) c.team_count++;
-      else clubEvents.set(e.club_event_id, { club_event_id: e.club_event_id, title: e.title, event_type: e.event_type, starts_at: e.starts_at, team_count: 1 });
+      else clubEvents.set(e.club_event_id, { club_event_id: e.club_event_id, title: e.title, event_type: e.event_type, starts_at: e.starts_at, ends_at: e.ends_at, location: e.location, location_address: e.location_address, notes: e.notes, team_count: 1 });
     }
     return {
-      club: { ...club, code: await clubCode(ctx, club.id), family_count: allFamilies.size },
-      directors: (directors ?? []).map((d) => ({ user_id: d.user_id, name: names[d.user_id] ?? "Director" })),
+      club: {
+        ...club, code: await clubCode(ctx, club.id), family_count: allFamilies.size,
+        player_count: (players ?? []).length,
+        linked_player_count: [...linkedPlayers.values()].reduce((n, s) => n + s.size, 0),
+        // RSVPs answered vs. expected for every event in the next 7 days.
+        week_rsvps: { expected: week.reduce((n, e) => n + rosterOf(e.team_id), 0), answered: week.reduce((n, e) => n + (answeredBy.get(e.id) ?? 0), 0) },
+      },
+      directors: (directors ?? []).map((d) => ({ user_id: d.user_id, name: names[d.user_id] ?? "Director", is_me: d.user_id === ctx.uid })),
+      pending_directors: (directorInvites ?? []).map((i) => ({ email: i.email, code: i.token, invited_at: i.created_at })),
       teams: teams.map((t) => {
         const next = nextByTeam.get(t.id) ?? null;
-        const roster = (players ?? []).filter((pl) => pl.team_id === t.id).length;
-        const answered = next ? (rsvps ?? []).filter((r) => r.event_id === next.id).length : 0;
         return {
           ...t,
           coaches: (roles ?? []).filter((r) => r.team_id === t.id).map((r) => ({ user_id: r.user_id, name: names[r.user_id] ?? "Coach", role: r.role })),
-          pending_coaches: (invites ?? []).filter((i) => i.team_id === t.id).map((i) => ({ email: i.email, code: i.token, role: i.role })),
-          roster_count: roster,
+          pending_coaches: (invites ?? []).filter((i) => i.team_id === t.id).map((i) => ({ email: i.email, code: i.token, role: i.role, invited_at: i.created_at })),
+          roster_count: rosterOf(t.id),
           family_count: families.get(t.id)?.size ?? 0,
-          next_event: next ? { ...next, rsvp_count: answered } : null,
+          linked_player_count: linkedPlayers.get(t.id)?.size ?? 0,
+          next_event: next ? { ...next, rsvp_count: answeredBy.get(next.id) ?? 0 } : null,
         };
       }),
       club_events: [...clubEvents.values()].slice(0, 20),
+      week_events: week.slice(0, 60).map((e) => ({
+        id: e.id, team_id: e.team_id, team_name: teamName.get(e.team_id) ?? "", title: e.title, event_type: e.event_type,
+        opponent: e.opponent, home_away: e.home_away, starts_at: e.starts_at, location: e.location, club_event_id: e.club_event_id,
+        rsvp_count: answeredBy.get(e.id) ?? 0, roster_count: rosterOf(e.team_id),
+      })),
     };
   },
 
   /** New club code (the old one stops working). */
   async "club-reset-code"(ctx, p) {
     const club = await requireDirector(ctx, uuid(p, "org_id"));
-    return { code: await clubCode(ctx, club.id, true) };
+    const code = await clubCode(ctx, club.id, true);
+    await ctx.admin.from("audit_logs").insert({ actor_user_id: ctx.uid, action: "club.code_reset", target_table: "organizations", target_id: club.id, metadata: { club: club.name } });
+    return { code };
   },
 
   /** One team or a pasted list: name, grade, gender, level, season, and an optional coach email. */
@@ -1775,11 +1798,12 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
   async "lookup-club-invite"(ctx, p) {
     const token = inviteToken(p);
     const { data: inv } = await ctx.admin.from("club_invites").select("kind, org_id, team_id, role, used_at, revoked_at, expires_at").eq("token", token).maybeSingle();
-    if (!inv || inv.revoked_at || new Date(inv.expires_at) < new Date() || (inv.kind === "coach" && inv.used_at)) {
+    if (!inv || inv.revoked_at || new Date(inv.expires_at) < new Date() || (inv.kind !== "club_code" && inv.used_at)) {
       throw new ApiError("expired", "That club code isn't valid. Ask the club director for a new one.", 410);
     }
     const { data: org } = await ctx.admin.from("organizations").select("name, club_approved_at").eq("id", inv.org_id).single();
     if (!org?.club_approved_at) throw new ApiError("club_pending", "That club isn't active yet. Try again once the director tells you it's on.", 410);
+    if (inv.kind === "director") return { kind: "director", club_name: org.name, team_name: null, role: "program_director", movable_teams: [] };
     const { data: team } = inv.team_id ? await ctx.admin.from("teams").select("name").eq("id", inv.team_id).single() : { data: null };
     // Teams the caller could bring in: ones they head-coach that aren't in a club yet.
     const { data: mine } = await ctx.admin.from("user_roles").select("team_id, teams!inner(id, name, org_id, archived_at, organizations!inner(type))")
@@ -1798,12 +1822,35 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
   async "claim-club-invite"(ctx, p) {
     const token = inviteToken(p);
     const { data: inv } = await ctx.admin.from("club_invites").select("id, kind, org_id, team_id, role, used_at, revoked_at, expires_at").eq("token", token).maybeSingle();
-    if (!inv || inv.revoked_at || new Date(inv.expires_at) < new Date() || (inv.kind === "coach" && inv.used_at)) {
+    if (!inv || inv.revoked_at || new Date(inv.expires_at) < new Date() || (inv.kind !== "club_code" && inv.used_at)) {
       throw new ApiError("expired", "That club code isn't valid. Ask the club director for a new one.", 410);
     }
     await requireNotPlayerAccount(ctx);
     const { data: invOrg } = await ctx.admin.from("organizations").select("club_approved_at").eq("id", inv.org_id).single();
     if (!invOrg?.club_approved_at) throw new ApiError("club_pending", "That club isn't active yet. Try again once the director tells you it's on.", 410);
+    if (inv.kind === "director") {
+      // A second director has full powers (D-053). The other directors are told.
+      const { data: existing } = await ctx.admin.from("user_roles").select("id").eq("user_id", ctx.uid).eq("org_id", inv.org_id).is("team_id", null).eq("role", "program_director").maybeSingle();
+      if (!existing) {
+        const { error } = await ctx.admin.from("user_roles").insert({ user_id: ctx.uid, role: "program_director", team_id: null, org_id: inv.org_id });
+        if (error) throw new ApiError("internal", error.message, 500);
+      }
+      await ctx.admin.from("club_invites").update({ used_by: ctx.uid, used_at: new Date().toISOString() }).eq("id", inv.id);
+      await ctx.admin.from("audit_logs").insert({ actor_user_id: ctx.uid, action: "club.director_joined", target_table: "organizations", target_id: inv.org_id, metadata: { email: ctx.email } });
+      const [{ data: others }, { data: me }, { data: anyTeam }] = await Promise.all([
+        ctx.admin.from("user_roles").select("user_id").eq("org_id", inv.org_id).is("team_id", null).eq("role", "program_director").neq("user_id", ctx.uid),
+        ctx.admin.from("profiles").select("full_name").eq("id", ctx.uid).maybeSingle(),
+        ctx.admin.from("teams").select("id").eq("org_id", inv.org_id).is("archived_at", null).limit(1).maybeSingle(),
+      ]);
+      if (anyTeam && (others?.length ?? 0) > 0) {
+        await notify(ctx, {
+          teamId: anyTeam.id, kind: "announcement", subject: "New club director",
+          body: `${me?.full_name?.trim() || ctx.email} is now a director of your club.`,
+          recipientUserIds: (others ?? []).map((o) => o.user_id),
+        });
+      }
+      return { team_id: null, org_id: inv.org_id };
+    }
     if (inv.kind === "coach") {
       const { data: existing } = await ctx.admin.from("user_roles").select("id").eq("user_id", ctx.uid).eq("team_id", inv.team_id).eq("role", inv.role).maybeSingle();
       if (!existing) await ctx.admin.from("user_roles").insert({ user_id: ctx.uid, role: inv.role, team_id: inv.team_id, org_id: inv.org_id });
@@ -1897,6 +1944,160 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       await notify(ctx, { teamId: events[0].team_id, kind: "event_updated", subject: `Cancelled: ${events[0].title}`, body: `${club.name} cancelled ${events[0].title} on ${formatEventTime(events[0].starts_at, tz)}.`, refId: events[0].id, recipientUserIds: people });
     }
     return { cancelled: events.length };
+  },
+
+  // ----- Club portal (D-053, docs/CLUB_PORTAL.md) -----------------------------
+  /** The clubs this person directs. The portal's gate: no approved club, no portal. */
+  async "my-clubs"(ctx) {
+    const { data: roles } = await ctx.admin.from("user_roles").select("org_id").eq("user_id", ctx.uid).is("team_id", null).eq("role", "program_director");
+    const orgIds = [...new Set((roles ?? []).map((r) => r.org_id).filter((o): o is string => Boolean(o)))];
+    const [{ data: orgs }, { data: profile }] = await Promise.all([
+      orgIds.length ? ctx.admin.from("organizations").select("id, name, time_zone, club_approved_at").in("id", orgIds).eq("type", "club").order("name") : Promise.resolve({ data: [] as { id: string; name: string; time_zone: string | null; club_approved_at: string | null }[] }),
+      ctx.admin.from("profiles").select("full_name").eq("id", ctx.uid).maybeSingle(),
+    ]);
+    return {
+      user_id: ctx.uid, email: ctx.email, full_name: profile?.full_name ?? null,
+      clubs: (orgs ?? []).map((o) => ({ id: o.id, name: o.name, time_zone: o.time_zone, pending: !o.club_approved_at })),
+    };
+  },
+
+  /** One club team for the portal: coaches, roster with family status, upcoming RSVPs, dues totals. */
+  async "club-team-detail"(ctx, p) {
+    const { team, club } = await requireClubTeam(ctx, uuid(p, "team_id"));
+    const [{ data: info }, { data: roster }, { data: links }, { data: events }, { data: roles }, { data: invites }, { data: dues }] = await Promise.all([
+      ctx.admin.from("teams").select("id, name, grade, gender, level, season, sport").eq("id", team.id).single(),
+      ctx.admin.from("players").select("id, first_name, last_name, jersey_number").eq("team_id", team.id).is("archived_at", null).order("last_name"),
+      ctx.admin.from("parent_player_links").select("player_id, players!inner(team_id)").eq("players.team_id", team.id),
+      ctx.admin.from("events").select("id, title, event_type, opponent, home_away, starts_at, location, club_event_id")
+        .eq("team_id", team.id).is("cancelled_at", null).gte("starts_at", new Date().toISOString()).order("starts_at").limit(10),
+      ctx.admin.from("user_roles").select("user_id, role").eq("team_id", team.id).in("role", ["head_coach", "assistant_coach"]),
+      ctx.admin.from("club_invites").select("email, token, role, created_at").eq("team_id", team.id).eq("kind", "coach").is("used_at", null).is("revoked_at", null),
+      ctx.admin.from("dues_items").select("player_id, amount_cents, status, dues_requests!inner(team_id, archived_at)").eq("dues_requests.team_id", team.id).is("dues_requests.archived_at", null),
+    ]);
+    const eventIds = (events ?? []).map((e) => e.id);
+    const { data: rsvps } = eventIds.length ? await ctx.admin.from("rsvps").select("event_id, status").in("event_id", eventIds) : { data: [] };
+    const names = await profileNames(ctx, (roles ?? []).map((r) => r.user_id));
+    const guardians = new Map<string, number>();
+    for (const l of links ?? []) guardians.set(l.player_id, (guardians.get(l.player_id) ?? 0) + 1);
+    const owedBy = new Map<string, number>();
+    let requested = 0, collected = 0;
+    for (const d of dues ?? []) {
+      if (d.status === "waived") continue;
+      requested += d.amount_cents;
+      if (d.status === "paid") collected += d.amount_cents;
+      else owedBy.set(d.player_id, (owedBy.get(d.player_id) ?? 0) + d.amount_cents);
+    }
+    const count = (id: string, s: string) => (rsvps ?? []).filter((r) => r.event_id === id && r.status === s).length;
+    return {
+      team: info, club: { id: club.id, name: club.name },
+      coaches: (roles ?? []).map((r) => ({ user_id: r.user_id, name: names[r.user_id] ?? "Coach", role: r.role })),
+      pending_coaches: (invites ?? []).map((i) => ({ email: i.email, code: i.token, role: i.role, invited_at: i.created_at })),
+      roster: (roster ?? []).map((pl) => ({
+        id: pl.id, first_name: pl.first_name, last_name: pl.last_name, jersey_number: pl.jersey_number,
+        guardian_count: guardians.get(pl.id) ?? 0, owes_cents: owedBy.get(pl.id) ?? 0,
+      })),
+      upcoming: (events ?? []).map((e) => ({ ...e, yes: count(e.id, "yes"), maybe: count(e.id, "maybe"), no: count(e.id, "no") })),
+      dues: { requested_cents: requested, collected_cents: collected, families_owing: owedBy.size },
+    };
+  },
+
+  /** Club messages already sent: one row per send (the rows written to each team together). */
+  async "club-announcements"(ctx, p) {
+    const club = await requireDirector(ctx, uuid(p, "org_id"));
+    const { data: teams } = await ctx.admin.from("teams").select("id").eq("org_id", club.id).is("deleted_at", null);
+    const ids = (teams ?? []).map((t) => t.id);
+    if (ids.length === 0) return { sends: [] };
+    const { data: rows } = await ctx.admin.from("announcements").select("team_id, title, body, created_by, created_at")
+      .in("team_id", ids).not("from_club", "is", null).order("created_at", { ascending: false }).limit(2000);
+    const sends = new Map<string, { title: string; body: string; created_by: string; created_at: string; team_count: number }>();
+    for (const r of rows ?? []) {
+      const key = `${r.created_at}|${r.created_by}|${r.title}`;
+      const s = sends.get(key);
+      if (s) s.team_count++;
+      else sends.set(key, { title: r.title, body: r.body, created_by: r.created_by, created_at: r.created_at, team_count: 1 });
+    }
+    const list = [...sends.values()].slice(0, 50);
+    const names = await profileNames(ctx, [...new Set(list.map((s) => s.created_by))]);
+    return { sends: list.map((s) => ({ title: s.title, body: s.body, created_at: s.created_at, team_count: s.team_count, sent_by: names[s.created_by] ?? "Director" })) };
+  },
+
+  /** Changes a club event on every team at once; families are told when the time or place moves. */
+  async "club-event-update"(ctx, p) {
+    const clubEventId = uuid(p, "club_event_id");
+    const { data: events } = await ctx.admin.from("events").select("id, team_id, title, starts_at, ends_at, location, teams!inner(org_id)").eq("club_event_id", clubEventId).is("cancelled_at", null);
+    if (!events || events.length === 0) throw new ApiError("not_found", "That club event was cancelled or removed.", 404);
+    const club = await requireDirector(ctx, (events[0].teams as unknown as { org_id: string }).org_id);
+    const before = events[0];
+    const update: Record<string, unknown> = {};
+    if (typeof p.title === "string") update.title = str(p, "title", { min: 1, max: 140 });
+    if (p.starts_at !== undefined) {
+      update.starts_at = isoDate(p, "starts_at")!;
+      update.rsvp_cutoff_at = rsvpCutoffISO(new Date(update.starts_at as string).getTime());
+    }
+    if (p.ends_at !== undefined) update.ends_at = isoDate(p, "ends_at", true);
+    const start = (update.starts_at as string | undefined) ?? before.starts_at;
+    const end = (update.ends_at as string | null | undefined) === undefined ? before.ends_at : (update.ends_at as string | null);
+    if (end && new Date(end) <= new Date(start)) throw new ApiError("invalid_input", "End time must be after the start.");
+    for (const [key, max] of [["location", 200], ["location_address", 300], ["notes", 2000]] as const) {
+      if (typeof p[key] === "string") update[key] = str(p, key, { max, optional: true }) || null;
+    }
+    if (Object.keys(update).length === 0) return { updated: 0 };
+    const { error } = await ctx.admin.from("events").update(update).eq("club_event_id", clubEventId).is("cancelled_at", null);
+    if (error) throw new ApiError("internal", error.message, 500);
+    const moved = (update.starts_at && update.starts_at !== new Date(before.starts_at).toISOString()) || ("location" in update && update.location !== before.location);
+    let people: string[] = [];
+    if (moved && p.notify !== false) {
+      people = await audienceForTeams(ctx, [...new Set(events.map((e) => e.team_id))]);
+      if (people.length > 0) {
+        const tz = validTimeZone(club.time_zone) ?? DEFAULT_ZONE_FOR_CLUBS;
+        const title = (update.title as string | undefined) ?? before.title;
+        const where = (("location" in update ? update.location : before.location) as string | null) ?? "";
+        await notify(ctx, { teamId: events[0].team_id, kind: "event_updated", subject: `Updated: ${title}`.slice(0, 140), body: `${club.name}: now ${formatEventTime(start, tz)}${where ? ` · ${where}` : ""}.`, refId: events[0].id, recipientUserIds: people });
+      }
+    }
+    return { updated: events.length, people_count: people.length };
+  },
+
+  /** A one-time director code for a second director (D-053: full powers). */
+  async "club-invite-director"(ctx, p) {
+    const club = await requireDirector(ctx, uuid(p, "org_id"));
+    const email = str(p, "email", { min: 3, max: 254 }).trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError("invalid_input", `"${email}" isn't an email address.`);
+    const token = shortCode(10);
+    const { error } = await ctx.admin.from("club_invites").insert({
+      org_id: club.id, kind: "director", token, role: "program_director", email, created_by: ctx.uid,
+      expires_at: new Date(Date.now() + 14 * DAY_MS).toISOString(),
+    });
+    if (error) throw new ApiError("internal", error.message, 500);
+    await ctx.admin.from("audit_logs").insert({ actor_user_id: ctx.uid, action: "club.director_invited", target_table: "organizations", target_id: club.id, metadata: { email } });
+    const { data: userId } = await ctx.admin.rpc("club_user_id_by_email", { _email: email });
+    if (userId && userId !== ctx.uid) {
+      const { data: anyTeam } = await ctx.admin.from("teams").select("id").eq("org_id", club.id).is("archived_at", null).limit(1).maybeSingle();
+      if (anyTeam) {
+        await notify(ctx, { teamId: anyTeam.id, kind: "announcement", subject: `${club.name} invited you to be a director`, body: `To accept, open More → Join a Club and enter code ${token}.`, recipientUserIds: [userId as string] });
+      }
+    }
+    return {
+      email, code: token,
+      invite_text: `You're invited to be a director of ${club.name} on ClubHQ. Get the app at teamclubhq.com, then More → Join a Club and enter code ${token}. The code works once, for 14 days. After that you can also manage the club at teamclubhq.com/club.`,
+    };
+  },
+
+  /** Removes a director or cancels a director invite. The club always keeps one director. */
+  async "club-remove-director"(ctx, p) {
+    const club = await requireDirector(ctx, uuid(p, "org_id"));
+    if (p.email) {
+      await ctx.admin.from("club_invites").update({ revoked_at: new Date().toISOString() }).eq("org_id", club.id).eq("kind", "director").eq("email", str(p, "email", { max: 254 }).toLowerCase()).is("used_at", null);
+      return { ok: true };
+    }
+    const userId = uuid(p, "user_id");
+    const { data: directors } = await ctx.admin.from("user_roles").select("user_id").eq("org_id", club.id).is("team_id", null).eq("role", "program_director");
+    if (!(directors ?? []).some((d) => d.user_id === userId)) throw new ApiError("not_found", "That person isn't a director of this club.", 404);
+    if ((directors ?? []).length <= 1) throw new ApiError("invalid_input", "A club needs at least one director. Add another director first.");
+    const { error } = await ctx.admin.from("user_roles").delete().eq("org_id", club.id).is("team_id", null).eq("role", "program_director").eq("user_id", userId);
+    if (error) throw new ApiError("internal", error.message, 500);
+    await ctx.admin.from("audit_logs").insert({ actor_user_id: ctx.uid, action: "club.director_removed", target_table: "organizations", target_id: club.id, metadata: { user_id: userId } });
+    return { ok: true };
   },
 
   // Port of setRsvp — enforces the cutoff server-side.
