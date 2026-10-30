@@ -80,7 +80,8 @@ struct PlayerDetailView: View {
             if canInviteCoParent {
                 Section {
                     Button { showCoParentInvite = true } label: {
-                        Label("Invite Co-Parent", systemImage: "person.2.badge.plus")
+                        // A coach invites the family's other guardian; a parent invites their co-parent (QA pass, D-052).
+                        Label(isMyChild ? "Invite Co-Parent" : "Invite Another Guardian", systemImage: "person.2.badge.plus")
                     }
                 } footer: {
                     Text("Another parent or guardian joins \(player.firstName)'s existing profile — no duplicate on the roster.")
@@ -107,7 +108,7 @@ struct PlayerDetailView: View {
                             Label("Save birthdate", systemImage: "calendar.badge.checkmark")
                         }
                     } else if let age, age < AgePolicy.minimumPlayerAccountAge {
-                        Label("\(player.firstName) can have their own login at 13. Until then, you RSVP and follow the team for them.",
+                        Label("\(player.firstName) can have their own login at 13. Until then, \(isMyChild ? "you RSVP and follow the team for them" : "their parents RSVP and follow the team for them").",
                               systemImage: "info.circle")
                             .font(.footnote)
                             .foregroundStyle(.secondary)

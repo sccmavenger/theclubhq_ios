@@ -64,3 +64,16 @@ export function formatEventTime(iso: string, tz: string | null): string {
     // in every push, email, and inbox renderer.
     .replace(/[\u202F\u00A0]/g, " ");
 }
+
+/** RSVPs close this long before an event starts. */
+export const RSVP_CUTOFF_LEAD_MS = 4 * 3600_000;
+
+/**
+ * When RSVPs close for an event starting at `startMs` (D-052): 4 hours before, or at the start if
+ * that's already past. Before, an event created with less than 4 hours' notice was closed the
+ * moment it was made ("practice moved to 6 tonight", posted at 3).
+ */
+export function rsvpCutoffISO(startMs: number, nowMs = Date.now()): string {
+  const usual = startMs - RSVP_CUTOFF_LEAD_MS;
+  return new Date(usual >= nowMs ? usual : startMs).toISOString();
+}

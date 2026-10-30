@@ -172,16 +172,17 @@ struct DemoWorld {
         say(staff, assistantID, "I'll bring the new practice pinnies Tuesday.", day: -1, 9, 40)
         say(fcChat, otherCoachID, "Shin guards required at every practice this season, please!", day: -1, 15, 20)
 
+        // Realistic posting times, not the moment the demo started (QA pass, D-052).
         announcements = [
             Announcement(id: UUID(), teamId: mayhemID, title: "Fall tournament registration",
                          body: "We're entered in the Gateway Fall Classic (Nov 8–9). Dues cover the entry fee. Please RSVP to both games by Wednesday.",
-                         createdAt: now.addingTimeInterval(-86_400 * 2), createdBy: coachID),
+                         createdAt: day(-2, 19, 42), createdBy: coachID),
             Announcement(id: UUID(), teamId: mayhemID, title: "Uniform pickup",
                          body: "New reversible jerseys are in! Pick them up before Tuesday's practice.",
-                         createdAt: now.addingTimeInterval(-86_400 * 6), createdBy: coachID),
+                         createdAt: day(-6, 12, 15), createdBy: coachID),
             Announcement(id: UUID(), teamId: fcID, title: "Picture day",
                          body: "Team photos before the game on Saturday — arrive by 8:30 in full uniform.",
-                         createdAt: now.addingTimeInterval(-86_400), createdBy: otherCoachID),
+                         createdAt: day(-1, 20, 5), createdBy: otherCoachID),
         ]
 
         // Money

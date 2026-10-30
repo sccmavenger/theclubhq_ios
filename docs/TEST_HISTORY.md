@@ -10,3 +10,7 @@ One line per run of `scripts/test/run.mjs` (newest last). Reports live in `build
 | 2026-10-30 14:07 | regression | d09540a+ | FAIL | 2 pass, 1 fail, 0 blocked, 0 to-do | FAIL live-d044-1 |
 | 2026-10-30 14:09 | regression | d09540a+ | PASS | 1 pass, 0 fail, 0 blocked, 0 to-do |  |
 | 2026-10-30 14:10 | regression | d09540a+ | PASS | 2 pass, 0 fail, 0 blocked, 0 to-do |  |
+| 2026-10-30 14:15 | full | dddacf1 | FAIL | 14 pass, 1 fail, 0 blocked, 2 to-do | FAIL live-d047; app-unit 67/67 + app-ui 8/8 run in Xcode (75/75); exploratory pass by AI simulator helper |
+| 2026-10-30 14:36 | regression | dddacf1+ | FAIL | 5 pass, 1 fail, 0 blocked, 0 to-do | FAIL security |
+| 2026-10-30 14:40 | regression | dddacf1+ | PASS | 2 pass, 0 fail, 0 blocked, 0 to-do |  |
+| 2026-10-30 14:42 | regression | dddacf1+ | PASS | 1 pass, 0 fail, 0 blocked, 0 to-do |  |

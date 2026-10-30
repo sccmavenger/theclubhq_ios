@@ -112,5 +112,6 @@ Things only a real phone shows. Use the TestFlight build.
 | `unable to find utility "simctl"` | `xcode-select` points at Command Line Tools. The runner sets `DEVELOPER_DIR`; if you call `xcodebuild` yourself, `export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`. |
 | `Pseudo Terminal Setup Error` | Running inside Xcode's coding assistant. Run app tests in Xcode (⌘U) or Terminal (§2). |
 | A live check passes every line, then `fetch failed` | A network blip during cleanup. The runner counts it as passed if every assertion passed. Rerun if unsure. |
+| A live check prints `SKIP … 429` | An outside service (Google Calendar, a sheet host) rate-limited repeated test fetches. Not a ClubHQ bug; rerun later. |
 | `prod-hygiene` fails | A check crashed before its cleanup. Re-running that check cleans its own leftovers next time; otherwise delete the `qa+` users in Supabase → Authentication. |
 | UI test can't find a button | A label changed. Update the test to the new text, or add an `accessibilityIdentifier`. |

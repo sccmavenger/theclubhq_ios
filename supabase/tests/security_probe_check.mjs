@@ -63,7 +63,10 @@ try {
   check("setup: the coach can post in team chat", !!coachMsg, `status ${coachPost.status} ${JSON.stringify(coachPost.body)}`);
   const parentMsg = (await api("parentA", "post-message", { thread_id: chatA, body: "Hi coach" })).body.id;
   const ev = (await api("coachA", "save-event", { team_id: A.team_id, title: "Practice", event_type: "practice", starts_at: iso(3 * 86400000) })).body.event_ids[0];
-  const soon = (await api("coachA", "save-event", { team_id: A.team_id, title: "Soon", event_type: "practice", starts_at: iso(3600000) })).body.event_ids[0];
+  // An event whose RSVP cutoff has passed. Same-day events stay open until they start (D-052),
+  // so the cutoff is set in the past directly.
+  const soon = (await api("coachA", "save-event", { team_id: A.team_id, title: "Soon", event_type: "practice", starts_at: iso(2 * 86400000) })).body.event_ids[0];
+  await sql(`update events set rsvp_cutoff_at = now() - interval '1 minute' where id = '${soon}'`);
 
   // ----- 1. Notification injection through save-event ---------------------------------------
   for (const who of ["outsider", "parentA"]) {

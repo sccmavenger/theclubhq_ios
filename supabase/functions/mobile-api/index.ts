@@ -21,7 +21,7 @@ import { enqueueTeamNotification } from "../_shared/notify.ts";
 import { dispatchPendingPushes } from "../_shared/dispatch.ts";
 import { syncFromDevice } from "../_shared/appstore.ts";
 import { checkoutFeeCents, stripe } from "../_shared/stripe.ts";
-import { addLocalDays, formatEventTime, validTimeZone } from "../_shared/time.ts";
+import { addLocalDays, formatEventTime, rsvpCutoffISO, validTimeZone } from "../_shared/time.ts";
 import { deleteUserAccount } from "../_shared/accounts.ts";
 import { alertAdmins } from "../_shared/adminAlerts.ts";
 import { gamesForTeam, normalizeName, scoreTeams, type Tournament } from "../_shared/sheetImport.ts";
@@ -1336,7 +1336,9 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       // RLS turns someone else's edit into a silent no-op, so check first and confirm a row
       // changed; otherwise anyone could push "Updated: …" to any team (security review, D-050).
       await requireHeadCoach(ctx, teamId);
-      const { data: updated, error } = await ctx.db.from("events").update(row).eq("id", eventId).eq("team_id", teamId).select("id");
+      // Moving an event moves its RSVP cutoff with it (D-052); it used to keep the old one.
+      const { data: updated, error } = await ctx.db.from("events").update({ ...row, rsvp_cutoff_at: rsvpCutoffISO(new Date(startsAt).getTime()) })
+        .eq("id", eventId).eq("team_id", teamId).select("id");
       if (error || !updated || updated.length === 0) throw new ApiError("forbidden", "Only the head coach can edit events.", 403);
       await notify(ctx, { teamId, kind: "event_updated", subject: `Updated: ${row.title}`, body: summarizeEvent(row, tz), refId: eventId, includePlayers: true });
       return { event_ids: [eventId] };
@@ -1352,7 +1354,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
         ...row,
         starts_at: s.toISOString(),
         ends_at: durationMs !== null ? new Date(s.getTime() + durationMs).toISOString() : null,
-        rsvp_cutoff_at: new Date(s.getTime() - DEFAULT_CUTOFF_LEAD_MS).toISOString(),
+        rsvp_cutoff_at: rsvpCutoffISO(s.getTime()),
         created_by: ctx.uid,
       };
     });
@@ -1870,7 +1872,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       location: str(p, "location", { max: 200, optional: true }) || null,
       location_address: str(p, "location_address", { max: 300, optional: true }) || null,
       notes: str(p, "notes", { max: 2000, optional: true }) || null,
-      rsvp_cutoff_at: new Date(new Date(startsAt).getTime() - DEFAULT_CUTOFF_LEAD_MS).toISOString(),
+      rsvp_cutoff_at: rsvpCutoffISO(new Date(startsAt).getTime()),
       created_by: ctx.uid, club_event_id: clubEventId,
     };
     const { data: rows, error } = await ctx.admin.from("events").insert(teams.map((t) => ({ ...base, team_id: t.id }))).select("id");

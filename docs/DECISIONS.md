@@ -9,6 +9,26 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-052 — Regression testing framework and the first full test pass (2026-10-30) — Accepted
+- **Context:** The owner asked for a repeatable way to check that new features don't break shipped ones, plus full test passes before releases.
+- **Decision:** `docs/TESTING.md` is the process; `scripts/test/run.mjs` runs it.
+  - **Three levels:** `quick`, `regression` (required before every TestFlight build) and `full` (before every App Store submission).
+  - **Coverage map:** `scripts/test/registry.mjs` maps every feature to its suites. `run.mjs map` flags gaps; `run.mjs affected` lists what a change touches.
+  - **Records:** dated reports in `build/test-reports/`, and one line per run in `docs/TEST_HISTORY.md`.
+  - **New suites:** UI tap-throughs (`ClubHQUITests`, Demo mode, `-UITestReset`) and `core_flows_live_check.mjs` (announcements, RSVPs, dues, members), which closed the map's gaps.
+  - **Exploratory pass:** in `full`, by a person or the AI simulator helper.
+- **First full pass:** the AI helper found 8 issues and no crashes. Fixed:
+  - **RSVPs closed immediately on short notice:** an event created with less than 4 hours' notice was closed the moment it was made. The cutoff is now 4 h before, or at the start if that's already past (`rsvpCutoffISO`, `RSVPRules.cutoff`).
+  - **Moving an event kept its old cutoff.** Edits now recompute it.
+  - **Chat lost the sender's name** after a date divider when the same person posted on two days.
+  - **The Dues sheet had no Done button.**
+  - **"N haven't RSVP'd" on coach Home did nothing.** It now opens the event.
+  - **Parent wording showed to coaches** (player page, RSVP reminder toggle). The RSVP reminder toggle now only shows for guardians.
+  - **Player accounts saw Join/Start a Club.**
+  - **Demo announcements showed the demo's start time.**
+  - The framework also caught its own gaps: a crashed check counted as passing, tests that encoded the old behavior, and a Google 429 (now shown as SKIP).
+- **Not changed:** the app is portrait-only on purpose. A chat message once stayed behind the composer after sending (seen once, not reproduced). Delete Account in Demo mode wasn't exercised.
+
 ## D-051 — Clubs need approval, coaches always accept a code, calendar links are checked by address (owner decisions 2026-10-30) — Accepted
 - **Context:** Three open questions from the D-050 review.
   - Starting a club was free with no team limit, so it sidestepped the 1-team free and 3-team Coach Pro limits.

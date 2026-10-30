@@ -3,7 +3,7 @@
 // produces the same `Tournament` shape; `applyImport` writes one team's games to `events`.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.110.0";
 import { adminClient, ApiError } from "./http.ts";
-import { formatEventTime, validTimeZone } from "./time.ts";
+import { formatEventTime, rsvpCutoffISO, validTimeZone } from "./time.ts";
 import {
   fetchSheet,
   type Game,
@@ -30,7 +30,6 @@ import { CalendarError, type CalendarSource, fetchCalendar, parseCalendar, parse
 import { unwrapLink } from "./linkUnwrap.ts";
 
 const IMPORT_GAME_MINUTES = 60;
-const CUTOFF_LEAD_MS = 4 * 3600_000;
 const CACHE_MS = 120_000;
 /** Calendars bigger than this are fetched every time rather than cached. */
 const MAX_CACHED_CALENDAR = 1_000_000;
@@ -227,7 +226,7 @@ export function importedEventRow(t: Tournament, g: Game, teamKey: string, alias:
     event_type: "game",
     starts_at: startsAt,
     ends_at: new Date(startMs + IMPORT_GAME_MINUTES * 60_000).toISOString(),
-    rsvp_cutoff_at: new Date(startMs - CUTOFF_LEAD_MS).toISOString(),
+    rsvp_cutoff_at: rsvpCutoffISO(startMs),
     location: (g.venue ? (g.court ? `${g.venue.name} · Court ${g.court}` : g.venue.name) : g.location)?.slice(0, 200) ?? null,
     location_address: g.venue?.address || null,
     notes: notes.slice(0, 2000),
@@ -252,7 +251,7 @@ function calendarEventRow(t: Tournament, g: Game): EventRow {
     event_type: c.eventType,
     starts_at: c.startsAt,
     ends_at: new Date(startMs + c.minutes * 60_000).toISOString(),
-    rsvp_cutoff_at: new Date(startMs - CUTOFF_LEAD_MS).toISOString(),
+    rsvp_cutoff_at: rsvpCutoffISO(startMs),
     location: (g.venue?.name ?? g.location)?.slice(0, 200) ?? null,
     location_address: g.venue?.address || null,
     notes: [c.notes, `Imported from ${t.title}.`].filter(Boolean).join("\n\n").slice(0, 2000),

@@ -83,7 +83,14 @@ struct HomeView: View {
                 case .newEvent: if let team { EventEditorView(draft: EventDraft(teamId: team.id)) }
                 case .announcement: if let team { AnnouncementComposer(teamID: team.id) }
                 case .invite: if let team { InviteFamiliesView(team: team) }
-                case .dues: if let team { NavigationStack { DuesView(team: team) } }
+                case .dues:
+                    // A sheet needs a way out besides swiping down (QA pass, D-052).
+                    if let team {
+                        NavigationStack {
+                            DuesView(team: team)
+                                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { self.sheet = nil } } }
+                        }
+                    }
                 case .paymentMethods:
                     if let team {
                         NavigationStack {
@@ -140,9 +147,12 @@ struct HomeView: View {
             // With no players yet there's nobody to respond; the invite row below covers that case.
             if !roster.isEmpty, let next = events.first(where: { $0.teamId == team?.id && !$0.isCancelled }) {
                 let missing = counts(for: next).noResponse
-                AttentionRow(symbol: "hand.raised.fill", tint: missing > 0 ? .orange : .green,
-                             title: missing > 0 ? "\(missing) haven't RSVP'd" : "Everyone has responded",
-                             detail: next.displayTitle)
+                // Opens the event, where the coach sees who hasn't answered (QA pass, D-052).
+                NavigationLink(value: next) {
+                    AttentionRow(symbol: "hand.raised.fill", tint: missing > 0 ? .orange : .green,
+                                 title: missing > 0 ? "\(missing) haven't RSVP'd" : "Everyone has responded",
+                                 detail: next.displayTitle)
+                }
             }
             if let unpaidCount {
                 Button { sheet = .dues } label: {

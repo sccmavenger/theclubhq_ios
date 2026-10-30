@@ -95,6 +95,13 @@ struct TeamEvent: Codable, Identifiable, Hashable, Sendable {
 
 enum RSVPRules {
     static let defaultCutoffLead: TimeInterval = 4 * 3600
+
+    /// Same rule as the server's `rsvpCutoffISO` (D-052): 4 hours before the start, or at the start
+    /// when that's already past, so a same-day event isn't closed the moment it's created.
+    static func cutoff(forStart start: Date, now: Date = .now) -> Date {
+        let usual = start.addingTimeInterval(-defaultCutoffLead)
+        return usual >= now ? usual : start
+    }
 }
 
 struct RSVP: Codable, Identifiable, Hashable, Sendable {

@@ -60,6 +60,16 @@ try {
   check("a parent can't RSVP for another family's child", otherKid.status === 403, `status ${otherKid.status}`);
   const coachFor = await api("coach", "set-rsvp", { event_id: ev, player_id: ben.player_id, status: "yes" });
   check("the coach can RSVP for a player", coachFor.status === 200, JSON.stringify(coachFor.body));
+  // Same-day events take RSVPs until they start; moving an event moves its cutoff (D-052).
+  const tonight = (await api("coach", "save-event", { team_id: team.team_id, title: "Moved practice", event_type: "practice", starts_at: iso(2 * 3600000) })).body.event_ids[0];
+  const late = await api("mom", "set-rsvp", { event_id: tonight, player_id: ava.player_id, status: "yes" });
+  check("an event 2 hours away still takes RSVPs", late.status === 200, `status ${late.status} ${JSON.stringify(late.body)}`);
+  const nextWeek = iso(7 * 86400000);
+  await api("coach", "save-event", { team_id: team.team_id, event_id: tonight, title: "Moved practice", event_type: "practice", starts_at: nextWeek });
+  const moved = await sql(`select rsvp_cutoff_at from events where id = '${tonight}'`);
+  check("moving an event moves its RSVP cutoff to 4 hours before the new time",
+    Math.abs(Date.parse(moved[0]?.rsvp_cutoff_at) - (Date.parse(nextWeek) - 4 * 3600000)) < 60000, JSON.stringify(moved));
+
   await api("coach", "cancel-event", { event_id: ev });
   const afterCancel = await api("mom", "set-rsvp", { event_id: ev, player_id: ava.player_id, status: "yes" });
   check("RSVPs to a cancelled event are refused", afterCancel.status === 409, `status ${afterCancel.status}`);

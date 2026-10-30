@@ -76,7 +76,10 @@ try {
   const page = await api("coach", "import-preview", { team_id: team.team_id, url: "https://www.teamsnap.com/" });
   check("a web page explains where the calendar link is", page.status === 422 && page.body.error?.code === "not_a_calendar" && /TeamSnap/.test(page.body.error.message), JSON.stringify(page.body));
   const holidays = await api("coach", "import-preview", { team_id: team.team_id, url: "https://calendar.google.com/calendar/ical/en.usa%23holiday%40group.v.calendar.google.com/public/basic.ics" });
-  check("an all-day-only calendar (Google holidays) has nothing to import", holidays.status === 422 && holidays.body.error?.code === "no_games", JSON.stringify(holidays.body).slice(0, 200));
+  // Google rate-limits repeated fetches of its public holiday feed (429). That's Google being busy,
+  // not ClubHQ: say so and skip this one assertion rather than failing the run (docs/TESTING.md §8).
+  if (/answered 429/.test(holidays.body?.error?.message ?? "")) console.log("SKIP  an all-day-only calendar (Google holidays) — Google rate-limited the fetch (429); rerun later");
+  else check("an all-day-only calendar (Google holidays) has nothing to import", holidays.status === 422 && holidays.body.error?.code === "no_games", JSON.stringify(holidays.body).slice(0, 200));
 
   // ----- Commit (one practice unticked) ----------------------------------------
   const keysAll = p.games.map((g) => g.key);

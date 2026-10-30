@@ -47,13 +47,15 @@ struct ChatView: View {
                     }
                     ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                         let previous = index > 0 ? messages[index - 1] : nil
-                        if previous == nil || !Calendar.current.isDate(previous!.createdAt, inSameDayAs: message.createdAt) {
+                        let newDay = previous.map { !Calendar.current.isDate($0.createdAt, inSameDayAs: message.createdAt) } ?? true
+                        if newDay {
                             Text(message.createdAt.relativeDayLabel)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 12)
                         }
-                        MessageBubble(message: message, showAuthor: previous?.authorId != message.authorId,
+                        // A new day starts a new group, so the sender's name shows again under the date (QA pass, D-052).
+                        MessageBubble(message: message, showAuthor: newDay || previous?.authorId != message.authorId,
                                       canDelete: message.isMine || detail?.thread.canModerate == true,
                                       onDelete: { Task { await delete(message) } },
                                       onReport: { reportTarget = .message(message) },

@@ -315,7 +315,7 @@ final class DemoBackend: ClubHQBackend {
                       location: draft.location.nilIfEmpty, locationAddress: draft.locationAddress.nilIfEmpty, notes: draft.notes.nilIfEmpty,
                       opponent: draft.eventType == .game ? draft.opponent.nilIfEmpty : nil,
                       homeAway: draft.eventType == .game ? (draft.isHome ? "home" : "away") : nil,
-                      homeScore: nil, awayScore: nil, result: nil, cancelledAt: nil, rsvpCutoffAt: nil)
+                      homeScore: nil, awayScore: nil, result: nil, cancelledAt: nil, rsvpCutoffAt: RSVPRules.cutoff(forStart: start))
         }
         if let id = draft.id, let index = world.events.firstIndex(where: { $0.id == id }) {
             var updated = make(id: id, weeks: 0)

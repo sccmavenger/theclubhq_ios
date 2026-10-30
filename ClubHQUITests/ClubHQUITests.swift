@@ -107,6 +107,22 @@ final class ClubHQUITests: XCTestCase {
         explore(as: "Player")
         open(tab: "Team")
         XCTAssertFalse(app.staticTexts["Team Settings"].waitForExistence(timeout: 3), "Players must not see Team Settings")
+        open(tab: "More")
+        XCTAssertTrue(app.navigationBars["More"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Start a Club"].exists, "A player's login can't start a club (D-052)")
+        XCTAssertFalse(app.buttons["Join a Club"].exists, "…or join one")
+    }
+
+    func testDuesSheetHasDone() {
+        explore(as: "Coach")
+        let dues = app.buttons["Dues"].firstMatch
+        for _ in 0..<4 where !dues.isHittable { app.swipeUp() }
+        XCTAssertTrue(dues.waitForExistence(timeout: 10), "Coach Home has a Dues quick action")
+        dues.tap()
+        let done = app.buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 10), "The Dues sheet has a Done button (D-052)")
+        done.tap()
+        XCTAssertFalse(done.waitForExistence(timeout: 2), "Done closes the sheet")
     }
 
     func testLeavingDemoReturnsToSignIn() {

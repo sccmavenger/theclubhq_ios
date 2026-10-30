@@ -14,6 +14,9 @@ struct AccountView: View {
     @State private var confirmSignOut = false
     @State private var errorText: String?
 
+    /// Signed in with a player's own login (D-008): the server refuses adult roles for it (D-050).
+    private var isPlayerAccount: Bool { model.teams.contains { $0.playerSelf != nil } }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -48,10 +51,13 @@ struct AccountView: View {
                         }
                     }
                     Button("Add or Join a Team", systemImage: "plus.circle") { showAddTeam = true }
-                    // Clubs (D-044): coaches join with a code; directors start one.
-                    Button("Join a Club", systemImage: "building.2") { showJoinClub = true }
-                    if model.clubs.isEmpty {
-                        Button("Start a Club", systemImage: "building.2.crop.circle") { showStartClub = true }
+                    // Clubs (D-044): coaches join with a code; directors start one. A player's own
+                    // login (a known minor) can't do either, so it doesn't see them (QA pass, D-052).
+                    if !isPlayerAccount {
+                        Button("Join a Club", systemImage: "building.2") { showJoinClub = true }
+                        if model.clubs.isEmpty {
+                            Button("Start a Club", systemImage: "building.2.crop.circle") { showStartClub = true }
+                        }
                     }
                 } header: {
                     Text("My teams")
@@ -68,6 +74,8 @@ struct AccountView: View {
                             }
                         } icon: { Image(systemName: "calendar.badge.clock") }
                     }
+                    // RSVP reminders only go to guardians, so the switch only shows for them (QA pass, D-052).
+                    if model.teams.contains(where: { !$0.linkedPlayers.isEmpty }) {
                     Toggle(isOn: reminderBinding(\.rsvpReminders)) {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
@@ -75,6 +83,7 @@ struct AccountView: View {
                                 Text("When your child hasn't responded yet").font(.caption).foregroundStyle(.secondary)
                             }
                         } icon: { Image(systemName: "hand.raised") }
+                    }
                     }
                     Button("Notification Settings", systemImage: "bell.badge") {
                         if let url = URL(string: UIApplication.openNotificationSettingsURLString) {

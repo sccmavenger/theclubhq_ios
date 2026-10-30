@@ -1,6 +1,6 @@
 // Run: deno test supabase/tests/time_test.ts   (D-037)
 import { assertEquals } from "jsr:@std/assert@1";
-import { addLocalDays, formatEventTime, tzOffsetMs, validTimeZone } from "../functions/_shared/time.ts";
+import { addLocalDays, formatEventTime, tzOffsetMs, validTimeZone, rsvpCutoffISO } from "../functions/_shared/time.ts";
 
 const at = (iso: string) => Date.parse(iso);
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -49,4 +49,14 @@ Deno.test("validation and formatting", () => {
 Deno.test("formatted times use plain spaces only", () => {
   const s = formatEventTime("2026-11-02T00:00:00Z", "America/Chicago");
   assertEquals(/[\u202F\u00A0]/.test(s), false);
+});
+
+Deno.test("RSVP cutoff: 4 hours before, or at the start when that's already past (D-052)", () => {
+  const now = Date.parse("2026-10-30T15:00:00Z");
+  // Tomorrow: the usual 4 hours before.
+  assertEquals(rsvpCutoffISO(Date.parse("2026-10-31T23:00:00Z"), now), "2026-10-31T19:00:00.000Z");
+  // Tonight, 3 hours away: open until it starts, not closed the moment it's created.
+  assertEquals(rsvpCutoffISO(Date.parse("2026-10-30T18:00:00Z"), now), "2026-10-30T18:00:00.000Z");
+  // Exactly 4 hours away: the usual cutoff, which is now.
+  assertEquals(rsvpCutoffISO(Date.parse("2026-10-30T19:00:00Z"), now), "2026-10-30T15:00:00.000Z");
 });
