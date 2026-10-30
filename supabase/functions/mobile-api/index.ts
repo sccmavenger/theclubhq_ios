@@ -192,6 +192,17 @@ function likeExact(value: string): string {
   return value.trim().replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
+/**
+ * A player account is a known minor's own login (D-008). It can't take an adult role anywhere:
+ * parent, guardian, coach or club director (two-adult rule, D-009; security review, D-050).
+ */
+async function requireNotPlayerAccount(ctx: Ctx) {
+  const { data } = await ctx.admin.from("players").select("id").eq("user_id", ctx.uid).is("archived_at", null).limit(1);
+  if ((data?.length ?? 0) > 0) {
+    throw new ApiError("forbidden", "This is a player account. A parent or coach needs to sign in with their own account to do this.", 403);
+  }
+}
+
 /** Links the caller to an existing child as an additional guardian (co-parent invite, D-035). */
 async function claimGuardianInvite(ctx: Ctx, teamId: string, playerId: string, p: Params) {
   const relationship = oneOf(p, "parent_relationship", RELATIONSHIPS);
@@ -629,6 +640,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const sport = oneOf(p, "sport", SPORTS, "basketball");
     const ageGroup = str(p, "age_group", { max: 40, optional: true }) || null;
     const season = str(p, "season", { max: 40, optional: true }) || null;
+    await requireNotPlayerAccount(ctx);
 
     // Free plan = 1 team as head coach; Coach Pro = up to 3 (DECISIONS D-011).
     // Club teams a director set up and assigned to this coach don't count: the club covers them
@@ -783,6 +795,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
       throw new ApiError("expired", "This invite link has expired. Ask your coach for a new one.", 410);
     }
     const teamId = invite.team_id;
+    await requireNotPlayerAccount(ctx);
     if (invite.player_id) return await claimGuardianInvite(ctx, teamId, invite.player_id, p);
 
     const child = (p.child ?? {}) as Params;
@@ -1137,21 +1150,24 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const roles = await rolesOnTeam(ctx, thread.team_id);
     const canModerate = roles.includes("head_coach");
     const since = typeof p.since === "string" ? isoDate(p, "since") : null;
+    // The newest 500, returned oldest-first. Ascending + limit returned the *first* 500, so a
+    // chat past 500 messages stopped showing anything new (security/QA review, D-050).
     let q = ctx.db
       .from("messages")
       .select("id, author_id, body, image_path, image_width, image_height, edited_at, deleted_at, created_at")
       .eq("thread_id", threadId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(500);
     if (since) q = q.gt("created_at", since);
     // Blocked authors are hidden on every device the blocker uses (App Review 1.2, D-041).
     const blocked = await blockedAuthorIds(ctx);
     if (blocked.length > 0) q = q.not("author_id", "in", `(${blocked.join(",")})`);
-    const { data: msgs, error } = await q;
+    const { data: newestFirst, error } = await q;
     if (error) throw new ApiError("internal", error.message, 500);
-    const names = await profileNames(ctx, [...new Set((msgs ?? []).map((m) => m.author_id))]);
+    const msgs = (newestFirst ?? []).reverse();
+    const names = await profileNames(ctx, [...new Set(msgs.map((m) => m.author_id))]);
     // Photos are private; the caller can read this thread (RLS above), so sign short-lived URLs.
-    const photoPaths = (msgs ?? []).filter((m) => m.image_path && !m.deleted_at).map((m) => m.image_path as string);
+    const photoPaths = msgs.filter((m) => m.image_path && !m.deleted_at).map((m) => m.image_path as string);
     const photoURLs: Record<string, string> = {};
     if (photoPaths.length > 0) {
       const { data: signed } = await ctx.admin.storage.from(CHAT_PHOTOS_BUCKET).createSignedUrls(photoPaths, PHOTO_URL_TTL_SECONDS);
@@ -1162,7 +1178,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     await ctx.db.from("message_reads").upsert({ user_id: ctx.uid, thread_id: threadId, last_read_at: new Date().toISOString() });
     return {
       thread: { ...thread, can_moderate: canModerate, can_post: !(roles.includes("player") && roles.length === 1 && thread.kind !== "team") },
-      messages: (msgs ?? []).map((m) => {
+      messages: msgs.map((m) => {
         const imageURL = !m.deleted_at && m.image_path ? photoURLs[m.image_path] ?? null : null;
         return {
           id: m.id,
@@ -1309,8 +1325,11 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const tz = await eventTimeZone(ctx, teamId, p);
 
     if (eventId) {
-      const { error } = await ctx.db.from("events").update(row).eq("id", eventId);
-      if (error) throw new ApiError("forbidden", "Only the head coach can edit events.", 403);
+      // RLS turns someone else's edit into a silent no-op, so check first and confirm a row
+      // changed; otherwise anyone could push "Updated: …" to any team (security review, D-050).
+      await requireHeadCoach(ctx, teamId);
+      const { data: updated, error } = await ctx.db.from("events").update(row).eq("id", eventId).eq("team_id", teamId).select("id");
+      if (error || !updated || updated.length === 0) throw new ApiError("forbidden", "Only the head coach can edit events.", 403);
       await notify(ctx, { teamId, kind: "event_updated", subject: `Updated: ${row.title}`, body: summarizeEvent(row, tz), refId: eventId, includePlayers: true });
       return { event_ids: [eventId] };
     }
@@ -1619,6 +1638,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
   async "create-club"(ctx, p) {
     const name = str(p, "name", { min: 2, max: 120 });
     const tz = validTimeZone(p.time_zone);
+    await requireNotPlayerAccount(ctx);
     const { data: org, error } = await ctx.admin.from("organizations")
       .insert({ name, type: "club", created_by: ctx.uid, time_zone: tz }).select("id, name, type, brand_color, time_zone").single();
     if (error || !org) throw new ApiError("internal", error?.message ?? "Could not create the club", 500);
@@ -1769,6 +1789,7 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     if (!inv || inv.revoked_at || new Date(inv.expires_at) < new Date() || (inv.kind === "coach" && inv.used_at)) {
       throw new ApiError("expired", "That club code isn't valid. Ask the club director for a new one.", 410);
     }
+    await requireNotPlayerAccount(ctx);
     if (inv.kind === "coach") {
       const { data: existing } = await ctx.admin.from("user_roles").select("id").eq("user_id", ctx.uid).eq("team_id", inv.team_id).eq("role", inv.role).maybeSingle();
       if (!existing) await ctx.admin.from("user_roles").insert({ user_id: ctx.uid, role: inv.role, team_id: inv.team_id, org_id: inv.org_id });
@@ -1971,7 +1992,16 @@ const actions: Record<string, (ctx: Ctx, p: Params) => Promise<unknown>> = {
     const description = str(p, "description", { max: 1000, optional: true }) || null;
     const amount = int(p, "amount_cents", 100, 500000)!;
     const dueDate = str(p, "due_date", { optional: true }) || null;
-    const playerIds = Array.isArray(p.player_ids) ? (p.player_ids as string[]) : null;
+    if (dueDate && (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || Number.isNaN(Date.parse(dueDate)))) {
+      throw new ApiError("invalid_input", "Due date must be YYYY-MM-DD");
+    }
+    const playerIds = Array.isArray(p.player_ids)
+      ? (p.player_ids as unknown[]).filter((x): x is string => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x))
+      : null;
+    // An empty list means "everyone"; a list of bad ids must not quietly turn into that.
+    if (playerIds && playerIds.length === 0 && (p.player_ids as unknown[]).length > 0) {
+      throw new ApiError("invalid_input", "player_ids are not valid ids");
+    }
 
     let q = ctx.admin.from("players").select("id").eq("team_id", teamId).is("archived_at", null);
     if (playerIds && playerIds.length > 0) q = q.in("id", playerIds);

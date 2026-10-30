@@ -140,6 +140,8 @@ protocol ClubHQBackend: AnyObject {
     func inbox() async throws -> [InboxItem]
     func markRead(id: UUID?) async throws
     func registerDevice(token: String, sandbox: Bool) async throws
+    /// Stops pushes for this account on this phone (sign-out).
+    func unregisterDevice(token: String) async throws
 
     // MARK: Money
     func syncSubscription(signedTransaction: String) async throws -> Bool

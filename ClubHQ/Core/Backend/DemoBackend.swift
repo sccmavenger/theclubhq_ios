@@ -782,6 +782,7 @@ final class DemoBackend: ClubHQBackend {
     }
 
     func registerDevice(token: String, sandbox: Bool) async throws {}
+    func unregisterDevice(token: String) async throws {}
 
     // MARK: - Money
 

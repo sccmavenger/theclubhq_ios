@@ -100,6 +100,7 @@ In `ClubHQ/Core/AppConfig.swift` set `supabaseURL` and `supabasePublishableKey` 
 ## 9. Admin portal (D-041)
 - Migration `20261025010434_admin_portal.sql` (applied 2026-10-25): admin tables, report-evidence bucket, `admin_*` read functions, Pro grants in `user_has_coach_pro` / `team_is_pro`.
 - Migration `20261025140000_internal_accounts.sql` (applied 2026-10-25): `private.internal_accounts`, a list of emails that count as internal (left out of business metrics) without admin access. The owner's `dguilloryjr@msn.com` is on it. Internal = a portal admin, a `@teamclubhq.com` or `.invalid` email, or this list. Add one with `insert into private.internal_accounts (email, note) values (...)`.
+- Migration `20261030120000_security_hardening.sql` (applied 2026-10-30, D-050): no user-created direct/group threads or participants; triggers guard message edits (thread, author and time are fixed), team edits (org, creator and deletion fixed; team color needs Coach Pro) and RSVP writes (cutoff and cancellation). `mobile-api` deployed the same day. **Rerun `node supabase/tests/security_probe_check.mjs` (56/56) after any change to `mobile-api` or RLS.**
 - The portal is part of the site: `site/adminportal/`, published by `scripts/deploy-site.sh` to https://teamclubhq.com/adminportal. Its CSP and `noindex` headers are in `site/_headers`.
 - Add an admin: Settings → Admins in the portal (owner), or `insert into platform_admins (email, role) values (...)`.
 - Due account deletions run from the portal's Overview banner (no cron job yet; `pg_cron` isn't enabled).

@@ -9,6 +9,29 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-050 — Security and QA review: holes closed at the server and database (2026-10-30) — Accepted
+- **Context:** The owner asked for a full code review and an end-to-end attempt to break the app. `supabase/tests/security_probe_check.mjs` attacks production with throwaway accounts (two coaches, a parent, a 14-year-old player account, an outsider), through `mobile-api` and straight through PostgREST with each user's own token, the way a modified app could. The first run blocked 45 of 56 attacks.
+- **Fixed (server):**
+  - `save-event` edits: RLS turned someone else's edit into a silent no-op, and the action then sent "Updated: …" to whatever team was named. Any signed-in user could push text to any team. Now it requires the head coach and a row that actually changed.
+  - **Player accounts (known minors) can't take adult roles:** joining a team as a parent or guardian, creating a team or club, or claiming a club code (`requireNotPlayerAccount`). Before, a teen's account could join another team as a "parent" and read parents-only threads (two-adult rule, D-009).
+  - `list-messages` returned the first 500 messages, so chats past 500 stopped showing new ones. It now returns the newest 500.
+  - `create-dues` rejects malformed dates (was a 500), and a list of bad player ids can't turn into "the whole roster".
+- **Fixed (database, migration `20261030120000_security_hardening.sql`):**
+  - Direct/group threads and adding thread participants are no longer insertable by users. No client ever used them, and any member, teen players included, could create one.
+  - Message authors can't change a message's thread, author or time (a message dated 2099 stayed pinned and editable).
+  - Head coaches can't move a team to another organization, change its creator or deletion state, or set a team color without Coach Pro by writing the row directly.
+  - RSVP cutoff and cancellation are enforced on direct writes too.
+  - Server writes use the service role and are exempt from these triggers.
+- **Fixed (app):**
+  - Sign-out unregisters the phone's push token. Before, the signed-out family's messages and kids' names kept showing on the lock screen.
+  - An auth link for a different account can't replace the signed-in one. `clubhq://auth-callback` can be opened by any site or app.
+  - Past events and the Season Report fetch up to 1,000 events in their six-month window. At 200, a busy family's latest games were cut off and the record was computed from the oldest slice.
+- **Not changed (owner decisions to make):**
+  - Anyone can start a club for free and add unlimited teams, which sidesteps the 1-team free and 3-team Coach Pro limits.
+  - A club director can add any existing ClubHQ user as a coach by email, without their consent, and learns whether that email has an account.
+  - Calendar import blocks private addresses by hostname but doesn't check DNS, so a public name pointing at a private IP would pass. That's low risk on hosted edge functions.
+- **Result:** security probe 56/56. All 11 earlier live checks pass after the changes, as do Deno 64/64 and app tests 66/66.
+
 ## D-049 — Team colors are adjusted for readability in light and dark mode (owner decision 2026-10-29) — Accepted
 - **Context:** TestFlight feedback on build 25: the Avengers' dark red (#D7263D) tinted text, toggles and links on black and was hard to read. The team color tints the whole app (`MainTabView` `.tint`). Measured against the app's backgrounds, 7 of 9 colors failed WCAG AA in at least one mode, including ClubHQ blue in dark mode (about 3:1), and near-black #111827 was invisible in dark mode. Separately, text styled `.primary` / `.secondary` inside a `Button` takes the button's tint, so the More tab's team rows were drawn in faded team red.
 - **Decision:** Keep the team's color wherever it's used, but resolve it per appearance (`ReadableColor` in `UIComponents.swift`). It keeps hue and saturation and moves lightness until text reaches **4.5:1** against #F2F2F7 (light) or #2C2C2E (dark, the darkest card). In dark mode it then darkens as far as that allows, so white labels on filled buttons reach **3:1**, the AA level for buttons and bold text. Both 4.5:1 levels at once aren't possible in dark mode. Colors that already pass are left alone.

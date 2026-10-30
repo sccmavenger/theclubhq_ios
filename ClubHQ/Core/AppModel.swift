@@ -156,6 +156,12 @@ final class AppModel {
     func signOut() async {
         await usage.flush()
         usage.reset()
+        // Stop this account's pushes on this phone before the session goes away; otherwise the
+        // signed-out family's messages and kids' names keep showing on the lock screen
+        // (security review, D-050). Best effort: an expired session can't unregister.
+        if !backend.isDemo, backend.hasSession, let token = PushManager.shared.latestToken {
+            try? await backend.unregisterDevice(token: token)
+        }
         await backend.signOut()
         context = nil
         selectedTeamID = nil

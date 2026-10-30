@@ -240,11 +240,14 @@ final class SupabaseBackend: ClubHQBackend {
 
     func events(teamIDs: [UUID], from: Date, to: Date?) async throws -> [TeamEvent] {
         guard !teamIDs.isEmpty else { return [] }
+        // Upcoming (no end date) shows the next 200. A bounded range (Past, Season Report: six
+        // months) must be complete: at 200, a busy family's most recent past games were cut off and
+        // the season record was computed from the oldest slice (QA review, D-050).
         var query: [(String, String)] = [
             ("team_id", inList(teamIDs)),
             ("starts_at", "gte.\(JSONCoding.formatTimestamp(from))"),
             ("order", "starts_at.asc"),
-            ("limit", "200"),
+            ("limit", to == nil ? "200" : "1000"), // 1000 is also the server's row cap
         ]
         if let to { query.append(("starts_at", "lt.\(JSONCoding.formatTimestamp(to))")) }
         return try await client.rest("events", query: query)
@@ -643,6 +646,10 @@ final class SupabaseBackend: ClubHQBackend {
         let _: OK = try await client.invoke("register-device", [
             "token": .string(token), "environment": .string(sandbox ? "sandbox" : "production"),
         ])
+    }
+
+    func unregisterDevice(token: String) async throws {
+        let _: OK = try await client.invoke("unregister-device", ["token": .string(token)])
     }
 
     // MARK: - Money

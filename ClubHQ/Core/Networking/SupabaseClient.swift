@@ -132,6 +132,13 @@ final class SupabaseClient {
         request.setValue(publishableKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer \(access)", forHTTPHeaderField: "Authorization")
         let user: AuthUser = try await send(request)
+        // Any website or app can open clubhq://auth-callback with someone else's tokens. Never let
+        // that silently swap a signed-in person into another account (security review, D-050);
+        // a real confirm or reset link is for the account that's already here.
+        if let current = session, current.userID != user.id {
+            throw BackendError.server(status: 409, code: "different_account",
+                                      message: "That link is for a different account. Sign out first if you want to use it.")
+        }
         store(TokenResponse(accessToken: access, refreshToken: refresh, expiresIn: Int(items["expires_in"] ?? "") ?? 3600, user: user))
         return RedirectKind(rawValue: items["type"] ?? "") ?? .unknown
     }
