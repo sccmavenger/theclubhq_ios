@@ -18,7 +18,7 @@ body { margin:0; background:var(--page) }
 .shell { display:grid; grid-template-columns:232px 1fr; min-height:calc(100vh - 30px) }
 nav { background:var(--navy); color:#cfd8e6; padding:18px 12px; display:flex; flex-direction:column; gap:2px }
 .club { display:flex; gap:10px; align-items:center; padding:4px 8px 18px; color:#fff }
-.logo { width:36px; height:36px; border-radius:9px; background:#e4572e; display:grid; place-items:center; font-weight:800; color:#fff }
+.logo { width:36px; height:36px; border-radius:9px; background:#0077c2; display:grid; place-items:center; font-weight:800; color:#fff }
 .club b { display:block; font-size:14px } .club small { color:#9fb0c8; font-size:11px }
 nav a { color:#cfd8e6; text-decoration:none; padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; cursor:pointer }
 nav a:hover { background:#16305a } nav a.on { background:#0077c2; color:#fff }
@@ -140,7 +140,7 @@ pre.paste { background:#0b1e3a; color:#d6e4ff; border-radius:10px; padding:12px;
 
 <!-- ===================== TEAMS ===================== -->
 <section class="view" id="teams">
-  <header class="top"><h1>Teams</h1><button class="btn">Export CSV</button><button class="btn">Add one team</button><button class="btn primary">Add teams from a list</button></header>
+  <header class="top"><h1>Teams</h1><button class="btn">Add one team</button><button class="btn primary">Add teams from a list</button></header>
   <div class="filters">
     <input placeholder="Search team or coach" style="width:220px">
     <select><option>All grades</option><option>4th</option><option>5th</option><option>6th</option><option>7th</option><option>8th</option></select>
@@ -185,37 +185,37 @@ pre.paste { background:#0b1e3a; color:#d6e4ff; border-radius:10px; padding:12px;
       <tr><td>14</td><td>Marcus J.</td><td><span class="ok">2 guardians</span></td><td>100%</td><td>100%</td><td><span class="pill warn">Owes $120</span></td></tr>
       <tr><td colspan="6" class="muted small">+ 8 more</td></tr>
     </tbody></table>
-    <div class="note">Private coach↔parent threads are never shown here (D-009). Team chat: read in the app.</div>
+    <div class="note">Private coach↔parent threads are never shown here (D-009). Team chat stays in the app (D-053).</div>
   </div>
 </section>
 
 <!-- ===================== PEOPLE ===================== -->
 <section class="view" id="people">
-  <header class="top"><h1>Coaches &amp; staff</h1><button class="btn">Export</button><button class="btn primary">Invite coaches</button></header>
+  <header class="top"><h1>Coaches &amp; staff</h1><button class="btn primary">Invite coaches</button></header>
   <div class="grid g3">
     <div class="card kpi"><span>Coaches</span><b>31</b><em class="muted">22 head · 9 assistants</em></div>
     <div class="card kpi"><span>Pending invites</span><b>3</b><em class="warnc">1 older than 3 days</em></div>
     <div class="card kpi"><span>Directors</span><b>2</b><em class="muted">Marcus Reed · Tasha Reed</em></div>
   </div>
-  <table style="margin-top:14px"><thead><tr><th>Name</th><th>Teams</th><th>Role</th><th>Last active</th><th>Background check</th><th></th></tr></thead><tbody>
-    <tr><td><b>Darnell Price</b><br><span class="muted small">dprice@…</span></td><td>8th Boys Elite, 7th Boys Elite</td><td>Head coach</td><td>Today</td><td><span class="pill ok">Cleared · exp Jun 2027</span></td><td><button class="btn">Manage</button></td></tr>
-    <tr><td><b>Angela Brooks</b></td><td>7th Girls Elite</td><td>Head coach</td><td>Yesterday</td><td><span class="pill warn">Expires in 21 days</span></td><td><button class="btn">Manage</button></td></tr>
-    <tr><td><b>Kev Walker</b></td><td>8th Boys Elite</td><td>Assistant</td><td>3 days ago</td><td><span class="pill bad">Missing</span></td><td><button class="btn">Manage</button></td></tr>
-    <tr><td><span class="muted">j.ortiz@… (invited Oct 26)</span></td><td>7th Girls Gold</td><td>Head coach</td><td>—</td><td>—</td><td><button class="btn">Resend</button></td></tr>
+  <table style="margin-top:14px"><thead><tr><th>Name</th><th>Teams</th><th>Role</th><th>Last active</th><th></th></tr></thead><tbody>
+    <tr><td><b>Darnell Price</b><br><span class="muted small">dprice@…</span></td><td>8th Boys Elite, 7th Boys Elite</td><td>Head coach</td><td>Today</td><td><button class="btn">Manage</button></td></tr>
+    <tr><td><b>Angela Brooks</b></td><td>7th Girls Elite</td><td>Head coach</td><td>Yesterday</td><td><button class="btn">Manage</button></td></tr>
+    <tr><td><b>Kev Walker</b></td><td>8th Boys Elite</td><td>Assistant</td><td>3 days ago</td><td><button class="btn">Manage</button></td></tr>
+    <tr><td><span class="muted">j.ortiz@… (invited Oct 26)</span></td><td>7th Girls Gold</td><td>Head coach</td><td>—</td><td><button class="btn">Resend</button></td></tr>
   </tbody></table>
-  <div class="note">Background checks are Phase C (tracked by the director: date + expiry; no check provider integration yet).</div>
+  
 </section>
 
 <!-- ===================== FAMILIES ===================== -->
 <section class="view" id="families">
-  <header class="top"><h1>Families</h1><button class="btn">Export</button><button class="btn primary">Message selected</button></header>
+  <header class="top"><h1>Families</h1><button class="btn primary">Message selected</button></header>
   <div class="filters"><input placeholder="Search player or guardian" style="width:240px"><select><option>All teams</option></select><select><option>Any status</option><option>Not joined</option><option>Owes dues</option><option>Low RSVP</option><option>On 2+ teams</option></select></div>
   <table><thead><tr><th><input type="checkbox"></th><th>Player</th><th>Team(s)</th><th>Guardians</th><th>Joined app</th><th>Dues</th></tr></thead><tbody>
     <tr><td><input type="checkbox" checked></td><td>Devin A.</td><td>8th Boys Elite</td><td class="muted">none linked</td><td><span class="pill bad">No</span></td><td>Owes $120</td></tr>
     <tr><td><input type="checkbox"></td><td>Maya R.</td><td>6th Girls Gold, 7th Girls Elite <span class="tag">2 teams</span></td><td>Lisa R., Tony R.</td><td><span class="pill ok">Yes</span></td><td>Paid</td></tr>
     <tr><td><input type="checkbox" checked></td><td>Aiden K.</td><td>6th Boys Gold</td><td class="muted">invite pending</td><td><span class="pill warn">Invited</span></td><td>—</td></tr>
   </tbody></table>
-  <div class="note">Directors see families the same way a head coach does on each team. No family contact details leave ClubHQ except through Export, which is logged.</div>
+  <div class="note">Directors see families the same way a head coach does on each team. Contact details never leave ClubHQ (D-053): no exports.</div>
 </section>
 
 <!-- ===================== CALENDAR ===================== -->
@@ -252,8 +252,8 @@ pre.paste { background:#0b1e3a; color:#d6e4ff; border-radius:10px; padding:12px;
         </div></div>
       <div class="card" style="margin-top:14px"><h2>Recent</h2>
         <table><tbody>
-          <tr><td>Gym closed Thursday<br><span class="muted small">All teams · Oct 27 · read by 88%</span></td></tr>
-          <tr><td>Fall tournament packet<br><span class="muted small">7th–8th · Oct 20 · read by 79%</span></td></tr>
+          <tr><td>Gym closed Thursday<br><span class="muted small">All teams · Oct 27 · 24 teams</span></td></tr>
+          <tr><td>Fall tournament packet<br><span class="muted small">7th–8th · Oct 20 · 10 teams</span></td></tr>
         </tbody></table></div>
     </div>
   </div>
@@ -280,10 +280,10 @@ pre.paste { background:#0b1e3a; color:#d6e4ff; border-radius:10px; padding:12px;
         <tr><td>3D 7th Girls Gold</td><td><span class="tag">7th · Girls · Gold</span></td><td class="bad">j.ortiz@ — not an email</td><td class="bad">fix</td></tr>
         <tr><td>3D 6th Boys Gold</td><td><span class="tag">6th · Boys · Gold</span></td><td>mlee@outlook.com</td><td class="warnc">same name exists — skip?</td></tr>
       </tbody></table>
-      <div style="display:flex;gap:8px;margin-top:12px"><span class="muted small">22 ready · 1 to fix · 1 duplicate</span><span style="flex:1"></span><button class="btn primary">Create 22 teams &amp; email 19 coaches</button></div>
+      <div style="display:flex;gap:8px;margin-top:12px"><span class="muted small">22 ready · 1 to fix · 1 duplicate</span><span style="flex:1"></span><button class="btn primary">Create 22 teams</button></div>
     </div>
   </div>
-  <div class="note">Uses the app's existing list rules (`ClubGrouping.parseTeamList`): “8th grade”, “G”, “Girls” all normalize. The web adds .csv/.xlsx upload, a duplicate check, and emails the coach codes for you.</div>
+  <div class="note">Uses the app's existing list rules (`ClubGrouping.parseTeamList`): “8th grade”, “G”, “Girls” all normalize. The web adds .csv upload, a duplicate check, and a copy/email button for each coach code.</div>
 </section>
 
 <!-- ===================== SEASON ===================== -->
@@ -303,7 +303,7 @@ pre.paste { background:#0b1e3a; color:#d6e4ff; border-radius:10px; padding:12px;
 
 <!-- ===================== REPORTS ===================== -->
 <section class="view" id="reports">
-  <header class="top"><h1>Reports</h1><select class="season"><option>Last 30 days</option><option>This season</option></select><button class="btn">Export all (CSV)</button></header>
+  <header class="top"><h1>Reports</h1><select class="season"><option>Last 30 days</option><option>This season</option></select></header>
   <div class="grid g3">
     <div class="card"><h2>RSVP rate by team</h2><table id="rsvpbar"></table></div>
     <div class="card"><h2>Dues across the club</h2>
@@ -319,14 +319,13 @@ pre.paste { background:#0b1e3a; color:#d6e4ff; border-radius:10px; padding:12px;
   <div class="split">
     <div class="card"><h2>Club</h2>
       <label class="f">Name</label><input class="t" value="3D Basketball Academy">
-      <label class="f">Logo and color</label><div style="display:flex;gap:10px;align-items:center"><div class="logo">3D</div><input class="t" value="#E4572E" style="width:120px"><button class="btn">Upload logo</button></div>
-      <label class="f">Time zone</label><select class="t"><option>Central (Chicago)</option></select>
+            <label class="f">Time zone</label><select class="t"><option>Central (Chicago)</option></select>
       <label class="f">Club code for coaches</label><div style="display:flex;gap:8px"><input class="t" value="G23P-7J4M-5P" style="font-family:monospace"><button class="btn">Copy</button><button class="btn">New code</button></div>
     </div>
     <div class="card"><h2>Directors <button class="btn">Add director</button></h2>
-      <table><tbody><tr><td><b>Marcus Reed</b> (you)</td><td>Owner</td></tr><tr><td><b>Tasha Reed</b></td><td>Director</td><td><button class="btn">Remove</button></td></tr></tbody></table>
+      <table><tbody><tr><td><b>Marcus Reed</b> (you)</td><td>Owner</td></tr><tr><td><b>Tasha Reed</b></td><td>Director (full powers)</td><td><button class="btn">Remove</button></td></tr></tbody></table>
       <h2 style="margin-top:18px">Plan</h2><p class="small">Club Pro · pilot grant through Mar 31, 2027 · 24 teams · 287 players. After the pilot: $2.50 per player per season (min $499), billed on the web.</p>
-      <h2 style="margin-top:18px">Security</h2><p class="small">Directors sign in with their ClubHQ email and password, or an emailed code. Two-step sign-in (authenticator app) optional. Every export and deletion is logged.</p>
+      <h2 style="margin-top:18px">Security</h2><p class="small">Directors sign in with their ClubHQ email and password, or an emailed code. Two-step sign-in (authenticator app) optional. Deletions and director changes are logged.</p>
     </div>
   </div>
 </section>

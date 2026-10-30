@@ -9,6 +9,17 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-053 — Club portal: the director's web console (owner decisions 2026-10-30) — Accepted
+- **Context:** Plan and mockup in `docs/CLUB_PORTAL.md`. The owner answered its six questions.
+- **Decision:** A director web portal at teamclubhq.com/club, using the same ClubHQ login as the app. Phase A first.
+  1. **No contact exports.** Directors message families through ClubHQ only; the portal never exports guardian emails or phones.
+  2. **Team chat stays in the app.** The portal has no chat.
+  3. **A second director has full powers**, including deleting teams and adding or removing directors. The last director can't be removed.
+  4. **No background-check tracking.**
+  5. **Season timing is unknown.** Rollover stays in Phase C; ask 3D Basketball Academy when their next season starts.
+  6. **No club branding** (logo or colors). The portal and app use ClubHQ's look.
+- **Also:** the app is iPhone-only, so the planned iPad split view is dropped. Adding a director uses a one-time **director code**, like coach codes (D-051), so a typo in an email can't give a stranger access to every child in the club.
+
 ## D-052 — Regression testing framework and the first full test pass (2026-10-30) — Accepted
 - **Context:** The owner asked for a repeatable way to check that new features don't break shipped ones, plus full test passes before releases.
 - **Decision:** `docs/TESTING.md` is the process; `scripts/test/run.mjs` runs it.

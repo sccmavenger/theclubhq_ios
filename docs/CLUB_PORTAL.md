@@ -63,43 +63,45 @@ Written 2026-10-30. Builds on [CLUBS.md](CLUBS.md) (D-044) and the admin portal 
 ### Architecture
 - Static site under `site/club/`, deployed with the existing Pages project (`scripts/deploy-site.sh`). Same no-SDK, no-framework approach as `site/adminportal`: `api.js`, `app.js`, `ui.js`, and a strict CSP. The CSP already allows the Supabase host.
 - It calls **the same `mobile-api` club actions the app uses** (`club-overview`, `club-create-teams`, `club-assign-coach`, `club-announcement`, `club-event`, `delete-team`, …). Each action already checks `requireDirector`, and RLS already scopes data. So **permissions are written once and the app and web can't disagree**. CORS already allows browser calls.
-- New server work goes into new `mobile-api` actions, so the iPhone and iPad get them too.
+- New server work goes into new `mobile-api` actions, so the iPhone app can use them too.
 
 ### Screens (all in the mockup)
 | Screen | What it does | Server |
 |---|---|---|
 | **Overview** | Totals (teams, players, families joined, RSVP rate with weekly trend). "Needs your attention" ranked list (no coach, invite not accepted, few families joined, nothing scheduled, unanswered RSVPs for a big weekend), each with a one-click fix. This weekend's games. Teams-at-a-glance table | `club-overview` + new `club-health` |
-| **Teams** | Sortable and filterable table (grade, gender, level, status), multi-select bulk actions (message, club event, set level, invite assistant), export CSV | existing + `club-update-team` in bulk |
+| **Teams** | Sortable and filterable table (grade, gender, level, status), multi-select bulk actions (message, club event, set level, invite assistant) | existing + `club-update-team` in bulk |
 | **Team page** | Coaches (invite, replace, remove), upcoming events with RSVP counts, roster with family-joined, RSVP, attendance and dues per player, delete team | `club-team-detail` (new, read) |
-| **Coaches & staff** | Every coach across the club, their teams, last active, pending invites with resend; background-check date and expiry (Phase C) | `club-staff` (new) |
+| **Coaches & staff** | Every coach across the club, their teams, last active, pending invites with resend | `club-staff` (new) |
 | **Families** | Every player and their guardians, with filters for not joined, owes dues, on 2+ teams; message the selection | `club-families` (new) |
 | **Calendar** | Month view across all or filtered teams; club events highlighted; **edit** a club event for all teams; gym double-booking warning; import one tournament for many teams | `club-event-update` (new), Phase B import |
-| **Messages** | Composer with audience chips and live reach, "who on those teams" (families + coaches, coaches only, unpaid, no RSVP), a preview of the parent's push, a sent history with read rate | `club-announcement` + new targeting and history |
-| **Add teams (CSV)** | Upload .csv/.xlsx or paste, check (normalize grade and gender, flag bad emails and duplicates), create and email coach codes | `club-create-teams` (existing) + coach-invite email |
+| **Messages** | Composer with audience chips and live reach, "who on those teams" (families + coaches, coaches only, unpaid, no RSVP), a preview of the parent's push, a sent history | `club-announcement` + new targeting and history |
+| **Add teams (CSV)** | Upload .csv/.xlsx or paste, check (normalize grade and gender, flag bad emails and duplicates), create teams and hand out coach codes (copy, or open in the director's email app) | `club-create-teams` (existing) |
 | **New season** | Wizard: name, dates → teams and coaches to copy (optionally bump grade) → players to carry over → review; the old season is archived read-only | `club_seasons` + `club-rollover` (new) |
-| **Reports** | RSVP and attendance by team, club-wide dues (collected, marked paid, outstanding), CSV export, Monday digest email | new aggregates |
-| **Club settings** | Name, logo, color, time zone, club code, directors (add or remove a second director), plan | `club-add-director`, branding (new) |
+| **Reports** | RSVP and attendance by team, club-wide dues totals (collected, marked paid, outstanding), Monday digest | new aggregates |
+| **Club settings** | Name, time zone, club code, directors (add with a director code, remove), plan | `club-invite-director`, `club-remove-director` (new) |
 
 ### Privacy and safety rules (unchanged, enforced by the server)
-- No private coach↔parent threads ever. The team chat stays app-only in Phase A (reading kids' chats on the web is a bigger exposure).
-- Directors see family data the way a head coach does on each team. **Exports are logged** to `audit_logs`, and so are deletions, director changes and code resets.
-- Parent contact details are shown only as names plus a "joined" status. Email addresses appear only in an export, which the director must confirm.
+- No private coach↔parent threads ever. **No chat at all on the web**: team chat stays in the app (D-053).
+- Directors see family data the way a head coach does on each team. Deletions, director changes and code resets are logged to `audit_logs`.
+- **No contact exports** (D-053). Families show as names plus a "joined" status; directors reach them only through ClubHQ messages.
 
 ## 4. Phases
 
 | Phase | Scope | Size |
 |---|---|---|
-| **A: Portal v1 (pilot-ready)** | Sign-in (password + email code), director gate, Overview with attention list, Teams table + filters + export, Team page (read + coaches), Messages (existing targeting) + sent history, Add teams from CSV/paste, Club settings (code, **second director**, branding). App: **edit club event**, iPad split view | ~1.5–2 weeks |
+| **A: Portal v1 (pilot-ready)** | Sign-in (password + email code), director gate, Overview with attention list, Teams table + filters, Team page (read + coaches), Messages (existing targeting) + sent history, Add teams from CSV/paste, Club settings (code, **second director**). Server + app: **edit a club event**, director codes in Join a Club | ~1.5–2 weeks |
 | **B: Day-to-day** | Calendar with club-event edit and conflicts, Families screen, message targeting (coaches only / unpaid / no RSVP), scheduled sends, bulk team edits, import one tournament for many teams (D-042 at club scale) | ~1.5 weeks |
-| **C: Seasons and compliance** | Season rollover wizard (decision 13), Reports + Monday digest email, coach background-check tracking (dates only) | ~1.5 weeks |
+| **C: Seasons and reports** | Season rollover wizard (decision 13), Reports + Monday digest | ~1.5 weeks |
 | **D: Revenue (later)** | Club billing on the web ($2.50/player/season, min $499; needs OQ-18), registration forms and waivers, tryouts | separate plan |
 
-Testing follows docs/TESTING.md: a `d05x_club_portal_check.mjs` live check (a director sees only their club; a coach and a parent are refused; exports are logged; no private threads) plus a Chromium UI check like `admin_portal_ui_check.mjs`.
+Testing follows docs/TESTING.md: a `d05x_club_portal_check.mjs` live check (a director sees only their club; a coach and a parent are refused; no private threads) plus a Chromium UI check like `admin_portal_ui_check.mjs`.
 
-## 5. Questions for the owner
-1. **Directors and family contact info:** may directors export guardian emails and phones (useful for clubs; a privacy exposure), or only message through ClubHQ?
-2. **Team chat on the web:** keep it app-only (recommended for v1), or let directors read and post from the portal?
-3. **Second director:** same powers as the owner (including delete team and adding directors), or a lesser "club staff" role?
-4. **Background checks:** does 3D Basketball Academy track them today (e.g. AAU/USA Basketball requirements)? If yes, Phase C moves up.
-5. **Season timing:** when does 3D roll over to Winter or Spring? That decides whether rollover is in Phase A or C.
-6. **Logo and colors** for 3D Basketball Academy (still open from CLUBS.md).
+## 5. Owner answers (D-053, 2026-10-30)
+1. **No contact exports.** Families are reached through ClubHQ only.
+2. **Team chat stays in the app.**
+3. **A second director has full powers**, including delete team and adding or removing directors.
+4. **No background-check tracking.**
+5. **Season timing unknown.** Ask 3D Basketball Academy; rollover stays in Phase C.
+6. **No club branding** (logo or colors).
+
+The iPad split view is dropped: the app is iPhone-only, and the portal covers big screens.
