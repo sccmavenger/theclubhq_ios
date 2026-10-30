@@ -1,0 +1,25 @@
+# Acceptance and implementation checklist
+
+- [ ] Existing Club Support Phase 0 cross-team RLS privacy tests pass (coach A cannot read team B; director can read both).
+- [ ] Independent coach sees only permitted destination team; club director can map authorized multiple teams.
+- [ ] Group list pagination works, including empty and very large accounts.
+- [ ] Group member retrieval uses `user_id` for DMs, never membership `id`.
+- [ ] Same GroupMe user across groups has visible dedup/target-team decisions.
+- [ ] Nickname similarity never creates a ClubHQ user or assigns an athlete/guardian role.
+- [ ] Dry-run previews never mutate a roster or transmit a message.
+- [ ] OAuth cancel, wrong state, expired token, revoked access and replay are handled safely.
+- [ ] Provider credentials remain server-side/encrypted and absent from logs/client builds.
+- [ ] One consenting test DM verified before bulk sending is enabled.
+- [ ] Recipient list/message are reviewed; explicit confirmation required per campaign.
+- [ ] A repeated send request, timeout, or worker restart cannot duplicate an accepted send.
+- [ ] Rate-limits, blocks, and forbidden errors stop/skip appropriately without bypass.
+- [ ] Progress distinguishes API accepted, failed, link opened, and registered; no false read receipts.
+- [ ] Pending queue can be canceled; failures can be retried only with review.
+- [ ] Opaque invite link expires/is scoped; forwarded links cannot grant team access without existing verification.
+- [ ] Disconnect removes GroupMe integration credential without deleting ClubHQ registrations.
+- [ ] Opt-out/exclusion and source-data retention are documented and enforced.
+- [ ] Dynamic Type, VoiceOver, compact phone and iPad layouts checked.
+- [ ] DemoBackend fixtures and no-secret test paths exist.
+- [ ] Existing onboarding, registration, RSVP, payments, scheduling, media and club announcements regression-tested.
+- [ ] Provider license/policy approved for commercial migration and outreach.
+- [ ] No production send occurs during development without operator approval.
