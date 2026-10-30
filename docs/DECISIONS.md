@@ -9,6 +9,16 @@ Status values: **Accepted** (in effect), **Provisional** (in effect, needs owner
 
 ---
 
+## D-049 — Team colors are adjusted for readability in light and dark mode (owner decision 2026-10-29) — Accepted
+- **Context:** TestFlight feedback on build 25: the Avengers' dark red (#D7263D) tinted text, toggles and links on black and was hard to read. The team color tints the whole app (`MainTabView` `.tint`). Measured against the app's backgrounds, 7 of 9 colors failed WCAG AA in at least one mode, including ClubHQ blue in dark mode (about 3:1), and near-black #111827 was invisible in dark mode. Separately, text styled `.primary` / `.secondary` inside a `Button` takes the button's tint, so the More tab's team rows were drawn in faded team red.
+- **Decision:** Keep the team's color wherever it's used, but resolve it per appearance (`ReadableColor` in `UIComponents.swift`). It keeps hue and saturation and moves lightness until text reaches **4.5:1** against #F2F2F7 (light) or #2C2C2E (dark, the darkest card). In dark mode it then darkens as far as that allows, so white labels on filled buttons reach **3:1**, the AA level for buttons and bold text. Both 4.5:1 levels at once aren't possible in dark mode. Colors that already pass are left alone.
+  - The default (no team color) and the AccentColor asset use the same rule: light #0072BA, dark #0098F8.
+  - Swatches: navy #1E3A8A replaces near-black #111827 (teams that saved it still get a readable slate in dark mode). Swatches show the adjusted shade and have a thin ring.
+  - Inside button labels, text uses fixed `Color.primary` / `Color.secondary`, not the hierarchical styles.
+  - Team colors stay a Coach Pro feature (owner decision, same day).
+- **Why:** The owner asked that every color be vetted with dark mode on and off. This keeps "your team's color" without letting any choice produce unreadable text.
+- **Consequences:** `ReadableColorTests` checks every swatch plus ClubHQ blue and #111827 in both modes. A new swatch that can't meet the targets fails the tests.
+
 ## D-048 — Families add their own children; coaches only send the link (owner decision 2026-10-29) — Accepted
 - **Context:** Roadmap #5 proposed roster import (CSV / TeamSnap export) and bulk invites. A roster could get built two ways: families join from the team link and add their child (`claim-invite`), or the coach types players in with Add Player. The two collide: a parent whose child the coach already added hits "Jordan Smith is already on this team" and must either create a duplicate or chase a co-parent invite.
 - **Decision:** The team invite link/code is the **only** way a child joins a team. The coach shares the link; clicking it and finishing onboarding is the parent's job. The app drops **+ → Add Player**. Roster import and bulk invite (roadmap #5) are **not doing**.

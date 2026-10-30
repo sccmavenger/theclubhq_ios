@@ -546,14 +546,14 @@ struct SponsorCard: View {
             HStack(spacing: 12) {
                 Image(systemName: "storefront.fill")
                     .font(.title2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.secondary)
                     .frame(width: 44, height: 44)
                     .background(.quaternary, in: .rect(cornerRadius: 10))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Team sponsor").font(.caption).foregroundStyle(.secondary)
+                    Text("Team sponsor").font(.caption).foregroundStyle(Color.secondary)
                     Text(sponsor.name).font(.subheadline.weight(.semibold))
                     if let tagline = sponsor.tagline {
-                        Text(tagline).font(.caption).foregroundStyle(.secondary)
+                        Text(tagline).font(.caption).foregroundStyle(Color.secondary)
                     }
                 }
                 Spacer(minLength: 0)

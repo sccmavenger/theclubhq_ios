@@ -88,7 +88,7 @@ struct JoinOrCreateList: View {
                         OptionRow(symbol: "building.2.fill", title: "I run a club",
                                   detail: "Set up your club, add its teams and invite coaches.")
                         Spacer()
-                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color(uiColor: .tertiaryLabel))
                     }
                 }
                 .tint(.primary)
@@ -97,7 +97,7 @@ struct JoinOrCreateList: View {
                         OptionRow(symbol: "person.badge.key.fill", title: "I coach in a club",
                                   detail: "Enter the club or coach code from your director.")
                         Spacer()
-                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color(uiColor: .tertiaryLabel))
                     }
                 }
                 .tint(.primary)

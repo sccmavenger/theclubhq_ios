@@ -194,15 +194,15 @@ struct DuesView: View {
                                     .foregroundStyle(selectedItems.contains(item.id) ? Color.accentColor : .secondary)
                             }
                             VStack(alignment: .leading) {
-                                Text(request.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-                                Text(item.playerName).font(.caption).foregroundStyle(.secondary)
+                                Text(request.title).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                                Text(item.playerName).font(.caption).foregroundStyle(Color.secondary)
                                 if let due = request.dueDateValue {
                                     Text(due < .now ? "Past due" : "Due \(due.formatted(date: .abbreviated, time: .omitted))")
                                         .font(.caption).foregroundStyle(due < .now ? .red : .secondary)
                                 }
                             }
                             Spacer()
-                            Text(Money.format(cents: item.amountCents)).monospacedDigit().foregroundStyle(.primary)
+                            Text(Money.format(cents: item.amountCents)).monospacedDigit().foregroundStyle(Color.primary)
                         }
                     }
                     .buttonStyle(.plain)

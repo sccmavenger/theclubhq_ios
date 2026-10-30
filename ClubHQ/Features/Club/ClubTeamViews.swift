@@ -132,6 +132,7 @@ struct AssignCoachView: View {
     @State private var role: TeamRole = .headCoach
     @State private var result: (CoachAssignment, String?)?
     @State private var errorText: String?
+    @State private var showContacts = false
 
     var body: some View {
         NavigationStack {
@@ -149,8 +150,17 @@ struct AssignCoachView: View {
                     }
                 } else {
                     Section {
-                        TextField("coach@email.com", text: $email)
-                            .keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        // Type the address, or pick it from Contacts (TestFlight feedback, build 22).
+                        HStack {
+                            TextField("coach@email.com", text: $email)
+                                .keyboardType(.emailAddress).textContentType(.emailAddress)
+                                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            Button { showContacts = true } label: {
+                                Image(systemName: "person.crop.circle.badge.plus").font(.title3)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel("Choose from Contacts")
+                        }
                         Picker("Role", selection: $role) {
                             Text("Head Coach").tag(TeamRole.headCoach)
                             Text("Assistant Coach").tag(TeamRole.assistantCoach)
@@ -163,6 +173,7 @@ struct AssignCoachView: View {
             }
             .navigationTitle("Coach for \(team.name)")
             .navigationBarTitleDisplayMode(.inline)
+            .contactEmailPicker(isPresented: $showContacts) { email = $0 }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(result == nil ? "Cancel" : "Done") { dismiss() } }
                 if result == nil {
@@ -440,10 +451,21 @@ struct ClubComposerView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
                     Text(title).font(.subheadline).foregroundStyle(.secondary)
+                    // "All" is lit when nothing in this row is filtered, so "every team" is visible
+                    // instead of looking like nothing is picked; tapping it resets the row
+                    // (TestFlight feedback, build 25: needed select all).
+                    let all = selection.wrappedValue.isEmpty
+                    Button("All") { selection.wrappedValue = [] }
+                        .buttonStyle(.bordered)
+                        .tint(all ? .accentColor : .secondary)
+                        .accessibilityLabel("All \(title.lowercased())s")
+                        .accessibilityAddTraits(all ? .isSelected : [])
                     ForEach(values, id: \.self) { value in
                         let on = selection.wrappedValue.contains(value)
                         Button(label(value)) {
                             if on { selection.wrappedValue.removeAll { $0 == value } } else { selection.wrappedValue.append(value) }
+                            // Picking every value is the same audience as All; show it that way.
+                            if Set(selection.wrappedValue) == Set(values) { selection.wrappedValue = [] }
                         }
                         .buttonStyle(.bordered)
                         .tint(on ? .accentColor : .secondary)

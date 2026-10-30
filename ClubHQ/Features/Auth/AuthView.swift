@@ -393,7 +393,7 @@ struct PasswordField: View {
                 focused = true // keep the keyboard up when toggling
             } label: {
                 Image(systemName: isRevealed ? "eye.slash" : "eye")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.secondary)
                     .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)

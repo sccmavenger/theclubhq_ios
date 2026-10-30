@@ -424,10 +424,13 @@ struct TeamSettingsView: View {
     let team: TeamMembership
     @Environment(AppModel.self) private var model
     @State private var showDelete = false
-    @State private var color: Color = .accentColor
     @State private var errorText: String?
+    /// The swatch the coach just tapped, shown right away while the save runs (TestFlight
+    /// feedback, build 25: the checkmark waited for the server and a full reload).
+    @State private var pendingHex: String??
 
-    private static let palette: [String] = ["#2457F5", "#D7263D", "#1B998B", "#F49D37", "#6A4C93", "#111827", "#0EA5E9", "#16A34A"]
+
+    private var selectedHex: String? { pendingHex ?? team.brandColor }
 
     var body: some View {
         Form {
@@ -435,15 +438,16 @@ struct TeamSettingsView: View {
             Section {
                 if team.isPro {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 12) {
-                        ForEach(Self.palette, id: \.self) { hex in
+                        ForEach(TeamPalette.colors, id: \.self) { hex in
                             Button {
                                 Task { await setColor(hex) }
                             } label: {
                                 Circle()
-                                    .fill(Color(hex: hex) ?? .accentColor)
+                                    .fill(ReadableColor.color(hex: hex) ?? .accentColor)
                                     .frame(width: 40, height: 40)
+                                    .overlay { Circle().strokeBorder(.primary.opacity(0.15), lineWidth: 1) }
                                     .overlay {
-                                        if team.brandColor == hex { Image(systemName: "checkmark").foregroundStyle(.white).bold() }
+                                        if selectedHex == hex { Image(systemName: "checkmark").foregroundStyle(.white).bold() }
                                     }
                             }
                             .buttonStyle(.plain)
@@ -494,12 +498,15 @@ struct TeamSettingsView: View {
     }
 
     private func setColor(_ hex: String?) async {
+        pendingHex = .some(hex)
+        errorText = nil
         do {
             try await model.backend.updateTeamColor(teamID: team.id, hex: hex)
             await model.reloadContext()
         } catch {
             errorText = error.localizedDescription
         }
+        pendingHex = nil
     }
 }
 

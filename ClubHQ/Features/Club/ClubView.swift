@@ -134,12 +134,17 @@ struct ClubView: View {
 
     private func header(_ overview: ClubOverview) -> some View {
         Section {
-            HStack(spacing: 24) {
+            // Equal-width columns across the whole row, and a full-width separator below, so the
+            // stats don't bunch up off-center (TestFlight feedback, build 25).
+            HStack(spacing: 0) {
                 stat("\(overview.teams.count)", "teams")
+                Divider().frame(height: 36)
                 stat("\(overview.club.familyCount)", "families")
+                Divider().frame(height: 36)
                 stat("\(overview.teams.filter(\.needsAttention).count)", "need a coach", warn: overview.teams.contains(where: \.needsAttention))
             }
-            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             Button { sheet = .share } label: {
                 LabeledContent("Club code") {
                     Text(overview.club.code).font(.body.monospaced().weight(.semibold))
@@ -157,8 +162,9 @@ struct ClubView: View {
     private func stat(_ value: String, _ label: String, warn: Bool = false) -> some View {
         VStack(spacing: 2) {
             Text(value).font(.title2.bold().monospacedDigit()).foregroundStyle(warn ? .orange : .primary)
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(label).font(.caption).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
         }
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
 

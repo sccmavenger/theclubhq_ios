@@ -55,10 +55,15 @@ final class PushManager: NSObject, UNUserNotificationCenterDelegate {
         [.banner, .list, .sound]
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+    // Completion-handler form on purpose (TestFlight crash, builds 22 and 25): with the async form
+    // the system finishes the tap off the main thread, and UIKit's snapshot update asserts and aborts.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                            withCompletionHandler completionHandler: @escaping () -> Void) {
         let path = response.notification.request.content.userInfo["link_path"] as? String
-        guard let path, let link = DeepLink(path: path) else { return }
-        await MainActor.run { onOpen?(link) }
+        DispatchQueue.main.async {
+            if let path, let link = DeepLink(path: path) { self.onOpen?(link) }
+            completionHandler()
+        }
     }
 }
 

@@ -25,10 +25,10 @@ struct InboxView: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(item.subject)
                                     .font(.subheadline.weight(item.isUnread ? .semibold : .regular))
-                                    .foregroundStyle(.primary)
-                                Text(item.body).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
+                                    .foregroundStyle(Color.primary)
+                                Text(item.body).font(.subheadline).foregroundStyle(Color.secondary).lineLimit(3)
                                 Text(item.createdAt, format: .relative(presentation: .named))
-                                    .font(.caption).foregroundStyle(.tertiary)
+                                    .font(.caption).foregroundStyle(Color(uiColor: .tertiaryLabel))
                             }
                             Spacer(minLength: 0)
                             if item.isUnread {

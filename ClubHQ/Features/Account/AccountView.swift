@@ -36,9 +36,9 @@ struct AccountView: View {
                             HStack {
                                 Image(systemName: team.resolvedSport.symbolName).foregroundStyle(team.tint).frame(width: 28)
                                 VStack(alignment: .leading) {
-                                    Text(team.name).foregroundStyle(.primary)
+                                    Text(team.name).foregroundStyle(Color.primary)
                                     Text(team.roles.map(\.displayName).joined(separator: ", "))
-                                        .font(.caption).foregroundStyle(.secondary)
+                                        .font(.caption).foregroundStyle(Color.secondary)
                                 }
                                 Spacer()
                                 if team.id == model.selectedTeam?.id {
@@ -196,7 +196,7 @@ struct AccountView: View {
                         HStack {
                             Label("Upgrade to Coach Pro", systemImage: "sparkles")
                             Spacer()
-                            Text("Up to 3 teams").font(.caption).foregroundStyle(.secondary)
+                            Text("Up to 3 teams").font(.caption).foregroundStyle(Color.secondary)
                         }
                     }
                 } else {
